@@ -1,0 +1,5 @@
+# see NSLS-II Scientific Python Cookiecutter ()
+# to get more
+flake8
+pytest
+sphinx
