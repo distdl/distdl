@@ -1,10 +1,16 @@
 import numpy as np
+import torch
 from mpi4py import MPI
 
 import distdl.nn.transpose as transpose
+import distdl.utilities.slicing as slicing
+from distdl.utilities.debug import print_sequential
+from distdl.utilities.misc import Bunch
 
 # Set up MPI cartesian communicator
 comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+
 in_dims = (4, 1)
 in_comm = comm.Create_cart(dims=in_dims)
 
@@ -20,4 +26,25 @@ out_size = out_comm.Get_size()
 
 
 sizes = np.array([4, 4])
-result = transpose.DistributedTranspose(sizes, comm, in_comm, out_comm, np.float)
+layer = transpose.DistributedTranspose(sizes, comm, in_comm, out_comm)
+
+f = transpose.DistributedTransposeFunction
+
+in_subsizes = slicing.compute_subsizes(in_comm.dims,
+                                       in_comm.Get_coords(in_rank),
+                                       sizes)
+
+x = np.zeros(in_subsizes) + in_rank + 1
+
+in_buffers, out_buffers = layer._allocate_buffers(x.dtype)
+
+x = torch.from_numpy(x)
+
+print_sequential(comm, f"x_{rank}: {x}")
+
+ctx = Bunch()
+y = f.forward(ctx, x, comm, sizes,
+              layer.in_slices, in_buffers, in_comm,
+              layer.out_slices, out_buffers, out_comm)
+
+print_sequential(comm, f"y_{rank}: {y}")
