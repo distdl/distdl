@@ -20,4 +20,4 @@ out_size = out_comm.Get_size()
 
 
 sizes = np.array([4, 4])
-result = transpose.DistributedTranspose(sizes, comm, in_comm, out_comm)
+result = transpose.DistributedTranspose(sizes, comm, in_comm, out_comm, np.float)
