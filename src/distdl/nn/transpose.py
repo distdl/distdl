@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 from distdl.utilities.slicing import compute_nd_slice_volume
@@ -38,6 +39,26 @@ class DistributedTranspose(torch.nn.Module):
 
         self.out_slices = out_slices
         self.out_buffer_sizes = out_buffer_sizes
+
+    def _allocate_buffers(self, dtype):
+
+        in_buffers = []
+        for length in self.in_buffer_sizes:
+            buff = None
+            if length is not None:
+                buff = np.zeros(length, dtype=dtype)
+
+            in_buffers.append(buff)
+
+        out_buffers = []
+        for length in self.out_buffer_sizes:
+            buff = None
+            if length is not None:
+                buff = np.zeros(length, dtype=dtype)
+
+            out_buffers.append(buff)
+
+        return in_buffers, out_buffers
 
     def forward(self, input):
 
