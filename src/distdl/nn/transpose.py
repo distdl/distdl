@@ -25,7 +25,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         ctx.out_slices = out_slices
         ctx.out_buffers = out_buffers
-        ctx.out_comm = out_comm
 
         input_numpy = input.detach().numpy()
 
@@ -65,7 +64,58 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        pass
+
+        parent_comm = ctx.parent_comm
+        sizes = ctx.sizes
+
+        size = parent_comm.Get_size()
+
+        in_slices = ctx.in_slices
+        in_buffers = ctx.in_buffers
+        in_comm = ctx.in_comm
+
+        out_slices = ctx.out_slices
+        out_buffers = ctx.out_buffers
+
+        grad_output_numpy = grad_output.detach().numpy()
+
+        requests = []
+
+        # Recv my input parts
+        for s in range(size):
+            buff = in_buffers[s]
+            if buff is not None:
+                req = parent_comm.Irecv(buff, source=s, tag=0)
+                requests.append(req)
+
+        # Pack and send my input parts
+        for r in range(size):
+            buff = out_buffers[r]
+            if buff is not None:
+                sl = tuple(out_slices[r])
+                np.copyto(buff, grad_output_numpy[sl].ravel())
+                req = parent_comm.Isend(buff, dest=r, tag=0)
+                requests.append(req)
+
+        MPI.Request.Waitall(requests)
+
+        coords = in_comm.Get_coords(in_comm.Get_rank())
+        in_sizes = compute_subsizes(in_comm.dims, coords, sizes)
+        grad_input = np.zeros(in_sizes, dtype=grad_output_numpy.dtype)
+
+        # Unpack my output parts
+        # This would normally be an add into the grad_input tensor
+        # but we just created it, so a copy is sufficient.
+        for s in range(size):
+            buff = in_buffers[s]
+            if buff is not None:
+                sl = tuple(in_slices[s])
+                sh = grad_input[sl].shape
+                np.copyto(grad_input[sl], buff.reshape(sh))
+
+        # Clear grad_output (I know...)
+
+        return torch.from_numpy(grad_input), None, None, None, None, None, None, None, None
 
 
 class DistributedTranspose(torch.nn.Module):
