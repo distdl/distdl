@@ -6,7 +6,6 @@ def test_transpose():
 
     from distdl.nn.transpose import DistributedTranspose
     from distdl.nn.transpose import DistributedTransposeFunction
-    from distdl.utilities.debug import print_sequential
     from distdl.utilities.misc import Bunch
     from distdl.utilities.slicing import compute_subsizes
 
@@ -52,29 +51,44 @@ def test_transpose():
     # Apply A*
     Asy = DistributedTransposeFunction.backward(ctx, y.clone())[0]
 
-    norm_x = torch.norm(x)**2
-    comm.reduce(norm_x, op=MPI.SUM, root=0)
-    norm_x = np.sqrt(norm_x)
+    norm_x = (torch.norm(x)**2).numpy()
+    result = np.array([0.0], dtype=norm_x.dtype)
+    comm.Reduce(norm_x, result, op=MPI.SUM, root=0)
+    norm_x = np.sqrt(result)
 
-    norm_y = torch.norm(y)**2
-    comm.reduce(norm_y, op=MPI.SUM, root=0)
-    norm_y = np.sqrt(norm_y)
+    norm_y = (torch.norm(y)**2).numpy()
+    result = np.array([0.0], dtype=norm_y.dtype)
+    comm.Reduce(norm_y, result, op=MPI.SUM, root=0)
+    norm_y = np.sqrt(result)
 
-    norm_Ax = torch.norm(Ax)**2
-    comm.reduce(norm_Ax, op=MPI.SUM, root=0)
-    norm_Ax = np.sqrt(norm_Ax)
+    norm_Ax = (torch.norm(Ax)**2).numpy()
+    result = np.array([0.0], dtype=norm_Ax.dtype)
+    comm.Reduce(norm_Ax, result, op=MPI.SUM, root=0)
+    norm_Ax = np.sqrt(result)
 
-    norm_Asy = torch.norm(Asy)**2
-    comm.reduce(norm_Asy, op=MPI.SUM, root=0)
-    norm_Asy = np.sqrt(norm_Asy)
+    norm_Asy = (torch.norm(Asy)**2).numpy()
+    result = np.array([0.0], dtype=norm_Asy.dtype)
+    comm.Reduce(norm_Asy, result, op=MPI.SUM, root=0)
+    norm_Asy = np.sqrt(result)
 
-    ip1 = torch.sum(torch.mul(y, Ax))
-    comm.reduce(ip1, op=MPI.SUM, root=0)
+    ip1 = np.array([torch.sum(torch.mul(y, Ax))])
+    result = np.array([0.0], dtype=ip1.dtype)
+    comm.Reduce(ip1, result, op=MPI.SUM, root=0)
+    ip1[:] = result[:]
 
-    ip2 = torch.sum(torch.mul(Asy, x))
-    comm.reduce(ip2, op=MPI.SUM, root=0)
-    print_sequential(comm, f'{rank}: {ip1} {ip2}')
+    ip2 = np.array([torch.sum(torch.mul(Asy, x))])
+    result = np.array([0.0], dtype=ip2.dtype)
+    comm.Reduce(ip2, result, op=MPI.SUM, root=0)
+    ip2[:] = result[:]
 
+    # Because this is being computed in parallel, we risk that these norms
+    # and inner products are not exactly equal, because the floating point
+    # arithmetic is not commutative.  The only way to fix this is to collect
+    # the results to a single rank to do the test.
     if(rank == 0):
-        e = abs(ip1 - ip2) / np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {e}")
+        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
+        print(f"Adjoint test: {ip1/d} {ip2/d}")
+        assert(np.isclose(ip1/d, ip2/d))
+    else:
+        # Ranks other than 0 always pass
+        pass
