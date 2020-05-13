@@ -35,16 +35,14 @@ in_subsizes = slicing.compute_subsizes(in_comm.dims,
                                        sizes)
 x = np.zeros(in_subsizes) + in_rank + 1
 
-in_buffers, out_buffers = layer._allocate_buffers(x.dtype)
-
 x = torch.from_numpy(x)
 print_sequential(comm, f"x_{rank}: {x}")
 
 ctx = Bunch()
 
-y = f.forward(ctx, x, comm, sizes,
-              layer.in_slices, in_buffers, in_comm,
-              layer.out_slices, out_buffers, out_comm)
+y = f.forward(ctx, x, layer.parent_comm, layer.sizes,
+              layer.in_slices, layer.in_buffers, layer.in_comm,
+              layer.out_slices, layer.out_buffers, layer.out_comm)
 print_sequential(comm, f"y_{rank}: {y}")
 
 out_subsizes = slicing.compute_subsizes(out_comm.dims,

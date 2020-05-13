@@ -35,7 +35,6 @@ def test_transpose():
                                     sizes)
 
     layer = DistributedTranspose(sizes, comm, in_comm, out_comm)
-    in_buffers, out_buffers = layer._allocate_buffers(np.float64)
 
     # Forward Input
     x = torch.Tensor(np.random.randn(*in_subsizes))
@@ -46,9 +45,9 @@ def test_transpose():
     ctx = Bunch()
 
     # Apply A
-    Ax = DistributedTransposeFunction.forward(ctx, x.clone(), comm, sizes,
-                                              layer.in_slices, in_buffers, in_comm,
-                                              layer.out_slices, out_buffers, out_comm)
+    Ax = DistributedTransposeFunction.forward(ctx, x.clone(), layer.parent_comm, layer.sizes,
+                                              layer.in_slices, layer.in_buffers, layer.in_comm,
+                                              layer.out_slices, layer.out_buffers, layer.out_comm)
 
     # Apply A*
     Asy = DistributedTransposeFunction.backward(ctx, y.clone())[0]
