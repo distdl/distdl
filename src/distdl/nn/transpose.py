@@ -142,6 +142,12 @@ class DistributedTranspose(torch.nn.Module):
         self.out_slices = out_slices
         self.out_buffer_sizes = out_buffer_sizes
 
+        # TODO: The dtype should not be fixed, but correcting this is a
+        #       thing that needs to be resolved globally.
+        buffs = self._allocate_buffers(np.float64)
+        self.in_buffers = buffs[0]
+        self.out_buffers = buffs[1]
+
     def _allocate_buffers(self, dtype):
 
         in_buffers = []
@@ -164,5 +170,6 @@ class DistributedTranspose(torch.nn.Module):
 
     def forward(self, input):
 
-        # DistributedTransposeFunction.apply(input, self.in_buffers, self.out_buffers)
-        pass
+        DistributedTransposeFunction.apply(input, self.parent_comm, self.sizes,
+                                           self.in_slices, self.in_buffers, self.in_comm,
+                                           self.out_slices, self.out_buffers, self.out_comm)
