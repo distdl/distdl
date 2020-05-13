@@ -26,6 +26,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
         ctx.out_slices = out_slices
         ctx.out_buffers = out_buffers
 
+        if size == 1:
+            return input.clone()
+
         input_numpy = input.detach().numpy()
 
         requests = []
@@ -76,6 +79,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         out_slices = ctx.out_slices
         out_buffers = ctx.out_buffers
+
+        if size == 1:
+            return grad_output.clone(), None, None, None, None, None, None, None, None
 
         grad_output_numpy = grad_output.detach().numpy()
 
@@ -142,11 +148,16 @@ class DistributedTranspose(torch.nn.Module):
         self.out_slices = out_slices
         self.out_buffer_sizes = out_buffer_sizes
 
-        # TODO: The dtype should not be fixed, but correcting this is a
-        #       thing that needs to be resolved globally.
-        buffs = self._allocate_buffers(np.float64)
-        self.in_buffers = buffs[0]
-        self.out_buffers = buffs[1]
+        # In the sequential case, don't allocate anything, we don't use them.
+        if parent_comm.Get_size() == 1:
+            self.in_buffers = None
+            self.out_buffers = None
+        else:
+            # TODO: The dtype should not be fixed, but correcting this is a
+            #       thing that needs to be resolved globally.
+            buffs = self._allocate_buffers(np.float64)
+            self.in_buffers = buffs[0]
+            self.out_buffers = buffs[1]
 
     def _allocate_buffers(self, dtype):
 
