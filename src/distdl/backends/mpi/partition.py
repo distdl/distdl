@@ -6,6 +6,10 @@ from distdl.utilities.debug import print_sequential
 
 class MPIPartition:
 
+    null_comm = MPI.COMM_NULL
+    null_group = MPI.GROUP_NULL
+    null_rank = MPI.PROC_NULL
+
     def __init__(self, comm, parent_partition=None):
 
         self.comm = comm
