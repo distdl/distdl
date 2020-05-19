@@ -76,6 +76,17 @@ class MPIPartition:
         else:
             return [self] + self.parent_partition.lineage()
 
+    def map_from_ancestor(self, ancestor):
+
+        if ancestor not in self.lineage():
+            raise Exception("'ancestor' is not an ancesor of self.")
+
+        ancestor_to_self = np.zeros(ancestor.size, dtype=np.int)
+        v = -1 if self.rank is MPI.PROC_NULL else self.rank
+        ancestor.comm.Allgather(np.array([v]), ancestor_to_self)
+
+        return ancestor_to_self
+
 
 class MPICartesianPartition(MPIPartition):
 
