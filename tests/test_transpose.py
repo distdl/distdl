@@ -39,8 +39,10 @@ def test_transpose_parallel():
                                        P_in_cart.comm.Get_coords(P_in.rank),
                                        tensor_sizes)
         x = torch.Tensor(np.random.randn(*in_subsizes))
+        x_clone = x.clone()
     else:
         x = None
+        x_clone = None
 
     # Adjoint Input
     if P_out_cart.active:
@@ -48,59 +50,56 @@ def test_transpose_parallel():
                                         P_out_cart.comm.Get_coords(P_out.rank),
                                         tensor_sizes)
         y = torch.Tensor(np.random.randn(*out_subsizes))
+        y_clone = y.clone()
     else:
         y = None
+        y_clone = None
 
     ctx = Bunch()
 
     # Apply A
-    x_clone = None if x is None else x.clone()
     Ax = DistributedTransposeFunction.forward(ctx, x_clone,
                                               layer.P_common, layer.sizes,
                                               layer.P_in, layer.in_data, layer.in_buffers,
                                               layer.P_out, layer.out_data, layer.out_buffers)
 
     # Apply A*
-    y_clone = None if y is None else y.clone()
     Asy = DistributedTransposeFunction.backward(ctx, y_clone)[0]
 
-    zero = np.zeros(1, dtype=np.float64)
+    local_results = np.zeros(6, dtype=np.float64)
+    global_results = np.zeros(6, dtype=np.float64)
 
-    norm_x = (torch.norm(x)**2).numpy() if P_in.active else zero.copy()
-    result = zero.copy()
-    P_world.comm.Reduce(norm_x, result, op=MPI.SUM, root=0)
-    norm_x = np.sqrt(result)
+    # Compute all of the local norms and inner products
+    if P_in.active:
+        # ||x||^2
+        local_results[0] = (torch.norm(x)**2).numpy()
+        # ||A*@y||^2
+        local_results[3] = (torch.norm(Asy)**2).numpy()
+        # <A*@y, x>
+        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
 
-    norm_y = (torch.norm(y)**2).numpy() if P_out.active else zero.copy()
-    result = zero.copy()
-    P_world.comm.Reduce(norm_y, result, op=MPI.SUM, root=0)
-    norm_y = np.sqrt(result)
+    if P_out.active:
+        # ||y||^2
+        local_results[1] = (torch.norm(y)**2).numpy()
+        # ||A@x||^2
+        local_results[2] = (torch.norm(Ax)**2).numpy()
+        # <A@x, y>
+        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
 
-    norm_Ax = (torch.norm(Ax)**2).numpy() if P_out.active else zero.copy()
-    result = zero.copy()
-    P_world.comm.Reduce(norm_Ax, result, op=MPI.SUM, root=0)
-    norm_Ax = np.sqrt(result)
-
-    norm_Asy = (torch.norm(Asy)**2).numpy() if P_in.active else zero.copy()
-    result = zero.copy()
-    P_world.comm.Reduce(norm_Asy, result, op=MPI.SUM, root=0)
-    norm_Asy = np.sqrt(result)
-
-    ip1 = np.array([torch.sum(torch.mul(y, Ax))]) if P_out.active else zero.copy()
-    result = zero.copy()
-    P_world.comm.Reduce(ip1, result, op=MPI.SUM, root=0)
-    ip1[:] = result[:]
-
-    ip2 = np.array([torch.sum(torch.mul(Asy, x))]) if P_in.active else zero.copy()
-    result = zero.copy()
-    P_world.comm.Reduce(ip2, result, op=MPI.SUM, root=0)
-    ip2[:] = result[:]
+    # Reduce the norms and inner products
+    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point
     # arithmetic is not commutative.  The only way to fix this is to collect
     # the results to a single rank to do the test.
     if(P_world.rank == 0):
+        # Correct the norms from distributed calculation
+        global_results[:4] = np.sqrt(global_results[:4])
+
+        # Unpack the values
+        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
+
         d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
         print(f"Adjoint test: {ip1/d} {ip2/d}")
         assert(np.isclose(ip1/d, ip2/d))
