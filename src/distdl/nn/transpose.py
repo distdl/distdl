@@ -5,156 +5,205 @@ from mpi4py import MPI
 from distdl.utilities.slicing import compute_nd_slice_volume
 from distdl.utilities.slicing import compute_partition_intersection
 from distdl.utilities.slicing import compute_subsizes
+from distdl.utilities.slicing import range_coords
 
 
 class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, parent_comm, sizes,
-                in_slices, in_buffers, in_comm,
-                out_slices, out_buffers, out_comm):
+    def forward(ctx, input, P_common, sizes,
+                P_in, in_data, in_buffers,
+                P_out, out_data, out_buffers):
 
-        ctx.parent_comm = parent_comm
+        ctx.P_common = P_common
         ctx.sizes = sizes
 
-        size = parent_comm.Get_size()
-
-        ctx.in_slices = in_slices
+        ctx.P_in = P_in
+        ctx.in_data = in_data
         ctx.in_buffers = in_buffers
-        ctx.in_comm = in_comm
 
-        ctx.out_slices = out_slices
+        ctx.P_out = P_out
+        ctx.out_data = out_data
         ctx.out_buffers = out_buffers
 
-        if size == 1:
+        if P_common.size == 1:
             return input.clone()
-
-        input_numpy = input.detach().numpy()
 
         requests = []
 
-        # Recv my output parts
-        for r in range(size):
-            buff = out_buffers[r]
-            if buff is not None:
-                req = parent_comm.Irecv(buff, source=r, tag=0)
-                requests.append(req)
+        # If I am getting data, recv my output parts
+        if P_out.active:
+            for (sl, sz, partner), buff in zip(out_data, out_buffers):
+                if buff is not None:
+                    req = P_common.comm.Irecv(buff, source=partner, tag=111)
+                    requests.append(req)
 
-        # Pack and send my input parts
-        for s in range(size):
-            buff = in_buffers[s]
-            if buff is not None:
-                sl = tuple(in_slices[s])
-                np.copyto(buff, input_numpy[sl].ravel())
-                req = parent_comm.Isend(buff, dest=s, tag=0)
-                requests.append(req)
+        # If I have data to share, pack and send my input parts
+        if P_in.active:
+            input_numpy = input.detach().numpy()
+            for (sl, sz, partner), buff in zip(in_data, in_buffers):
+                if buff is not None:
+                    np.copyto(buff, input_numpy[tuple(sl)].ravel())
+                    req = P_common.comm.Isend(buff, dest=partner, tag=111)
+                    requests.append(req)
+
+        # req_count = 0
+        # while(req_count < len(requests)):
+        #     status = MPI.Status()
+        #     index = MPI.Request.Waitany(requests, status)
+        #     print(P_common.comm.rank, index, req_count, len(requests))
+        #     req_count += 1
 
         MPI.Request.Waitall(requests)
 
-        coords = out_comm.Get_coords(out_comm.Get_rank())
-        out_sizes = compute_subsizes(out_comm.dims, coords, sizes)
-        output = np.zeros(out_sizes, dtype=input_numpy.dtype)
+        # If I am getting data, unpack what I recieved
+        if P_out.active:
+            coords = P_out.cartesian_coordinates(P_out.rank)
+            out_sizes = compute_subsizes(P_out.comm.dims, coords, sizes)
+            # TODO(#25): The dtype should not be fixed, but correcting this is
+            #            a thing that needs to be resolved globally.
+            output = np.zeros(out_sizes, dtype=np.float64)
 
-        # Unpack my output parts
-        for r in range(size):
-            buff = out_buffers[r]
-            if buff is not None:
-                sl = tuple(out_slices[r])
-                sh = output[sl].shape
-                np.copyto(output[sl], buff.reshape(sh))
+            # Unpack my output parts
+            for (sl, sz, partner), buff in zip(out_data, out_buffers):
+                if buff is not None:
+                    sh = output[tuple(sl)].shape
+                    np.copyto(output[tuple(sl)], buff.reshape(sh))
 
-        return torch.from_numpy(output)
+            return torch.from_numpy(output)
+        else:
+            return None
 
     @staticmethod
     def backward(ctx, grad_output):
 
-        parent_comm = ctx.parent_comm
+        P_common = ctx.P_common
         sizes = ctx.sizes
 
-        size = parent_comm.Get_size()
-
-        in_slices = ctx.in_slices
+        P_in = ctx.P_in
+        in_data = ctx.in_data
         in_buffers = ctx.in_buffers
-        in_comm = ctx.in_comm
 
-        out_slices = ctx.out_slices
+        P_out = ctx.P_out
+        out_data = ctx.out_data
         out_buffers = ctx.out_buffers
 
-        if size == 1:
+        if P_common.size == 1:
             return grad_output.clone(), None, None, None, None, None, None, None, None
-
-        grad_output_numpy = grad_output.detach().numpy()
 
         requests = []
 
         # Recv my input parts
-        for s in range(size):
-            buff = in_buffers[s]
-            if buff is not None:
-                req = parent_comm.Irecv(buff, source=s, tag=0)
-                requests.append(req)
+        if P_in.active:
+            for (sl, sz, partner), buff in zip(in_data, in_buffers):
+                if buff is not None:
+                    req = P_common.comm.Irecv(buff, source=partner, tag=113)
+                    requests.append(req)
 
         # Pack and send my input parts
-        for r in range(size):
-            buff = out_buffers[r]
-            if buff is not None:
-                sl = tuple(out_slices[r])
-                np.copyto(buff, grad_output_numpy[sl].ravel())
-                req = parent_comm.Isend(buff, dest=r, tag=0)
-                requests.append(req)
+        if P_out.active:
+            grad_output_numpy = grad_output.detach().numpy()
+            for (sl, sz, partner), buff in zip(out_data, out_buffers):
+                if buff is not None:
+                    np.copyto(buff, grad_output_numpy[tuple(sl)].ravel())
+                    req = P_common.comm.Isend(buff, dest=partner, tag=113)
+                    requests.append(req)
 
         MPI.Request.Waitall(requests)
 
-        coords = in_comm.Get_coords(in_comm.Get_rank())
-        in_sizes = compute_subsizes(in_comm.dims, coords, sizes)
-        grad_input = np.zeros(in_sizes, dtype=grad_output_numpy.dtype)
+        if P_in.active:
+            coords = P_in.cartesian_coordinates(P_in.rank)
+            in_sizes = compute_subsizes(P_in.comm.dims, coords, sizes)
+            # TODO(#25): The dtype should not be fixed, but correcting this is
+            #            a thing that needs to be resolved globally.
+            grad_input = np.zeros(in_sizes, dtype=np.float64)
 
-        # Unpack my output parts
-        # This would normally be an add into the grad_input tensor
-        # but we just created it, so a copy is sufficient.
-        for s in range(size):
-            buff = in_buffers[s]
-            if buff is not None:
-                sl = tuple(in_slices[s])
-                sh = grad_input[sl].shape
-                np.copyto(grad_input[sl], buff.reshape(sh))
+            # Unpack my output parts
+            # This would normally be an add into the grad_input tensor
+            # but we just created it, so a copy is sufficient.
+            for (sl, sz, partner), buff in zip(in_data, in_buffers):
+                if buff is not None:
+                    sh = grad_input[tuple(sl)].shape
+                    np.copyto(grad_input[tuple(sl)], buff.reshape(sh))
 
-        # Clear grad_output (I know...)
-
-        return torch.from_numpy(grad_input), None, None, None, None, None, None, None, None
+            return torch.from_numpy(grad_input), None, None, None, None, None, None, None, None
+        else:
+            return None, None, None, None, None, None, None, None, None
 
 
 class DistributedTranspose(torch.nn.Module):
 
-    def __init__(self, sizes, parent_comm, in_comm, out_comm):
+    def __init__(self, sizes, P_in, P_out):
         super(DistributedTranspose, self).__init__()
 
         self.sizes = sizes
-        self.parent_comm = parent_comm
-        self.in_comm = in_comm
-        self.out_comm = out_comm
+        self.P_in = P_in
+        self.P_out = P_out
 
-        in_slices = compute_partition_intersection(in_comm, out_comm, sizes)
-        in_buffer_sizes = [None if s is None else
-                           compute_nd_slice_volume(s) for s in in_slices]
+        # Find the common partition between the input and output partitions
+        P_common = P_in.common_ancestor(P_out)
+        if P_common is None:
+            raise Exception()
+        self.P_common = P_common
 
-        self.in_slices = in_slices
-        self.in_buffer_sizes = in_buffer_sizes
+        self.in_data = []
+        self.out_data = []
 
-        out_slices = compute_partition_intersection(out_comm, in_comm, sizes)
-        out_buffer_sizes = [None if s is None else
-                            compute_nd_slice_volume(s) for s in out_slices]
+        in_dims = P_in.dims
+        out_dims = P_out.dims
 
-        self.out_slices = out_slices
-        self.out_buffer_sizes = out_buffer_sizes
+        # We need to move data between two potentially disjoint partitions,
+        # so we have to find a common mapping, which requires the common
+        # partition.
+        P_common_to_P_in = P_in.map_from_ancestor(P_common)
+        P_common_to_P_out = P_out.map_from_ancestor(P_common)
+
+        # We only need to move data to the output partition if we actually
+        # have input data.  It is possible to have both input and output data,
+        # either input or output data, or neither.  Hence the active guard.
+        if P_in.active:
+            in_coords = P_in.cartesian_coordinates(P_in.rank)
+
+            # Compute our overlaps for each output subpartition.
+            for rank, out_coords in enumerate(range_coords(P_out.dims)):
+                sl = compute_partition_intersection(in_dims, in_coords,
+                                                    out_dims, out_coords,
+                                                    sizes)
+                if sl is not None:
+                    sz = compute_nd_slice_volume(sl)
+                    # Reverse the mapping to get the output partner's rank in
+                    # the common partition.
+                    partner = np.where(P_common_to_P_out == rank)[0][0]
+                    self.in_data.append((sl, sz, partner))
+                else:
+                    self.in_data.append((None, None, P_out.null_rank))
+
+        # We only need to obtain data from the input partition if we actually
+        # have output data.
+        if P_out.active:
+            out_coords = P_out.cartesian_coordinates(P_out.rank)
+
+            # Compute our overlaps for each input subpartition.
+            for rank, in_coords in enumerate(range_coords(P_in.dims)):
+                sl = compute_partition_intersection(out_dims, out_coords,
+                                                    in_dims, in_coords,
+                                                    sizes)
+                if sl is not None:
+                    sz = compute_nd_slice_volume(sl)
+                    # Reverse the mapping to get the input partner's rank in
+                    # the common partition.
+                    partner = np.where(P_common_to_P_in == rank)[0][0]
+                    self.out_data.append((sl, sz, partner))
+                else:
+                    self.out_data.append((None, None, P_in.null_rank))
 
         # In the sequential case, don't allocate anything, we don't use them.
-        if parent_comm.Get_size() == 1:
+        if P_in.size == 1:
             self.in_buffers = None
             self.out_buffers = None
         else:
-            # TODO: The dtype should not be fixed, but correcting this is a
-            #       thing that needs to be resolved globally.
+            # TODO(#25): The dtype should not be fixed, but correcting this is
+            #            a thing that needs to be resolved globally.
             buffs = self._allocate_buffers(np.float64)
             self.in_buffers = buffs[0]
             self.out_buffers = buffs[1]
@@ -162,18 +211,18 @@ class DistributedTranspose(torch.nn.Module):
     def _allocate_buffers(self, dtype):
 
         in_buffers = []
-        for length in self.in_buffer_sizes:
+        for sl, sz, r in self.in_data:
             buff = None
-            if length is not None:
-                buff = np.zeros(length, dtype=dtype)
+            if sz is not None:
+                buff = np.zeros(sz, dtype=dtype)
 
             in_buffers.append(buff)
 
         out_buffers = []
-        for length in self.out_buffer_sizes:
+        for sl, sz, r in self.out_data:
             buff = None
-            if length is not None:
-                buff = np.zeros(length, dtype=dtype)
+            if sz is not None:
+                buff = np.zeros(sz, dtype=dtype)
 
             out_buffers.append(buff)
 
@@ -181,6 +230,6 @@ class DistributedTranspose(torch.nn.Module):
 
     def forward(self, input):
 
-        DistributedTransposeFunction.apply(input, self.parent_comm, self.sizes,
-                                           self.in_slices, self.in_buffers, self.in_comm,
-                                           self.out_slices, self.out_buffers, self.out_comm)
+        DistributedTransposeFunction.apply(input, self.P_common, self.sizes,
+                                           self.P_in, self.in_data, self.in_buffers,
+                                           self.P_out, self.out_data, self.out_buffers)
