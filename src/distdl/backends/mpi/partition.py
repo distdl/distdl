@@ -80,3 +80,10 @@ class MPICartesianPartition(MPIPartition):
         super(MPICartesianPartition, self).__init__(comm, parent_partition)
 
         self.dims = dims
+
+    def cartesian_coordinates(self, rank):
+
+        if not self.active:
+            raise Exception()
+
+        return self.comm.Get_coords(rank)
