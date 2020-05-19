@@ -32,13 +32,21 @@ class DistributedTransposeFunction(torch.autograd.Function):
         requests = []
 
         # If I am getting data, recv my output parts
+        recv_count = 0
         if P_out.active:
             for (sl, sz, partner), buff in zip(out_data, out_buffers):
                 if buff is not None:
                     req = P_common.comm.Irecv(buff, source=partner, tag=111)
                     requests.append(req)
+                else:
+                    # We add this if there is no recv so that the indices of
+                    # the requests array match the indices of out_data and
+                    # out_buffers.
+                    requests.append(MPI.REQUEST_NULL)
+                recv_count += 1
 
         # If I have data to share, pack and send my input parts
+        send_count = 0
         if P_in.active:
             input_numpy = input.detach().numpy()
             for (sl, sz, partner), buff in zip(in_data, in_buffers):
@@ -46,17 +54,13 @@ class DistributedTransposeFunction(torch.autograd.Function):
                     np.copyto(buff, input_numpy[tuple(sl)].ravel())
                     req = P_common.comm.Isend(buff, dest=partner, tag=111)
                     requests.append(req)
+                else:
+                    # We add this for symmetry, but don't really need it.
+                    requests.append(MPI.REQUEST_NULL)
+                send_count += 1
 
-        # req_count = 0
-        # while(req_count < len(requests)):
-        #     status = MPI.Status()
-        #     index = MPI.Request.Waitany(requests, status)
-        #     print(P_common.comm.rank, index, req_count, len(requests))
-        #     req_count += 1
-
-        MPI.Request.Waitall(requests)
-
-        # If I am getting data, unpack what I recieved
+        # We do this after the sends so that they can get started before local
+        # allocations.
         if P_out.active:
             coords = P_out.cartesian_coordinates(P_out.rank)
             out_sizes = compute_subsizes(P_out.comm.dims, coords, sizes)
@@ -64,12 +68,25 @@ class DistributedTransposeFunction(torch.autograd.Function):
             #            a thing that needs to be resolved globally.
             output = np.zeros(out_sizes, dtype=np.float64)
 
-            # Unpack my output parts
-            for (sl, sz, partner), buff in zip(out_data, out_buffers):
+        # Unpack the received data as it arrives
+        completed_count = 0
+        while(completed_count < len(requests)):
+            status = MPI.Status()
+            index = MPI.Request.Waitany(requests, status)
+
+            # In MPI, we don't get the index out if the request is an
+            # instance of MPI.REQUEST_NULL, instead MPI.UNDEFINED is returned.
+            if P_out.active and index < recv_count and index != MPI.UNDEFINED:
+                # Unpack my output parts
+                sl, sz, partner = out_data[index]
+                buff = out_buffers[index]
                 if buff is not None:
                     sh = output[tuple(sl)].shape
                     np.copyto(output[tuple(sl)], buff.reshape(sh))
 
+            completed_count += 1
+
+        if P_out.active:
             return torch.from_numpy(output)
         else:
             return None
@@ -94,13 +111,21 @@ class DistributedTransposeFunction(torch.autograd.Function):
         requests = []
 
         # Recv my input parts
+        recv_count = 0
         if P_in.active:
             for (sl, sz, partner), buff in zip(in_data, in_buffers):
                 if buff is not None:
                     req = P_common.comm.Irecv(buff, source=partner, tag=113)
                     requests.append(req)
+                else:
+                    # We add this if there is no recv so that the indices of
+                    # the requests array match the indices of in_data and
+                    # in_buffers.
+                    requests.append(MPI.REQUEST_NULL)
+                recv_count += 1
 
         # Pack and send my input parts
+        send_count = 0
         if P_out.active:
             grad_output_numpy = grad_output.detach().numpy()
             for (sl, sz, partner), buff in zip(out_data, out_buffers):
@@ -108,8 +133,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
                     np.copyto(buff, grad_output_numpy[tuple(sl)].ravel())
                     req = P_common.comm.Isend(buff, dest=partner, tag=113)
                     requests.append(req)
-
-        MPI.Request.Waitall(requests)
+                else:
+                    # We add this for symmetry, but don't really need it.
+                    requests.append(MPI.REQUEST_NULL)
+                send_count += 1
 
         if P_in.active:
             coords = P_in.cartesian_coordinates(P_in.rank)
@@ -118,14 +145,27 @@ class DistributedTransposeFunction(torch.autograd.Function):
             #            a thing that needs to be resolved globally.
             grad_input = np.zeros(in_sizes, dtype=np.float64)
 
-            # Unpack my output parts
-            # This would normally be an add into the grad_input tensor
-            # but we just created it, so a copy is sufficient.
-            for (sl, sz, partner), buff in zip(in_data, in_buffers):
+        # Unpack the received data as it arrives
+        completed_count = 0
+        while(completed_count < len(requests)):
+            status = MPI.Status()
+            index = MPI.Request.Waitany(requests, status)
+
+            # In MPI, we don't get the index out if the request is an
+            # instance of MPI.REQUEST_NULL, instead MPI.UNDEFINED is returned.
+            if P_in.active and index < recv_count and index != MPI.UNDEFINED:
+                # Unpack my output parts
+                sl, sz, partner = in_data[index]
+                buff = in_buffers[index]
                 if buff is not None:
                     sh = grad_input[tuple(sl)].shape
+                    # This would normally be an add into the grad_input tensor
+                    # but we just created it, so a copy is sufficient.
                     np.copyto(grad_input[tuple(sl)], buff.reshape(sh))
 
+            completed_count += 1
+
+        if P_in.active:
             return torch.from_numpy(grad_input), None, None, None, None, None, None, None, None
         else:
             return None, None, None, None, None, None, None, None, None
