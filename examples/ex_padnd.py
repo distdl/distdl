@@ -1,12 +1,12 @@
 import torch
 
 import distdl.nn.padnd as padnd
-from distdl.utilities.misc import Bunch
+from distdl.utilities.misc import DummyContext
 
 t = torch.ones(3, 4)
 print(f't =\n{t}')
 
-ctx = Bunch()
+ctx = DummyContext()
 pad_width = [(1, 2), (3, 4)]
 
 t_padded = padnd.PadNdFunction.forward(ctx, t, pad_width, value=0)
