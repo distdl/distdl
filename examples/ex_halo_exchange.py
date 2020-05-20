@@ -8,7 +8,7 @@ from distdl.nn.halo_exchange import HaloExchangeFunction
 from distdl.nn.halo_mixin import HaloMixin
 from distdl.nn.padnd import PadNd
 from distdl.utilities.debug import print_sequential
-from distdl.utilities.misc import Bunch
+from distdl.utilities.misc import DummyContext
 
 
 class MockupConvLayer(HaloMixin):
@@ -89,7 +89,7 @@ if P_cart.active:
 
     print_sequential(cart_comm, f'rank = {rank}, t_forward_input =\n{t_forward_input.int()}')
 
-    ctx = Bunch()
+    ctx = DummyContext()
     t_forward_exchanged = HaloExchangeFunction.forward(ctx,
                                                        t_forward_input,
                                                        halo_layer.slices,
