@@ -95,6 +95,7 @@ class MPICartesianPartition(MPIPartition):
         super(MPICartesianPartition, self).__init__(comm, parent_partition)
 
         self.dims = dims
+        self.dim = len(dims)
 
     def cartesian_coordinates(self, rank):
 
@@ -102,3 +103,23 @@ class MPICartesianPartition(MPIPartition):
             raise Exception()
 
         return self.comm.Get_coords(rank)
+
+    def neighbor_ranks(self, rank):
+
+        if not self.active:
+            raise Exception()
+
+        coords = self.cartesian_coordinates(rank)
+
+        # Resulting list
+        neighbor_ranks = []
+
+        # Loop over the dimensions and add the ranks at the neighboring coords to the list
+        for i in range(self.dim):
+            lcoords = [x-1 if j == i else x for j, x in enumerate(coords)]
+            rcoords = [x+1 if j == i else x for j, x in enumerate(coords)]
+            lrank = MPI.PROC_NULL if -1 == lcoords[i] else self.comm.Get_cart_rank(lcoords)
+            rrank = MPI.PROC_NULL if self.dims[i] == rcoords[i] else self.comm.Get_cart_rank(rcoords)
+            neighbor_ranks.append((lrank, rrank))
+
+        return neighbor_ranks
