@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.halo_exchange import HaloExchangeFunction
 from distdl.nn.halo_mixin import HaloMixin
@@ -9,7 +10,7 @@ from distdl.nn.padnd import PadNd
 from distdl.utilities.misc import Bunch
 
 
-class TestConvLayer(HaloMixin):
+class MockupConvLayer(HaloMixin):
 
     # These mappings come from basic knowledge of convolutions
     def _compute_min_input_range(self,
@@ -44,171 +45,84 @@ class TestConvLayer(HaloMixin):
         return bases + kernel_offsets
 
 
-def test_halo_exchange_parallel_1():
-
-    comm = MPI.COMM_WORLD
-    dims = [1, 1, 2, 2]
-    cart_comm = comm.Create_cart(dims=dims)
-    rank = cart_comm.Get_rank()
-
-    test_conv_layer = TestConvLayer()
-    x_in_sizes = [1, 1, 5, 6]
-    kernel_sizes = [1, 1, 3, 3]
-    strides = [1, 1, 1, 1]
-    pads = [0, 0, 0, 0]
-    dilations = [1, 1, 1, 1]
-
-    x = torch.tensor(np.random.randn(*x_in_sizes))
-    y = torch.tensor(np.random.randn(*x_in_sizes))
-
-    pad_width = [(0, 0), (0, 0), (1, 1), (1, 1)]
-    padnd_layer = PadNd(pad_width, value=0)
-    x = padnd_layer.forward(x)
-    y = padnd_layer.forward(y)
-    x_clone = x.clone()
-    y_clone = y.clone()
-
-    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-        test_conv_layer._compute_exchange_info(x.shape,
-                                               kernel_sizes,
-                                               strides,
-                                               pads,
-                                               dilations,
-                                               cart_comm)
-
-    halo_layer = HaloExchange(x_in_sizes, halo_sizes, recv_buffer_sizes, send_buffer_sizes, cart_comm)
-
-    ctx = Bunch()
-    Ax = HaloExchangeFunction.forward(ctx,
-                                      x_clone,
-                                      halo_layer.slices,
-                                      halo_layer.buffers,
-                                      halo_layer.neighbor_ranks,
-                                      halo_layer.cart_comm)
-    Asy = HaloExchangeFunction.backward(ctx, y_clone)[0]
-
-    norm_x = (torch.norm(x)**2).numpy()
-    result = np.array([0.0], dtype=norm_x.dtype)
-    comm.Reduce(norm_x, result, op=MPI.SUM, root=0)
-    norm_x = np.sqrt(result)
-
-    norm_y = (torch.norm(y)**2).numpy()
-    result = np.array([0.0], dtype=norm_y.dtype)
-    comm.Reduce(norm_y, result, op=MPI.SUM, root=0)
-    norm_y = np.sqrt(result)
-
-    norm_Ax = (torch.norm(Ax)**2).numpy()
-    result = np.array([0.0], dtype=norm_Ax.dtype)
-    comm.Reduce(norm_Ax, result, op=MPI.SUM, root=0)
-    norm_Ax = np.sqrt(result)
-
-    norm_Asy = (torch.norm(Asy)**2).numpy()
-    result = np.array([0.0], dtype=norm_Asy.dtype)
-    comm.Reduce(norm_Asy, result, op=MPI.SUM, root=0)
-    norm_Asy = np.sqrt(result)
-
-    ip1 = np.array([torch.sum(torch.mul(y, Ax))])
-    result = np.array([0.0], dtype=ip1.dtype)
-    comm.Reduce(ip1, result, op=MPI.SUM, root=0)
-    ip1[:] = result[:]
-
-    ip2 = np.array([torch.sum(torch.mul(Asy, x))])
-    result = np.array([0.0], dtype=ip2.dtype)
-    comm.Reduce(ip2, result, op=MPI.SUM, root=0)
-    ip2[:] = result[:]
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(rank == 0):
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # Ranks other than 0 always pass
-        pass
-
-
-def test_halo_exchange_parallel_2():
+def test_halo_exchange_parallel():
 
     P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world_cart = P_world.create_cartesian_subpartition([1, 1, 1, 4])
-    rank = P_world_cart.rank
-    cart_comm = P_world_cart.comm
-    comm = cart_comm
+    ranks = np.arange(P_world.size)
 
-    test_conv_layer = TestConvLayer()
-    x_in_sizes = [1, 1, 5, 6]
-    kernel_sizes = [1, 1, 3, 3]
-    strides = [1, 1, 1, 1]
-    pads = [0, 0, 0, 0]
-    dilations = [1, 1, 1, 1]
+    dims = [1, 1, 2, 2]
+    P_size = np.prod(dims)
+    use_ranks = ranks[:P_size]
 
-    x = torch.tensor(np.random.randn(*x_in_sizes))
-    y = torch.tensor(np.random.randn(*x_in_sizes))
+    P = P_world.create_subpartition(use_ranks)
+    P_cart = P.create_cartesian_subpartition(dims)
 
-    pad_width = [(0, 0), (0, 0), (1, 1), (1, 1)]
-    padnd_layer = PadNd(pad_width, value=0)
-    x = padnd_layer.forward(x)
-    y = padnd_layer.forward(y)
-    x_clone = x.clone()
-    y_clone = y.clone()
+    if P_cart.active:
+        mockup_conv_layer = MockupConvLayer()
+        x_in_sizes = [1, 1, 5, 6]
+        kernel_sizes = [1, 1, 3, 3]
+        strides = [1, 1, 1, 1]
+        pads = [0, 0, 0, 0]
+        dilations = [1, 1, 1, 1]
 
-    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-        test_conv_layer._compute_exchange_info(x.shape,
-                                               kernel_sizes,
-                                               strides,
-                                               pads,
-                                               dilations,
-                                               cart_comm)
+        x = torch.tensor(np.random.randn(*x_in_sizes))
+        y = torch.tensor(np.random.randn(*x_in_sizes))
 
-    halo_layer = HaloExchange(x_in_sizes, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_world_cart)
+        halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
+            mockup_conv_layer._compute_exchange_info(x_in_sizes,
+                                                     kernel_sizes,
+                                                     strides,
+                                                     pads,
+                                                     dilations,
+                                                     P_cart)
 
-    ctx = Bunch()
-    Ax = HaloExchangeFunction.forward(ctx,
-                                      x_clone,
-                                      halo_layer.slices,
-                                      halo_layer.buffers,
-                                      halo_layer.neighbor_ranks,
-                                      halo_layer.cart_comm)
-    Asy = HaloExchangeFunction.backward(ctx, y_clone)[0]
+        forward_padnd_layer = PadNd(halo_sizes.astype(int), value=0)
 
-    norm_x = (torch.norm(x)**2).numpy()
-    result = np.array([0.0], dtype=norm_x.dtype)
-    comm.Reduce(norm_x, result, op=MPI.SUM, root=0)
-    norm_x = np.sqrt(result)
+        # Value should be random but PadNd cannot do random padding for each element. Setting
+        # it to a nonzero value will be enough to guarantee correctness of the adjoint test.
+        adjoint_padnd_layer = PadNd(halo_sizes.astype(int), value=1)
 
-    norm_y = (torch.norm(y)**2).numpy()
-    result = np.array([0.0], dtype=norm_y.dtype)
-    comm.Reduce(norm_y, result, op=MPI.SUM, root=0)
-    norm_y = np.sqrt(result)
+        x = forward_padnd_layer.forward(x)
+        y = adjoint_padnd_layer.forward(y)
+        x_clone = x.clone()
+        y_clone = y.clone()
 
-    norm_Ax = (torch.norm(Ax)**2).numpy()
-    result = np.array([0.0], dtype=norm_Ax.dtype)
-    comm.Reduce(norm_Ax, result, op=MPI.SUM, root=0)
-    norm_Ax = np.sqrt(result)
+        ctx = Bunch()
+        halo_layer = HaloExchange(x_clone.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
 
-    norm_Asy = (torch.norm(Asy)**2).numpy()
-    result = np.array([0.0], dtype=norm_Asy.dtype)
-    comm.Reduce(norm_Asy, result, op=MPI.SUM, root=0)
-    norm_Asy = np.sqrt(result)
+        Ax = HaloExchangeFunction.forward(ctx,
+                                          x_clone,
+                                          halo_layer.slices,
+                                          halo_layer.buffers,
+                                          halo_layer.neighbor_ranks,
+                                          halo_layer.cartesian_partition)
 
-    ip1 = np.array([torch.sum(torch.mul(y, Ax))])
-    result = np.array([0.0], dtype=ip1.dtype)
-    comm.Reduce(ip1, result, op=MPI.SUM, root=0)
-    ip1[:] = result[:]
+        Asy = HaloExchangeFunction.backward(ctx, y_clone)[0]
 
-    ip2 = np.array([torch.sum(torch.mul(Asy, x))])
-    result = np.array([0.0], dtype=ip2.dtype)
-    comm.Reduce(ip2, result, op=MPI.SUM, root=0)
-    ip2[:] = result[:]
+    local_results = np.zeros(6, dtype=np.float64)
+    global_results = np.zeros(6, dtype=np.float64)
+
+    if P_cart.active:
+        local_results[0] = (torch.norm(x)**2).numpy()
+        local_results[1] = (torch.norm(y)**2).numpy()
+        local_results[2] = (torch.norm(Ax)**2).numpy()
+        local_results[3] = (torch.norm(Asy)**2).numpy()
+        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
+        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
+
+    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point
     # arithmetic is not commutative.  The only way to fix this is to collect
     # the results to a single rank to do the test.
-    if(rank == 0):
+    if(P_world.rank == 0):
+        # Correct the norms from distributed calculation
+        global_results[:4] = np.sqrt(global_results[:4])
+
+        # Unpack the values
+        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
+
         d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
         print(f"Adjoint test: {ip1/d} {ip2/d}")
         assert(np.isclose(ip1/d, ip2/d))
@@ -217,66 +131,87 @@ def test_halo_exchange_parallel_2():
         pass
 
 
-def test_halo_exchange_serial():
+def test_halo_exchange_sequential():
 
-    rank = MPI.COMM_WORLD.Get_rank()
-
-    # Isolate a single processor to use for this test.
-    if rank == 0:
-        color = 0
-        comm = MPI.COMM_WORLD.Split(color)
-    else:
-        color = 1
-        MPI.COMM_WORLD.Split(color)
-        return
+    P_world = MPIPartition(MPI.COMM_WORLD)
+    ranks = np.arange(P_world.size)
 
     dims = [1, 1, 1, 1]
-    cart_comm = comm.Create_cart(dims=dims)
+    P_size = np.prod(dims)
+    use_ranks = ranks[:P_size]
 
-    test_conv_layer = TestConvLayer()
-    x_in_sizes = [1, 1, 5, 6]
-    kernel_sizes = [1, 1, 3, 3]
-    strides = [1, 1, 1, 1]
-    pads = [0, 0, 0, 0]
-    dilations = [1, 1, 1, 1]
+    P = P_world.create_subpartition(use_ranks)
+    P_cart = P.create_cartesian_subpartition(dims)
 
-    x = torch.tensor(np.random.randn(*x_in_sizes))
-    y = torch.tensor(np.random.randn(*x_in_sizes))
+    if P_cart.active:
+        mockup_conv_layer = MockupConvLayer()
+        x_in_sizes = [1, 1, 5, 6]
+        kernel_sizes = [1, 1, 3, 3]
+        strides = [1, 1, 1, 1]
+        pads = [0, 0, 0, 0]
+        dilations = [1, 1, 1, 1]
 
-    pad_width = [(0, 0), (0, 0), (1, 1), (1, 1)]
-    padnd_layer = PadNd(pad_width, value=0)
-    x = padnd_layer.forward(x)
-    y = padnd_layer.forward(y)
-    x_clone = x.clone()
-    y_clone = y.clone()
+        x = torch.tensor(np.random.randn(*x_in_sizes))
+        y = torch.tensor(np.random.randn(*x_in_sizes))
 
-    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-        test_conv_layer._compute_exchange_info(x.shape,
-                                               kernel_sizes,
-                                               strides,
-                                               pads,
-                                               dilations,
-                                               cart_comm)
+        halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
+            mockup_conv_layer._compute_exchange_info(x_in_sizes,
+                                                     kernel_sizes,
+                                                     strides,
+                                                     pads,
+                                                     dilations,
+                                                     P_cart)
 
-    halo_layer = HaloExchange(x_in_sizes, halo_sizes, recv_buffer_sizes, send_buffer_sizes, cart_comm)
+        forward_padnd_layer = PadNd(halo_sizes.astype(int), value=0)
 
-    ctx = Bunch()
-    Ax = HaloExchangeFunction.forward(ctx,
-                                      x_clone,
-                                      halo_layer.slices,
-                                      halo_layer.buffers,
-                                      halo_layer.neighbor_ranks,
-                                      halo_layer.cart_comm)
-    Asy = HaloExchangeFunction.backward(ctx, y_clone)[0]
+        # Value should be random but PadNd cannot do random padding for each element. Setting
+        # it to a nonzero value will be enough to guarantee correctness of the adjoint test.
+        adjoint_padnd_layer = PadNd(halo_sizes.astype(int), value=1)
 
-    norm_x = np.sqrt((torch.norm(x) ** 2).numpy())
-    norm_y = np.sqrt((torch.norm(y) ** 2).numpy())
-    norm_Ax = np.sqrt((torch.norm(Ax) ** 2).numpy())
-    norm_Asy = np.sqrt((torch.norm(Asy) ** 2).numpy())
+        x = forward_padnd_layer.forward(x)
+        y = adjoint_padnd_layer.forward(y)
+        x_clone = x.clone()
+        y_clone = y.clone()
 
-    ip1 = np.array([torch.sum(torch.mul(y, Ax))])
-    ip2 = np.array([torch.sum(torch.mul(Asy, x))])
+        ctx = Bunch()
+        halo_layer = HaloExchange(x_clone.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
 
-    d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-    print(f"Adjoint test: {ip1/d} {ip2/d}")
-    assert(np.isclose(ip1/d, ip2/d))
+        Ax = HaloExchangeFunction.forward(ctx,
+                                          x_clone,
+                                          halo_layer.slices,
+                                          halo_layer.buffers,
+                                          halo_layer.neighbor_ranks,
+                                          halo_layer.cartesian_partition)
+
+        Asy = HaloExchangeFunction.backward(ctx, y_clone)[0]
+
+    local_results = np.zeros(6, dtype=np.float64)
+    global_results = np.zeros(6, dtype=np.float64)
+
+    if P_cart.active:
+        local_results[0] = (torch.norm(x)**2).numpy()
+        local_results[1] = (torch.norm(y)**2).numpy()
+        local_results[2] = (torch.norm(Ax)**2).numpy()
+        local_results[3] = (torch.norm(Asy)**2).numpy()
+        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
+        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
+
+    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+
+    # Because this is being computed in parallel, we risk that these norms
+    # and inner products are not exactly equal, because the floating point
+    # arithmetic is not commutative.  The only way to fix this is to collect
+    # the results to a single rank to do the test.
+    if(P_world.rank == 0):
+        # Correct the norms from distributed calculation
+        global_results[:4] = np.sqrt(global_results[:4])
+
+        # Unpack the values
+        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
+
+        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
+        print(f"Adjoint test: {ip1/d} {ip2/d}")
+        assert(np.isclose(ip1/d, ip2/d))
+    else:
+        # Ranks other than 0 always pass
+        pass

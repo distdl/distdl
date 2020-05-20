@@ -12,12 +12,12 @@ class HaloMixin:
                                strides,
                                pads,
                                dilations,
-                               comm):
+                               cartesian_parition):
 
-        dim = comm.dim
-        dims = comm.dims
-        rank = comm.Get_rank()
-        coords = comm.Get_coords(rank)
+        dim = cartesian_parition.dim
+        dims = cartesian_parition.dims
+        rank = cartesian_parition.rank
+        coords = cartesian_parition.cartesian_coordinates(rank)
 
         x_in_sizes = np.asarray(x_in_sizes)
         kernel_sizes = np.asarray(kernel_sizes)
