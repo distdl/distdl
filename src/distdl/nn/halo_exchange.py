@@ -15,6 +15,9 @@ class HaloExchangeFunction(torch.autograd.Function):
         ctx.neighbor_ranks = neighbor_ranks
         ctx.cartesian_partition = cartesian_partition
 
+        if not cartesian_partition.active:
+            return None
+
         ctx.mark_dirty(input)
 
         if cartesian_partition.size == 1:
@@ -68,6 +71,9 @@ class HaloExchangeFunction(torch.autograd.Function):
         buffers = ctx.buffers
         neighbor_ranks = ctx.neighbor_ranks
         cartesian_partition = ctx.cartesian_partition
+
+        if not cartesian_partition.active:
+            return None, None, None, None, None
 
         if cartesian_partition.size == 1:
             return grad_output
@@ -128,10 +134,15 @@ class HaloExchange(torch.nn.Module):
         self.send_buffer_sizes = send_buffer_sizes
         self.cartesian_partition = cartesian_partition
 
-        self.neighbor_ranks = self.cartesian_partition.neighbor_ranks(self.cartesian_partition.rank)
+        if cartesian_partition.active:
+            self.neighbor_ranks = self.cartesian_partition.neighbor_ranks(self.cartesian_partition.rank)
 
-        self.slices = self._assemble_slices(self.x_in_sizes, self.recv_buffer_sizes, self.send_buffer_sizes)
-        self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_sizes, self.send_buffer_sizes)
+            self.slices = self._assemble_slices(self.x_in_sizes, self.recv_buffer_sizes, self.send_buffer_sizes)
+            self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_sizes, self.send_buffer_sizes)
+        else:
+            self.neighbor_ranks = None
+            self.slices = None
+            self.buffers = None
 
     def _assemble_slices(self, x_in_sizes, recv_buffer_sizes, send_buffer_sizes):
 
