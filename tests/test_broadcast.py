@@ -7,7 +7,7 @@ def test_broadcast_parallel():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
-    from distdl.utilities.misc import Bunch
+    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     ranks = np.arange(P_world.size)
@@ -37,7 +37,7 @@ def test_broadcast_parallel():
         y = None
         y_clone = None
 
-    ctx = Bunch()
+    ctx = DummyContext()
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone, layer.partition, layer.root)
@@ -100,7 +100,7 @@ def test_broadcast_sequential():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
-    from distdl.utilities.misc import Bunch
+    from distdl.utilities.misc import DummyContext
 
     # Isolate a single processor to use for this test.
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -123,7 +123,7 @@ def test_broadcast_sequential():
     # Adjoint Input
     y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = Bunch()
+    ctx = DummyContext()
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x.clone(), layer.partition, layer.root)

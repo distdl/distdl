@@ -7,7 +7,7 @@ from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.halo_exchange import HaloExchangeFunction
 from distdl.nn.halo_mixin import HaloMixin
 from distdl.nn.padnd import PadNd
-from distdl.utilities.misc import Bunch
+from distdl.utilities.misc import DummyContext
 
 
 class MockupConvLayer(HaloMixin):
@@ -87,7 +87,7 @@ def test_halo_exchange_parallel():
         x_clone = x.clone()
         y_clone = y.clone()
 
-        ctx = Bunch()
+        ctx = DummyContext()
         halo_layer = HaloExchange(x_clone.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
 
         Ax = HaloExchangeFunction.forward(ctx,
@@ -173,7 +173,7 @@ def test_halo_exchange_sequential():
         x_clone = x.clone()
         y_clone = y.clone()
 
-        ctx = Bunch()
+        ctx = DummyContext()
         halo_layer = HaloExchange(x_clone.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
 
         Ax = HaloExchangeFunction.forward(ctx,

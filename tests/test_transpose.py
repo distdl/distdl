@@ -7,7 +7,7 @@ def test_transpose_parallel():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
     from distdl.nn.transpose import DistributedTransposeFunction
-    from distdl.utilities.misc import Bunch
+    from distdl.utilities.misc import DummyContext
     from distdl.utilities.slicing import compute_subsizes
 
     # Set up MPI communication wrapper
@@ -55,7 +55,7 @@ def test_transpose_parallel():
         y = None
         y_clone = None
 
-    ctx = Bunch()
+    ctx = DummyContext()
 
     # Apply A
     Ax = DistributedTransposeFunction.forward(ctx, x_clone,
@@ -117,7 +117,7 @@ def test_transpose_sequential():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
     from distdl.nn.transpose import DistributedTransposeFunction
-    from distdl.utilities.misc import Bunch
+    from distdl.utilities.misc import DummyContext
     from distdl.utilities.slicing import compute_subsizes
 
     # Isolate a single processor to use for this test.
@@ -152,7 +152,7 @@ def test_transpose_sequential():
                                     tensor_sizes)
     y = torch.Tensor(np.random.randn(*out_subsizes))
 
-    ctx = Bunch()
+    ctx = DummyContext()
 
     # Apply A
     Ax = DistributedTransposeFunction.forward(ctx, x.clone(),
