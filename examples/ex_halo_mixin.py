@@ -1,11 +1,12 @@
 import numpy as np
 from mpi4py import MPI
 
+from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.halo_mixin import HaloMixin
 from distdl.utilities.debug import print_sequential
 
 
-class TestMaxPoolLayer(HaloMixin):
+class MockupMaxPoolLayer(HaloMixin):
 
     # These mappings come from the PyTorch documentation
 
@@ -30,27 +31,34 @@ class TestMaxPoolLayer(HaloMixin):
         return strides * idx + kernel_sizes - 1
 
 
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
+P_world = MPIPartition(MPI.COMM_WORLD)
+ranks = np.arange(P_world.size)
 
 dims = [1, 1, 4]
-cart_comm = comm.Create_cart(dims=dims)
+P_size = np.prod(dims)
+use_ranks = ranks[:P_size]
 
-layer = TestMaxPoolLayer()
+P = P_world.create_subpartition(use_ranks)
+P_cart = P.create_cartesian_subpartition(dims)
+rank = P_cart.rank
+cart_comm = P_cart.comm
 
-x_in_sizes = np.array([1, 1, 10])
-kernel_sizes = np.array([2])
-strides = np.array([2])
-pads = np.array([0])
-dilations = np.array([1])
+layer = MockupMaxPoolLayer()
 
-halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-    layer._compute_exchange_info(x_in_sizes,
-                                 kernel_sizes,
-                                 strides,
-                                 pads,
-                                 dilations,
-                                 cart_comm)
+if P_cart.active:
+    x_in_sizes = np.array([1, 1, 10])
+    kernel_sizes = np.array([2])
+    strides = np.array([2])
+    pads = np.array([0])
+    dilations = np.array([1])
 
-print_sequential(cart_comm, f'rank = {rank}:\nhalo_sizes =\n{halo_sizes}\n\
+    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
+        layer._compute_exchange_info(x_in_sizes,
+                                     kernel_sizes,
+                                     strides,
+                                     pads,
+                                     dilations,
+                                     P_cart)
+
+    print_sequential(cart_comm, f'rank = {rank}:\nhalo_sizes =\n{halo_sizes}\n\
 recv_buffer_sizes =\n{recv_buffer_sizes}\nsend_buffer_sizes =\n{send_buffer_sizes}\nneeded_ranges =\n{needed_ranges}')

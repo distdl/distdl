@@ -1,10 +1,11 @@
 import numpy as np
 from mpi4py import MPI
 
+from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.halo_mixin import HaloMixin
 
 
-class TestMaxPoolLayer(HaloMixin):
+class MockupMaxPoolLayer(HaloMixin):
 
     # These mappings come from the PyTorch documentation
 
@@ -31,68 +32,75 @@ class TestMaxPoolLayer(HaloMixin):
 
 def test_mixin():
 
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    P_world = MPIPartition(MPI.COMM_WORLD)
+    ranks = np.arange(P_world.size)
 
     dims = [1, 1, 4]
-    cart_comm = comm.Create_cart(dims=dims)
+    P_size = np.prod(dims)
+    use_ranks = ranks[:P_size]
 
-    layer = TestMaxPoolLayer()
+    P = P_world.create_subpartition(use_ranks)
+    P_cart = P.create_cartesian_subpartition(dims)
+    rank = P_cart.rank
 
-    x_in_sizes = np.array([1, 1, 10])
-    kernel_sizes = np.array([2])
-    strides = np.array([2])
-    pads = np.array([0])
-    dilations = np.array([1])
+    layer = MockupMaxPoolLayer()
 
-    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-        layer._compute_exchange_info(x_in_sizes,
-                                     kernel_sizes,
-                                     strides,
-                                     pads,
-                                     dilations,
-                                     cart_comm)
+    if P_cart.active:
 
-    if rank == 0:
-        expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 1]])
-        expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 1]])
-        expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_needed_ranges = np.array([[0, 1], [0, 1], [0, 4]])
+        x_in_sizes = np.array([1, 1, 10])
+        kernel_sizes = np.array([2])
+        strides = np.array([2])
+        pads = np.array([0])
+        dilations = np.array([1])
 
-        assert(np.array_equal(halo_sizes, expected_halo_sizes))
-        assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
-        assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
-        assert(np.array_equal(needed_ranges, expected_needed_ranges))
+        halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
+            layer._compute_exchange_info(x_in_sizes,
+                                         kernel_sizes,
+                                         strides,
+                                         pads,
+                                         dilations,
+                                         P_cart)
 
-    elif rank == 1:
-        expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [1, 0]])
-        expected_needed_ranges = np.array([[0, 1], [0, 1], [1, 3]])
+        if rank == 0:
+            expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 1]])
+            expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 1]])
+            expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_needed_ranges = np.array([[0, 1], [0, 1], [0, 4]])
 
-        assert(np.array_equal(halo_sizes, expected_halo_sizes))
-        assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
-        assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
-        assert(np.array_equal(needed_ranges, expected_needed_ranges))
+            assert(np.array_equal(halo_sizes, expected_halo_sizes))
+            assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
+            assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
+            assert(np.array_equal(needed_ranges, expected_needed_ranges))
 
-    elif rank == 2:
-        expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_needed_ranges = np.array([[0, 1], [0, 1], [0, 2]])
+        elif rank == 1:
+            expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [1, 0]])
+            expected_needed_ranges = np.array([[0, 1], [0, 1], [1, 3]])
 
-        assert(np.array_equal(halo_sizes, expected_halo_sizes))
-        assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
-        assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
-        assert(np.array_equal(needed_ranges, expected_needed_ranges))
+            assert(np.array_equal(halo_sizes, expected_halo_sizes))
+            assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
+            assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
+            assert(np.array_equal(needed_ranges, expected_needed_ranges))
 
-    elif rank == 3:
-        expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
-        expected_needed_ranges = np.array([[0, 1], [0, 1], [0, 2]])
+        elif rank == 2:
+            expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_needed_ranges = np.array([[0, 1], [0, 1], [0, 2]])
 
-        assert(np.array_equal(halo_sizes, expected_halo_sizes))
-        assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
-        assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
-        assert(np.array_equal(needed_ranges, expected_needed_ranges))
+            assert(np.array_equal(halo_sizes, expected_halo_sizes))
+            assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
+            assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
+            assert(np.array_equal(needed_ranges, expected_needed_ranges))
+
+        elif rank == 3:
+            expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_send_buffer_sizes = np.array([[0, 0], [0, 0], [0, 0]])
+            expected_needed_ranges = np.array([[0, 1], [0, 1], [0, 2]])
+
+            assert(np.array_equal(halo_sizes, expected_halo_sizes))
+            assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
+            assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
+            assert(np.array_equal(needed_ranges, expected_needed_ranges))
