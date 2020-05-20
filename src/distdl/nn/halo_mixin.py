@@ -14,6 +14,9 @@ class HaloMixin:
                                dilations,
                                cartesian_parition):
 
+        if not cartesian_parition.active:
+            return None, None, None, None
+
         dim = cartesian_parition.dim
         dims = cartesian_parition.dims
         rank = cartesian_parition.rank

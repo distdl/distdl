@@ -45,22 +45,21 @@ def test_mixin():
 
     layer = MockupMaxPoolLayer()
 
+    x_in_sizes = np.array([1, 1, 10])
+    kernel_sizes = np.array([2])
+    strides = np.array([2])
+    pads = np.array([0])
+    dilations = np.array([1])
+
+    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
+        layer._compute_exchange_info(x_in_sizes,
+                                     kernel_sizes,
+                                     strides,
+                                     pads,
+                                     dilations,
+                                     P_cart)
+
     if P_cart.active:
-
-        x_in_sizes = np.array([1, 1, 10])
-        kernel_sizes = np.array([2])
-        strides = np.array([2])
-        pads = np.array([0])
-        dilations = np.array([1])
-
-        halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-            layer._compute_exchange_info(x_in_sizes,
-                                         kernel_sizes,
-                                         strides,
-                                         pads,
-                                         dilations,
-                                         P_cart)
-
         if rank == 0:
             expected_halo_sizes = np.array([[0, 0], [0, 0], [0, 1]])
             expected_recv_buffer_sizes = np.array([[0, 0], [0, 0], [0, 1]])
@@ -104,3 +103,10 @@ def test_mixin():
             assert(np.array_equal(recv_buffer_sizes, expected_recv_buffer_sizes))
             assert(np.array_equal(send_buffer_sizes, expected_send_buffer_sizes))
             assert(np.array_equal(needed_ranges, expected_needed_ranges))
+
+    # Inactive ranks should get null results
+    else:
+        assert(halo_sizes is None)
+        assert(recv_buffer_sizes is None)
+        assert(send_buffer_sizes is None)
+        assert(needed_ranges is None)
