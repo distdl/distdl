@@ -21,6 +21,9 @@ class MPIPartition:
 
         self.parent_partition = parent_partition
 
+    def __eq__(self, other):
+        return MPI.Comm.Compare(self.comm, other.comm) == MPI.IDENT
+
     def create_subpartition(self, ranks):
 
         if self.active:
