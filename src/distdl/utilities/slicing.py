@@ -4,6 +4,7 @@ INDEX_DTYPE = np.int64
 MAX_INT = np.iinfo(INDEX_DTYPE).max
 MIN_INT = np.iinfo(INDEX_DTYPE).min
 
+
 def compute_subsizes(dims, coords, sizes):
 
     sizes = np.asarray(sizes)
@@ -15,6 +16,7 @@ def compute_subsizes(dims, coords, sizes):
 
 def compute_starts(dims, coords, sizes):
 
+    sizes = np.asarray(sizes)
     starts = (sizes // dims)*coords
     starts += np.minimum(coords, sizes % dims)
 
@@ -29,6 +31,7 @@ def compute_stops(dims, coords, sizes):
 
     return stops
 
+
 def compute_intersection(r0_starts, r0_stops,
                          r1_starts, r1_stops):
 
@@ -38,6 +41,7 @@ def compute_intersection(r0_starts, r0_stops,
     intersection_subsizes = np.maximum(intersection_subsizes, 0)
 
     return intersection_starts, intersection_stops, intersection_subsizes
+
 
 def assemble_slices(starts, stops):
 
