@@ -238,9 +238,10 @@ class DistributedTranspose(torch.nn.Module):
                     self.out_data.append((None, None, P_in.null_rank))
 
         # In the sequential case, don't allocate anything, we don't use them.
-        if P_in.size == 1:
+        if P_in == P_out:
             self.in_buffers = None
             self.out_buffers = None
+            self.serial = True
         else:
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
@@ -270,6 +271,9 @@ class DistributedTranspose(torch.nn.Module):
 
     def forward(self, input):
 
-        DistributedTransposeFunction.apply(input, self.P_common, self.sizes,
-                                           self.P_in, self.in_data, self.in_buffers,
-                                           self.P_out, self.out_data, self.out_buffers)
+        if not self.serial:
+            DistributedTransposeFunction.apply(input, self.P_common, self.sizes,
+                                               self.P_in, self.in_data, self.in_buffers,
+                                               self.P_out, self.out_data, self.out_buffers)
+        else:
+            return input.clone()
