@@ -123,3 +123,8 @@ class MPICartesianPartition(MPIPartition):
             neighbor_ranks.append((lrank, rrank))
 
         return neighbor_ranks
+
+    def create_subpartition(self, remain_dims):
+
+        c = self.Sub(remain_dims)
+        return MPICartesianPartition(c, self, c.dims)
