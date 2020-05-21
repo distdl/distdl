@@ -76,7 +76,7 @@ class HaloExchangeFunction(torch.autograd.Function):
             return None, None, None, None, None
 
         if cartesian_partition.size == 1:
-            return grad_output
+            return grad_output, None, None, None, None
 
         grad_output_numpy = grad_output.detach().numpy()
 
