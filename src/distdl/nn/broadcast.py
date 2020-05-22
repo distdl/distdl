@@ -56,7 +56,7 @@ class BroadcastFunction(torch.autograd.Function):
             # So that we don't have to share this information during the
             # adjoint phase, save it for later.
             ctx.tensor_sizes = tensor_sizes
-            ctx.requires_grad = input.requires_grad
+            ctx.input_requires_grad = input.requires_grad
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -64,7 +64,7 @@ class BroadcastFunction(torch.autograd.Function):
 
         if P_out.active:
 
-            requires_grad = None
+            input_requires_grad = None
 
             # The root rank on the output partition needs to get the basic
             # tensor details from the broadcast root, and share them with the
@@ -74,8 +74,8 @@ class BroadcastFunction(torch.autograd.Function):
                 partner = np.where(P_common_to_P_in == in_root)[0][0]
 
                 req = P_common.comm.irecv(source=partner, tag=1231)
-                requires_grad = req.wait()
-                requires_grad = P_out.comm.bcast(requires_grad, root=out_root)
+                input_requires_grad = req.wait()
+                input_requires_grad = P_out.comm.bcast(input_requires_grad, root=out_root)
 
                 tensor_dim = np.zeros(1, dtype=np.int)
                 req = P_common.comm.Irecv(tensor_dim, source=partner, tag=1232)
@@ -93,7 +93,7 @@ class BroadcastFunction(torch.autograd.Function):
                 req.Wait()
 
             else:
-                requires_grad = P_out.comm.bcast(requires_grad, root=out_root)
+                input_requires_grad = P_out.comm.bcast(input_requires_grad, root=out_root)
 
                 tensor_dim = np.zeros(1, dtype=np.int)
                 P_out.comm.Bcast(tensor_dim, root=out_root)
@@ -108,7 +108,7 @@ class BroadcastFunction(torch.autograd.Function):
             P_out.comm.Bcast(output, root=out_root)
 
             # Active P_outs have real data to return
-            output = torch.tensor(output, requires_grad=requires_grad)
+            output = torch.tensor(output, requires_grad=input_requires_grad)
 
         # Ensure that all send requests have cleared.
         MPI.Request.Waitall(requests)
@@ -157,7 +157,7 @@ class BroadcastFunction(torch.autograd.Function):
         # returns the result.
         if P_in.active and P_in.rank == in_root:
             tensor_sizes = ctx.tensor_sizes
-            requires_grad = ctx.requires_grad
+            input_requires_grad = ctx.input_requires_grad
 
             grad_input = np.zeros(tensor_sizes, dtype=dtype)
 
@@ -165,7 +165,7 @@ class BroadcastFunction(torch.autograd.Function):
             req = P_common.comm.Irecv(grad_input, source=partner, tag=1235)
             req.Wait()
 
-            grad_input = torch.tensor(grad_input, requires_grad=requires_grad)
+            grad_input = torch.tensor(grad_input, requires_grad=input_requires_grad)
 
         # Ensure all sends have finished.
         MPI.Request.Waitall(requests)
