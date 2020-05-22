@@ -26,9 +26,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
         ctx.out_data = out_data
         ctx.out_buffers = out_buffers
 
-        if P_common.size == 1:
-            return input.clone()
-
         requests = []
 
         # If I am getting data, recv my output parts
@@ -86,10 +83,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             completed_count += 1
 
+        output = None
         if P_out.active:
-            return torch.from_numpy(output)
-        else:
-            return None
+            output = torch.from_numpy(output)
+
+        return output
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -104,9 +102,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
         P_out = ctx.P_out
         out_data = ctx.out_data
         out_buffers = ctx.out_buffers
-
-        if P_common.size == 1:
-            return grad_output.clone(), None, None, None, None, None, None, None, None
 
         requests = []
 
@@ -165,10 +160,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             completed_count += 1
 
+        grad_input = None
         if P_in.active:
-            return torch.from_numpy(grad_input), None, None, None, None, None, None, None, None
-        else:
-            return None, None, None, None, None, None, None, None, None
+            grad_input = torch.from_numpy(grad_input)
+
+        return grad_input, None, None, None, None, None, None, None, None
 
 
 class DistributedTranspose(torch.nn.Module):
@@ -241,13 +237,14 @@ class DistributedTranspose(torch.nn.Module):
         if P_in == P_out:
             self.in_buffers = None
             self.out_buffers = None
-            self.serial = True
+            self.identity = True
         else:
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             buffs = self._allocate_buffers(np.float64)
             self.in_buffers = buffs[0]
             self.out_buffers = buffs[1]
+            self.identity = False
 
     def _allocate_buffers(self, dtype):
 
@@ -271,9 +268,9 @@ class DistributedTranspose(torch.nn.Module):
 
     def forward(self, input):
 
-        if not self.serial:
-            DistributedTransposeFunction.apply(input, self.P_common, self.sizes,
-                                               self.P_in, self.in_data, self.in_buffers,
-                                               self.P_out, self.out_data, self.out_buffers)
-        else:
+        if self.identity:
             return input.clone()
+
+        return DistributedTransposeFunction.apply(input, self.P_common, self.sizes,
+                                                  self.P_in, self.in_data, self.in_buffers,
+                                                  self.P_out, self.out_data, self.out_buffers)
