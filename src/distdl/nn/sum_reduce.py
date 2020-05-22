@@ -41,7 +41,7 @@ class SumReduceFunction(torch.autograd.Function):
             # So that we don't have to share this information during the
             # adjoint phase, save it for later.
             ctx.tensor_sizes = tensor_sizes
-            ctx.requires_grad = input.requires_grad
+            ctx.input_requires_grad = input.requires_grad
 
             # The input root has to collect the result of the sum reduction.
             # It also has to share the tensor size information with the output
@@ -84,7 +84,7 @@ class SumReduceFunction(torch.autograd.Function):
             partner = np.where(P_common_to_P_in == in_root)[0][0]
 
             req = P_common.comm.irecv(source=partner, tag=2231)
-            requires_grad = req.wait()
+            input_requires_grad = req.wait()
 
             tensor_dim = np.zeros(1, dtype=np.int)
             req = P_common.comm.Irecv(tensor_dim, source=partner, tag=2232)
@@ -100,7 +100,7 @@ class SumReduceFunction(torch.autograd.Function):
             req.Wait()
 
             # Only P_out root has data to return
-            output = torch.tensor(output, requires_grad=requires_grad)
+            output = torch.tensor(output, requires_grad=input_requires_grad)
         else:
             # Everyone else has nothing
             output = None
@@ -148,7 +148,7 @@ class SumReduceFunction(torch.autograd.Function):
         if P_in.active:
 
             tensor_sizes = ctx.tensor_sizes
-            requires_grad = ctx.requires_grad
+            input_requires_grad = ctx.input_requires_grad
 
             grad_input = np.zeros(tensor_sizes, dtype=dtype)
 
@@ -163,7 +163,7 @@ class SumReduceFunction(torch.autograd.Function):
             # Everyone can then complete the broadcast
             P_in.comm.Bcast(grad_input, root=out_root)
 
-            grad_input = torch.tensor(grad_input, requires_grad=requires_grad)
+            grad_input = torch.tensor(grad_input, requires_grad=input_requires_grad)
 
         # Ensure all sends have finished.
         MPI.Request.Waitall(requests)
