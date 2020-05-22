@@ -6,7 +6,6 @@ def test_padnd():
 
     from distdl.nn.padnd import PadNd
     from distdl.nn.padnd import PadNdFunction
-    from distdl.utilities.misc import DummyContext
 
     rank = MPI.COMM_WORLD.Get_rank()
 
@@ -29,7 +28,7 @@ def test_padnd():
 
     padnd_layer = PadNd(pad_width, value=0)
 
-    ctx = DummyContext()
+    ctx = PadNdFunction()
 
     Ax = PadNdFunction.forward(ctx, x.clone(), padnd_layer.pad_width, padnd_layer.value)
     Asy = PadNdFunction.backward(ctx, y.clone())[0]
