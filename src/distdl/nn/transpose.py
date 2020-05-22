@@ -28,6 +28,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         requests = []
 
+        # Default everyone to output nothing
+        output = None
+
         # If I am getting data, recv my output parts
         recv_count = 0
         if P_out.active:
@@ -83,7 +86,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             completed_count += 1
 
-        output = None
         if P_out.active:
             output = torch.from_numpy(output)
 
@@ -104,6 +106,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
         out_buffers = ctx.out_buffers
 
         requests = []
+
+        # Default everyone to output None
+        grad_input = None
 
         # Recv my input parts
         recv_count = 0
@@ -160,7 +165,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             completed_count += 1
 
-        grad_input = None
         if P_in.active:
             grad_input = torch.from_numpy(grad_input)
 
@@ -269,6 +273,8 @@ class DistributedTranspose(torch.nn.Module):
     def forward(self, input):
 
         if self.identity:
+            if input is None:
+                return None
             return input.clone()
 
         return DistributedTransposeFunction.apply(input, self.P_common, self.sizes,
