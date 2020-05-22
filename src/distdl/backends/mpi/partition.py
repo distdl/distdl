@@ -22,6 +22,14 @@ class MPIPartition:
         self.parent_partition = parent_partition
 
     def __eq__(self, other):
+
+        # MPI_COMM_NULL is not a valid argument to MPI_Comm_compare, per the
+        # MPI spec.  Because reasons.
+        # We will require two partitions to have MPI_IDENT communicators to
+        # consider them to be equal.
+        if self.comm == MPI.COMM_NULL or other.comm == MPI.COMM_NULL:
+            return False
+
         return MPI.Comm.Compare(self.comm, other.comm) == MPI.IDENT
 
     def create_subpartition(self, ranks):
@@ -67,10 +75,10 @@ class MPIPartition:
         my_lineage = self.lineage()
         other_lineage = other.lineage()
 
-        for w1 in my_lineage:
-            for w2 in other_lineage:
-                if w1.comm is w2.comm and w1.comm is not MPI.COMM_NULL:
-                    return w1
+        for P1 in my_lineage:
+            for P2 in other_lineage:
+                if P1.comm != MPI.COMM_NULL and P1 == P2:
+                    return P1
         return None
 
     def lineage(self):
