@@ -9,7 +9,6 @@ def test_broadcast_parallel_overlap():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
-    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -41,7 +40,7 @@ def test_broadcast_parallel_overlap():
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
 
-    ctx = DummyContext()
+    ctx = BroadcastFunction()
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone,
@@ -109,7 +108,6 @@ def test_broadcast_parallel_barely_disjoint():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
-    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -144,7 +142,7 @@ def test_broadcast_parallel_barely_disjoint():
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
 
-    ctx = DummyContext()
+    ctx = BroadcastFunction()
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone,
@@ -214,7 +212,6 @@ def test_broadcast_parallel_completely_disjoint():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
-    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -249,7 +246,7 @@ def test_broadcast_parallel_completely_disjoint():
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
 
-    ctx = DummyContext()
+    ctx = BroadcastFunction()
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone,
@@ -317,7 +314,6 @@ def test_broadcast_sequential():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
-    from distdl.utilities.misc import DummyContext
 
     MPI.COMM_WORLD.Barrier()
 
@@ -344,7 +340,7 @@ def test_broadcast_sequential():
     # Adjoint Input
     y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = DummyContext()
+    ctx = BroadcastFunction()
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x,

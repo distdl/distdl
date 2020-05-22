@@ -9,7 +9,6 @@ def test_sum_reduce_parallel_overlap():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
     from distdl.nn.sum_reduce import SumReduceFunction
-    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -40,7 +39,7 @@ def test_sum_reduce_parallel_overlap():
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
 
-    ctx = DummyContext()
+    ctx = SumReduceFunction()
 
     # Apply A
     Ax = SumReduceFunction.forward(ctx, x_clone,
@@ -108,7 +107,6 @@ def test_sum_reduce_parallel_barely_disjoint():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
     from distdl.nn.sum_reduce import SumReduceFunction
-    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -142,7 +140,7 @@ def test_sum_reduce_parallel_barely_disjoint():
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
 
-    ctx = DummyContext()
+    ctx = SumReduceFunction()
 
     # Apply A
     Ax = SumReduceFunction.forward(ctx, x_clone,
@@ -212,7 +210,6 @@ def test_sum_reduce_parallel_completely_disjoint():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
     from distdl.nn.sum_reduce import SumReduceFunction
-    from distdl.utilities.misc import DummyContext
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -246,7 +243,7 @@ def test_sum_reduce_parallel_completely_disjoint():
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
 
-    ctx = DummyContext()
+    ctx = SumReduceFunction()
 
     # Apply A
     Ax = SumReduceFunction.forward(ctx, x_clone,
@@ -314,7 +311,6 @@ def test_sum_reduce_sequential():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
     from distdl.nn.sum_reduce import SumReduceFunction
-    from distdl.utilities.misc import DummyContext
 
     MPI.COMM_WORLD.Barrier()
 
@@ -341,7 +337,7 @@ def test_sum_reduce_sequential():
     # Adjoint Input
     y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = DummyContext()
+    ctx = SumReduceFunction()
 
     # Apply A
     Ax = SumReduceFunction.forward(ctx, x,
