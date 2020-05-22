@@ -137,5 +137,5 @@ class MPICartesianPartition(MPIPartition):
 
     def create_subpartition(self, remain_dims):
 
-        c = self.Sub(remain_dims)
+        c = self.comm.Sub(remain_dims)
         return MPICartesianPartition(c, self, c.dims)
