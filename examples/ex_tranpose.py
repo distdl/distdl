@@ -6,7 +6,6 @@ import distdl.nn.transpose as transpose
 import distdl.utilities.slicing as slicing
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.utilities.debug import print_sequential
-from distdl.utilities.misc import DummyContext
 
 # Set up MPI cartesian communicator
 P_world = MPIPartition(MPI.COMM_WORLD)
@@ -45,7 +44,7 @@ else:
 
 print_sequential(P_world.comm, f"x_{P_world.rank}: {x}")
 
-ctx = DummyContext()
+ctx = f()
 
 y = f.forward(ctx, x, layer.P_common, layer.sizes,
               layer.P_in, layer.in_data, layer.in_buffers,
