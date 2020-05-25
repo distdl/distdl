@@ -113,29 +113,6 @@ class BroadcastFunction(torch.autograd.Function,
         if P_send.active or P_bcast_same.active:
             grad_input = torch.tensor(reduced_data, requires_grad=input_requires_grad)
 
-        # reduced_data = np.zeros(shape=tensor_sizes, dtype=dtype)
-
-        # if P_bcast_same.active:
-        #     grad_input = np.zeros(tensor_sizes, dtype=dtype)
-        #     grad_output_numpy = grad_output.detach().numpy()
-        #     req = P_bcast_same.comm.Ireduce(grad_output_numpy, grad_input, root=0, op=MPI.SUM)
-        #     requests.append(req)
-        # else:
-        #     if P_bcast_send.active:
-        #         grad_input = np.zeros(tensor_sizes, dtype=dtype)
-        #         # If i started with data, contribute nothing to the sum.
-        #         req = P_bcast_send.comm.Ireduce(reduced_data, grad_input, root=0, op=MPI.SUM)
-        #         requests.append(req)
-        #     if P_bcast_recv.active:
-        #         grad_output_numpy = grad_output.detach().numpy()
-        #         req = P_bcast_recv.comm.Ireduce(grad_output_numpy, reduced_data, root=0, op=MPI.SUM)
-        #         requests.append(req)
-
-        # MPI.Request.Waitall(requests)
-
-        # if P_send.active:
-        #     grad_input = torch.tensor(grad_input, requires_grad=input_requires_grad)
-
         return grad_input, None, None, None, None, None
 
 
