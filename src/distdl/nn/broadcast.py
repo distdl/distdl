@@ -2,116 +2,87 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.nn.exchange_tensor_structure_mixin import _ExchangeTensorStructureMixin
 
-class BroadcastFunction(torch.autograd.Function):
+
+class BroadcastFunction(torch.autograd.Function,
+                        _ExchangeTensorStructureMixin):
 
     @staticmethod
-    def forward(ctx, input, P_common, P_in, P_out, in_root, dtype):
+    def forward(ctx, input, P_bcast_same, P_bcast_send, P_bcast_recv, dtype):
 
-        # There is no reason to allow users to select the out root.
-        out_root = 0
-
-        ctx.P_common = P_common
-        ctx.P_in = P_in
-        ctx.P_out = P_out
-        ctx.in_root = in_root
-        ctx.out_root = out_root
+        ctx.P_bcast_same = P_bcast_same
+        ctx.P_bcast_send = P_bcast_send
+        ctx.P_bcast_recv = P_bcast_recv
         ctx.dtype = dtype
 
-        # We need to move data between two potentially disjoint partitions,
-        # so we have to find a common mapping, which requires the common
-        # partition.
-        P_common_to_P_in = P_in.map_from_ancestor(P_common)
-        P_common_to_P_out = P_out.map_from_ancestor(P_common)
+        # From the partition creation, we guarantee that only one of these
+        # will be active, if any of them are active at all.  This works
+        # because if the send and recv partitions are the same, we still need
+        # to send data but don't need to receive it, we will have local
+        # copies.
+        P_send = P_bcast_send
+        if P_bcast_same.active:
+            P_send = P_bcast_same
+        P_recv = P_bcast_recv
 
-        # Collect at least the send requests so they can resolve out of order.
-        requests = []
+        tensor_structure = ctx._exchange_tensor_structure(input,
+                                                          P_send,
+                                                          P_recv)
+        input_requires_grad = tensor_structure[0]
+        tensor_dim = tensor_structure[1]
+        tensor_sizes = tensor_structure[2]
 
-        # Only the root rank in the active part of P_in has the data
-        if P_in.active and P_in.rank == in_root:
+        ctx.input_requires_grad = input_requires_grad
+        ctx.tensor_dim = tensor_dim
+        ctx.tensor_sizes = tensor_sizes
 
-            input_numpy = input.detach().numpy()
-
-            partner = np.where(P_common_to_P_out == out_root)[0][0]
-
-            # Share the requires_grad status with the output partition
-            req = P_common.comm.isend(input.requires_grad,
-                                      dest=partner, tag=1231)
-            requests.append(req)
-
-            # The output tensors do not know the size or dimension, so we must
-            # share that information first.
-            tensor_dim = np.array(len(input_numpy.shape), dtype=np.int)
-            req = P_common.comm.Isend(tensor_dim, dest=partner, tag=1232)
-            requests.append(req)
-
-            tensor_sizes = np.array(input_numpy.shape, dtype=np.int)
-            req = P_common.comm.Isend(tensor_sizes, dest=partner, tag=1233)
-            requests.append(req)
-
-            # Once they have the sizes, we can share the actual data
-            req = P_common.comm.Isend(input_numpy, dest=partner, tag=1234)
-            requests.append(req)
-
-            # So that we don't have to share this information during the
-            # adjoint phase, save it for later.
-            ctx.tensor_sizes = tensor_sizes
-            ctx.input_requires_grad = input.requires_grad
-
-        # This allows all ranks to use the same exit path, so that we can be
-        # sure that all requests have cleared.
         output = None
 
-        if P_out.active:
+        requests = []
 
-            input_requires_grad = None
+        # Send all of the data
+        if P_send.active:
+            input_numpy = input.detach().numpy()
+            req = P_send.comm.Ibcast(input_numpy, root=0)
+            requests.append(req)
 
-            # The root rank on the output partition needs to get the basic
-            # tensor details from the broadcast root, and share them with the
-            # remainder of the output partition.  Each of the requests must
-            # be resolved in order, unfortunately.
-            if P_out.rank == out_root:
-                partner = np.where(P_common_to_P_in == in_root)[0][0]
+        # If I both "send" and "recv" then I just make a copy of the input
+        if P_bcast_same.active:
+            output = input.clone()
 
-                req = P_common.comm.irecv(source=partner, tag=1231)
-                input_requires_grad = req.wait()
-                input_requires_grad = P_out.comm.bcast(input_requires_grad, root=out_root)
+        # If I just receive, receive the broadcast
+        if P_recv.active:
+            output = np.zeros(tensor_sizes, dtype=dtype)
 
-                tensor_dim = np.zeros(1, dtype=np.int)
-                req = P_common.comm.Irecv(tensor_dim, source=partner, tag=1232)
-                req.Wait()
-                P_out.comm.Bcast(tensor_dim, root=out_root)
-
-                tensor_sizes = np.zeros(tensor_dim, dtype=np.int)
-                req = P_common.comm.Irecv(tensor_sizes, source=partner, tag=1233)
-                req.Wait()
-                P_out.comm.Bcast(tensor_sizes, root=out_root)
-
-                # Allocate and receive the output tensor
-                output = np.zeros(tensor_sizes, dtype=dtype)
-                req = P_common.comm.Irecv(output, source=partner, tag=1234)
-                req.Wait()
-
-            else:
-                input_requires_grad = P_out.comm.bcast(input_requires_grad, root=out_root)
-
-                tensor_dim = np.zeros(1, dtype=np.int)
-                P_out.comm.Bcast(tensor_dim, root=out_root)
-
-                tensor_sizes = np.zeros(tensor_dim, dtype=np.int)
-                P_out.comm.Bcast(tensor_sizes, root=out_root)
-
-                # Only allocate the output tensor.  Data will come in the
-                # broadcast, next.
-                output = np.zeros(tensor_sizes, dtype=dtype)
-
-            P_out.comm.Bcast(output, root=out_root)
-
-            # Active P_outs have real data to return
+            req = P_bcast_recv.comm.Ibcast(output, root=0)
+            req.Wait()
             output = torch.tensor(output, requires_grad=input_requires_grad)
 
-        # Ensure that all send requests have cleared.
         MPI.Request.Waitall(requests)
+
+        # # If I am both a source and destination in the same partition, I need
+        # # to share my input with everyone, but also make my own output copy.
+        # if P_bcast_same.active:
+        #     input_numpy = input.detach().numpy()
+        #     req = P_bcast_same.comm.Ibcast(input_numpy, root=0)
+        #     requests.append(req)
+        #     output = input.clone()
+        # # Otherwise, I either only share my data or I recieve my output
+        # else:
+        #     if P_bcast_send.active:
+        #         input_numpy = input.detach().numpy()
+        #         req = P_bcast_send.comm.Ibcast(input_numpy, root=0)
+        #         requests.append(req)
+        #     if P_bcast_recv.active:
+        #         output = np.zeros(tensor_sizes, dtype=dtype)
+        #         req = P_bcast_recv.comm.Ibcast(output, root=0)
+        #         req.Wait()
+        #         output = torch.tensor(output,
+        #                               requires_grad=input_requires_grad)
+
+        # # Ensure that all send requests have cleared.
+        # MPI.Request.Waitall(requests)
 
         return output
 
@@ -175,24 +146,30 @@ class BroadcastFunction(torch.autograd.Function):
 
 class Broadcast(torch.nn.Module):
 
-    def __init__(self, P_in, P_out, in_root=0):
+    def __init__(self, P_in, P_out):
         super(Broadcast, self).__init__()
 
         self.P_in = P_in
         self.P_out = P_out
 
-        # Find the common partition between the input and output partitions
-        P_common = P_in.common_ancestor(P_out)
-        if P_common is None:
-            raise Exception()
-        self.P_common = P_common
-
-        self.in_root = in_root
+        bcast_partitions = P_in.create_broadcast_partition_to(P_out)
+        self.P_bcast_same = bcast_partitions[0]
+        self.P_bcast_send = bcast_partitions[1]
+        self.P_bcast_recv = bcast_partitions[2]
 
         # TODO: #25  Make selection of dtype more sensible.
         self.dtype = np.float32
 
     def forward(self, input):
+
+        # If we are not sending or receving any data
+        if (not self.P_bcast_same.active and
+            not self.P_bcast_send.active and
+            not self.P_bcast_recv.active): # noqa E129
+            return None
+
         return BroadcastFunction.apply(input,
-                                       self.P_common, self.P_in, self.P_out,
-                                       self.in_root, self.dtype)
+                                       self.P_bcast_same,
+                                       self.P_bcast_send,
+                                       self.P_bcast_recv,
+                                       self.dtype)
