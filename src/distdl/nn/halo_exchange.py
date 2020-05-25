@@ -3,6 +3,7 @@ import torch
 from mpi4py import MPI
 
 from distdl.utilities.slicing import compute_nd_slice_volume
+from distdl.utilities.torch import NoneTensor
 
 
 class HaloExchangeFunction(torch.autograd.Function):
@@ -16,7 +17,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         ctx.cartesian_partition = cartesian_partition
 
         if not cartesian_partition.active:
-            return None
+            return NoneTensor()
 
         ctx.mark_dirty(input)
 
@@ -73,7 +74,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         cartesian_partition = ctx.cartesian_partition
 
         if not cartesian_partition.active:
-            return None, None, None, None, None
+            return NoneTensor(), None, None, None, None
 
         if cartesian_partition.size == 1:
             return grad_output, None, None, None, None
