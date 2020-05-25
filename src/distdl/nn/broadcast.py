@@ -2,11 +2,11 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
-from distdl.nn.exchange_tensor_structure_mixin import _ExchangeTensorStructureMixin
+from distdl.nn.exchange_tensor_structure_mixin import _ExchangeTensorStructureMixin as _exchange
+from distdl.utilities.torch import NoneTensor
 
 
-class BroadcastFunction(torch.autograd.Function,
-                        _ExchangeTensorStructureMixin):
+class BroadcastFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_bcast_same, P_bcast_send, P_bcast_recv, dtype):
@@ -28,9 +28,9 @@ class BroadcastFunction(torch.autograd.Function,
 
         # Share the input tensor structure so the output can create space for
         # the data.
-        tensor_structure = ctx._exchange_tensor_structure(input,
-                                                          P_send,
-                                                          P_recv)
+        tensor_structure = _exchange._exchange_tensor_structure(input,
+                                                                P_send,
+                                                                P_recv)
         input_requires_grad = tensor_structure[0]
         tensor_dim = tensor_structure[1]
         tensor_sizes = tensor_structure[2]
@@ -41,7 +41,7 @@ class BroadcastFunction(torch.autograd.Function,
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        output = None
+        output = NoneTensor()
 
         requests = []
 
@@ -85,7 +85,7 @@ class BroadcastFunction(torch.autograd.Function,
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        grad_input = None
+        grad_input = NoneTensor()
 
         requests = []
 
@@ -140,12 +140,6 @@ class Broadcast(torch.nn.Module):
 
         if self.identity:
             return input.clone()
-
-        # If we are not sending or receving any data
-        if (not self.P_bcast_same.active and
-            not self.P_bcast_send.active and
-            not self.P_bcast_recv.active): # noqa E129
-            return None
 
         return BroadcastFunction.apply(input,
                                        self.P_bcast_same,
