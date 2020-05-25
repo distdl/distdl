@@ -1,4 +1,3 @@
-
 # Tests if root in P_in is also in P_out
 def test_broadcast_parallel_overlap():
 
@@ -9,6 +8,7 @@ def test_broadcast_parallel_overlap():
     from distdl.backends.mpi.newnew_partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
+    from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -23,34 +23,35 @@ def test_broadcast_parallel_overlap():
 
     tensor_sizes = np.array([7, 5])
 
-    x = None
-    x_clone = None
+    x = NoneTensor()
     if PC_in.active:
-
         x = torch.Tensor(np.random.randn(*tensor_sizes))
-        x_clone = x.clone()
+    x.requires_grad = True
 
-    y = None
-    y_clone = None
+    y = NoneTensor()
     if PC_out.active:
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
-        y_clone = y.clone()
 
     ctx = BroadcastFunction()
 
     # Apply A
-    Ax = BroadcastFunction.forward(ctx, x_clone,
+    Ax = BroadcastFunction.forward(ctx, x,
                                    layer.P_bcast_same,
                                    layer.P_bcast_send,
                                    layer.P_bcast_recv,
                                    layer.dtype)
 
     # Apply A*
-    Asy = BroadcastFunction.backward(ctx, y_clone)[0]
+    Asy = BroadcastFunction.backward(ctx, y)[0]
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
+
+    x = x.detach()
+    Asy = Asy.detach()
+    y = y.detach()
+    Ax = Ax.detach()
 
     # Compute all of the local norms and inner products.
     # We only perform the inner product calculation between
@@ -75,6 +76,7 @@ def test_broadcast_parallel_overlap():
 
     # Reduce the norms and inner products
     P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+    # assert(0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point
@@ -107,6 +109,7 @@ def test_broadcast_parallel_barely_disjoint():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
+    from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -121,34 +124,35 @@ def test_broadcast_parallel_barely_disjoint():
 
     tensor_sizes = np.array([7, 5])
 
-    x = None
-    x_clone = None
+    x = NoneTensor()
     if PC_in.active:
-
         x = torch.Tensor(np.random.randn(*tensor_sizes))
-        x_clone = x.clone()
+    x.requires_grad = True
 
-    y = None
-    y_clone = None
+    y = NoneTensor()
     if PC_out.active:
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
-        y_clone = y.clone()
 
     ctx = BroadcastFunction()
 
     # Apply A
-    Ax = BroadcastFunction.forward(ctx, x_clone,
+    Ax = BroadcastFunction.forward(ctx, x,
                                    layer.P_bcast_same,
                                    layer.P_bcast_send,
                                    layer.P_bcast_recv,
                                    layer.dtype)
 
     # Apply A*
-    Asy = BroadcastFunction.backward(ctx, y_clone)[0]
+    Asy = BroadcastFunction.backward(ctx, y)[0]
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
+
+    x = x.detach()
+    Asy = Asy.detach()
+    y = y.detach()
+    Ax = Ax.detach()
 
     # Compute all of the local norms and inner products.
     # We only perform the inner product calculation between
@@ -207,6 +211,7 @@ def test_broadcast_parallel_completely_disjoint():
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
+    from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
@@ -221,34 +226,35 @@ def test_broadcast_parallel_completely_disjoint():
 
     tensor_sizes = np.array([7, 5])
 
-    x = None
-    x_clone = None
+    x = NoneTensor()
     if PC_in.active:
-
         x = torch.Tensor(np.random.randn(*tensor_sizes))
-        x_clone = x.clone()
+    x.requires_grad = True
 
-    y = None
-    y_clone = None
+    y = NoneTensor()
     if PC_out.active:
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
-        y_clone = y.clone()
 
     ctx = BroadcastFunction()
 
     # Apply A
-    Ax = BroadcastFunction.forward(ctx, x_clone,
+    Ax = BroadcastFunction.forward(ctx, x,
                                    layer.P_bcast_same,
                                    layer.P_bcast_send,
                                    layer.P_bcast_recv,
                                    layer.dtype)
 
     # Apply A*
-    Asy = BroadcastFunction.backward(ctx, y_clone)[0]
+    Asy = BroadcastFunction.backward(ctx, y)[0]
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
+
+    x = x.detach()
+    Asy = Asy.detach()
+    y = y.detach()
+    Ax = Ax.detach()
 
     # Compute all of the local norms and inner products.
     # We only perform the inner product calculation between
