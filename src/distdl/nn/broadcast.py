@@ -124,15 +124,22 @@ class Broadcast(torch.nn.Module):
         self.P_in = P_in
         self.P_out = P_out
 
-        bcast_partitions = P_in.create_broadcast_partition_to(P_out)
-        self.P_bcast_same = bcast_partitions[0]
-        self.P_bcast_send = bcast_partitions[1]
-        self.P_bcast_recv = bcast_partitions[2]
-
         # TODO: #25  Make selection of dtype more sensible.
         self.dtype = np.float32
 
+        if P_in == P_out:
+            self.identity = True
+        else:
+            self.identity = False
+            bcast_partitions = P_in.create_broadcast_partition_to(P_out)
+            self.P_bcast_same = bcast_partitions[0]
+            self.P_bcast_send = bcast_partitions[1]
+            self.P_bcast_recv = bcast_partitions[2]
+
     def forward(self, input):
+
+        if self.identity:
+            return input.clone()
 
         # If we are not sending or receving any data
         if (not self.P_bcast_same.active and
