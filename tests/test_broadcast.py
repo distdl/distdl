@@ -6,36 +6,33 @@ def test_broadcast_parallel_overlap():
     import torch
     from mpi4py import MPI
 
-    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.backends.mpi.newnew_partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.nn.broadcast import BroadcastFunction
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
 
-    if P_world.size > 1:
-        P_in = P_world.create_subpartition([0])
-        P_out = P_world
-    else:
-        P_in = P_world
-        P_out = P_world
+    P_in = P_world.create_partition_inclusive(np.arange(4, 8))
+    PC_in = P_in.create_cartesian_topology_partition([2, 2, 1])
 
-    in_root = 0
+    P_out = P_world.create_partition_inclusive(np.arange(0, 12))
+    PC_out = P_out.create_cartesian_topology_partition([2, 2, 3])
 
-    layer = Broadcast(P_in, P_out, in_root=in_root)
+    layer = Broadcast(PC_in, PC_out)
 
     tensor_sizes = np.array([7, 5])
 
     x = None
     x_clone = None
-    if P_in.active and P_in.rank == in_root:
+    if PC_in.active:
 
         x = torch.Tensor(np.random.randn(*tensor_sizes))
         x_clone = x.clone()
 
     y = None
     y_clone = None
-    if P_out.active:
+    if PC_out.active:
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
@@ -44,8 +41,10 @@ def test_broadcast_parallel_overlap():
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone,
-                                   layer.P_common, layer.P_in, layer.P_out,
-                                   layer.in_root, layer.dtype)
+                                   layer.P_bcast_same,
+                                   layer.P_bcast_send,
+                                   layer.P_bcast_recv,
+                                   layer.dtype)
 
     # Apply A*
     Asy = BroadcastFunction.backward(ctx, y_clone)[0]
@@ -58,7 +57,7 @@ def test_broadcast_parallel_overlap():
     # x and Asy on the root rank, as the input space of the forward
     # operator and the output space of the adjoint operator
     # are only relevant to the root rank
-    if P_in.rank == in_root:
+    if P_in.active:
         # ||x||^2
         local_results[0] = (torch.norm(x)**2).numpy()
         # ||A*@y||^2
@@ -111,33 +110,27 @@ def test_broadcast_parallel_barely_disjoint():
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
-    ranks = np.arange(P_world.size)
 
-    if P_world.size > 1:
-        # This should be a separate test...
-        P_in = P_world.create_subpartition([0])
-        out_ranks = ranks[1:]
-        P_out = P_world.create_subpartition(out_ranks)
-    else:
-        P_in = P_world
-        P_out = P_world
+    P_in = P_world.create_partition_inclusive(np.arange(0, 4))
+    PC_in = P_in.create_cartesian_topology_partition([2, 2, 1])
 
-    in_root = 0
+    P_out = P_world.create_partition_inclusive(np.arange(4, 16))
+    PC_out = P_out.create_cartesian_topology_partition([2, 2, 3])
 
-    layer = Broadcast(P_in, P_out, in_root=in_root)
+    layer = Broadcast(PC_in, PC_out)
 
     tensor_sizes = np.array([7, 5])
 
     x = None
     x_clone = None
-    if P_in.active and P_in.rank == in_root:
+    if PC_in.active:
 
         x = torch.Tensor(np.random.randn(*tensor_sizes))
         x_clone = x.clone()
 
     y = None
     y_clone = None
-    if P_out.active:
+    if PC_out.active:
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
@@ -146,8 +139,10 @@ def test_broadcast_parallel_barely_disjoint():
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone,
-                                   layer.P_common, layer.P_in, layer.P_out,
-                                   layer.in_root, layer.dtype)
+                                   layer.P_bcast_same,
+                                   layer.P_bcast_send,
+                                   layer.P_bcast_recv,
+                                   layer.dtype)
 
     # Apply A*
     Asy = BroadcastFunction.backward(ctx, y_clone)[0]
@@ -160,7 +155,7 @@ def test_broadcast_parallel_barely_disjoint():
     # x and Asy on the root rank, as the input space of the forward
     # operator and the output space of the adjoint operator
     # are only relevant to the root rank
-    if P_in.rank == in_root:
+    if P_in.active:
         # ||x||^2
         local_results[0] = (torch.norm(x)**2).numpy()
         # ||A*@y||^2
@@ -215,33 +210,27 @@ def test_broadcast_parallel_completely_disjoint():
 
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
-    ranks = np.arange(P_world.size)
 
-    if P_world.size > 1:
-        # This should be a separate test...
-        P_in = P_world.create_subpartition([0])
-        out_ranks = ranks[-1:]
-        P_out = P_world.create_subpartition(out_ranks)
-    else:
-        P_in = P_world
-        P_out = P_world
+    P_in = P_world.create_partition_inclusive(np.arange(0, 4))
+    PC_in = P_in.create_cartesian_topology_partition([2, 2, 1])
 
-    in_root = 0
+    P_out = P_world.create_partition_inclusive(np.arange(5, 17))
+    PC_out = P_out.create_cartesian_topology_partition([2, 2, 3])
 
-    layer = Broadcast(P_in, P_out, in_root=in_root)
+    layer = Broadcast(PC_in, PC_out)
 
     tensor_sizes = np.array([7, 5])
 
     x = None
     x_clone = None
-    if P_in.active and P_in.rank == in_root:
+    if PC_in.active:
 
         x = torch.Tensor(np.random.randn(*tensor_sizes))
         x_clone = x.clone()
 
     y = None
     y_clone = None
-    if P_out.active:
+    if PC_out.active:
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
         y_clone = y.clone()
@@ -250,8 +239,10 @@ def test_broadcast_parallel_completely_disjoint():
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x_clone,
-                                   layer.P_common, layer.P_in, layer.P_out,
-                                   layer.in_root, layer.dtype)
+                                   layer.P_bcast_same,
+                                   layer.P_bcast_send,
+                                   layer.P_bcast_recv,
+                                   layer.dtype)
 
     # Apply A*
     Asy = BroadcastFunction.backward(ctx, y_clone)[0]
@@ -264,7 +255,7 @@ def test_broadcast_parallel_completely_disjoint():
     # x and Asy on the root rank, as the input space of the forward
     # operator and the output space of the adjoint operator
     # are only relevant to the root rank
-    if P_in.rank == in_root:
+    if P_in.active:
         # ||x||^2
         local_results[0] = (torch.norm(x)**2).numpy()
         # ||A*@y||^2
@@ -313,7 +304,6 @@ def test_broadcast_sequential():
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
-    from distdl.nn.broadcast import BroadcastFunction
 
     MPI.COMM_WORLD.Barrier()
 
@@ -336,27 +326,30 @@ def test_broadcast_sequential():
 
     # Forward Input
     x = torch.Tensor(np.random.randn(*tensor_sizes))
+    x.requires_grad = True
 
     # Adjoint Input
     y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = BroadcastFunction()
-
     # Apply A
-    Ax = BroadcastFunction.forward(ctx, x,
-                                   layer.P_common, layer.P_in, layer.P_out,
-                                   layer.in_root, layer.dtype)
+    Ax = layer.forward(x)
 
     # Apply A*
-    Asy = BroadcastFunction.backward(ctx, y.clone())[0]
+    Ax.backward(y)
+    Asy = x.grad
 
-    norm_x = np.sqrt((torch.norm(x)**2).numpy())
-    norm_y = np.sqrt((torch.norm(y)**2).numpy())
-    norm_Ax = np.sqrt((torch.norm(Ax)**2).numpy())
-    norm_Asy = np.sqrt((torch.norm(Asy)**2).numpy())
+    x_d = x.detach()
+    y_d = y.detach()
+    Ax_d = Ax.detach()
+    Asy_d = Asy.detach()
 
-    ip1 = np.array([torch.sum(torch.mul(y, Ax))])
-    ip2 = np.array([torch.sum(torch.mul(Asy, x))])
+    norm_x = np.sqrt((torch.norm(x_d)**2).numpy())
+    norm_y = np.sqrt((torch.norm(y_d)**2).numpy())
+    norm_Ax = np.sqrt((torch.norm(Ax_d)**2).numpy())
+    norm_Asy = np.sqrt((torch.norm(Asy_d)**2).numpy())
+
+    ip1 = np.array([torch.sum(torch.mul(y_d, Ax_d))])
+    ip2 = np.array([torch.sum(torch.mul(Asy_d, x_d))])
 
     d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
     print(f"Adjoint test: {ip1/d} {ip2/d}")
