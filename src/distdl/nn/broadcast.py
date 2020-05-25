@@ -61,29 +61,6 @@ class BroadcastFunction(torch.autograd.Function,
 
         MPI.Request.Waitall(requests)
 
-        # # If I am both a source and destination in the same partition, I need
-        # # to share my input with everyone, but also make my own output copy.
-        # if P_bcast_same.active:
-        #     input_numpy = input.detach().numpy()
-        #     req = P_bcast_same.comm.Ibcast(input_numpy, root=0)
-        #     requests.append(req)
-        #     output = input.clone()
-        # # Otherwise, I either only share my data or I recieve my output
-        # else:
-        #     if P_bcast_send.active:
-        #         input_numpy = input.detach().numpy()
-        #         req = P_bcast_send.comm.Ibcast(input_numpy, root=0)
-        #         requests.append(req)
-        #     if P_bcast_recv.active:
-        #         output = np.zeros(tensor_sizes, dtype=dtype)
-        #         req = P_bcast_recv.comm.Ibcast(output, root=0)
-        #         req.Wait()
-        #         output = torch.tensor(output,
-        #                               requires_grad=input_requires_grad)
-
-        # # Ensure that all send requests have cleared.
-        # MPI.Request.Waitall(requests)
-
         return output
 
     @staticmethod
