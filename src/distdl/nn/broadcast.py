@@ -59,7 +59,7 @@ class BroadcastFunction(torch.autograd.Function):
         if P_recv.active:
             output = np.zeros(tensor_sizes, dtype=dtype)
 
-            req = P_bcast_recv.comm.Ibcast(output, root=0)
+            req = P_recv.comm.Ibcast(output, root=0)
             req.Wait()
             output = torch.tensor(output, requires_grad=input_requires_grad)
 
