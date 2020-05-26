@@ -2,195 +2,127 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.nn.exchange_tensor_structure_mixin import exchange_tensor_structure
+from distdl.utilities.torch import NoneTensor
+
 
 class SumReduceFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, P_common, P_in, P_out, out_root, dtype):
+    def forward(ctx, input, P_send, P_recv, dtype):
 
-        # There is no reason to allow users to select the in root.
-        in_root = 0
-
-        ctx.P_common = P_common
-        ctx.P_in = P_in
-        ctx.P_out = P_out
-        ctx.in_root = in_root
-        ctx.out_root = out_root
+        ctx.P_send = P_send
+        ctx.P_recv = P_recv
         ctx.dtype = dtype
 
-        # We need to move data between two potentially disjoint partitions,
-        # so we have to find a common mapping, which requires the common
-        # partition.
-        P_common_to_P_in = P_in.map_from_ancestor(P_common)
-        P_common_to_P_out = P_out.map_from_ancestor(P_common)
+        # Share the input tensor structure so the output can create space for
+        # the data.
+        tensor_structure = exchange_tensor_structure(input, P_send, P_recv)
+        input_requires_grad = tensor_structure[0]
+        tensor_dim = tensor_structure[1]
+        tensor_sizes = tensor_structure[2]
 
-        # Collect at least the send requests so they can resolve out of order.
+        ctx.input_requires_grad = input_requires_grad
+        ctx.tensor_dim = tensor_dim
+        ctx.tensor_sizes = tensor_sizes
+
+        # This allows all ranks to use the same exit path, so that we can be
+        # sure that all requests have cleared.
+        output = NoneTensor()
+
         requests = []
 
-        if P_in.active:
-
+        # By design, the roots are always 0 in the cross-communicators
+        # If I receive data (either from a remote worker or just from myself)
+        # I need to reduce that data.  If I send and receive to myself, this
+        # is OK, as the reduction accounts for the copy, unlike the broadcast
+        # below.
+        if P_send.active:
+            reduced_data = np.zeros(tensor_sizes, dtype=dtype)
             input_numpy = input.detach().numpy()
+            req = P_send.comm.Ireduce(input_numpy, reduced_data, root=0, op=MPI.SUM)
+            requests.append(req)
 
-            tensor_dim = np.array(len(input_numpy.shape), dtype=np.int)
-            tensor_sizes = np.array(input_numpy.shape, dtype=np.int)
+        # If I sent data in the forward, I have to receive it here.  mpi4py
+        # does not allow aliasing of the input, so we have to make a copy of
+        # nothing, unfortunately.
+        if P_send != P_recv and P_recv.active:
+            reduced_data = np.zeros(tensor_sizes, dtype=dtype)
+            req = P_recv.comm.Ireduce(reduced_data.copy(), reduced_data, root=0, op=MPI.SUM)
+            requests.append(req)
 
-            # All input ranks need intermediate storage for the reduction.
-            reduced_data = np.zeros(shape=input_numpy.shape,
-                                    dtype=input_numpy.dtype)
-
-            # So that we don't have to share this information during the
-            # adjoint phase, save it for later.
-            ctx.tensor_sizes = tensor_sizes
-            ctx.input_requires_grad = input.requires_grad
-
-            # The input root has to collect the result of the sum reduction.
-            # It also has to share the tensor size information with the output
-            # root. We share the information first so that the output can
-            # prepare to receive the result of the reduction while the
-            # reduction is happening.
-            if P_in.rank == in_root:
-
-                partner = np.where(P_common_to_P_out == out_root)[0][0]
-
-                # Share the requires_grad status with the output partition
-                req = P_common.comm.isend(input.requires_grad,
-                                          dest=partner, tag=2231)
-                requests.append(req)
-
-                # The output tensors do not know the size or dimension, so we
-                # must share that information first.
-                req = P_common.comm.Isend(tensor_dim, dest=partner, tag=2232)
-                requests.append(req)
-
-                req = P_common.comm.Isend(tensor_sizes, dest=partner, tag=2233)
-                requests.append(req)
-
-                # Now we can perform the sum reduction
-                P_in.comm.Reduce(input_numpy, reduced_data,
-                                 root=in_root, op=MPI.SUM)
-
-                # And we can share the actual data
-                req = P_common.comm.Isend(input_numpy, dest=partner, tag=2234)
-                requests.append(req)
-
-            # The other input ranks only do the reduction
-            else:
-                P_in.comm.Reduce(input_numpy, reduced_data,
-                                 root=in_root, op=MPI.SUM)
-
-        # The root rank on the output partition needs to get the basic
-        # tensor details from the reduction root.
-        if P_out.active and P_out.rank == out_root:
-            partner = np.where(P_common_to_P_in == in_root)[0][0]
-
-            req = P_common.comm.irecv(source=partner, tag=2231)
-            input_requires_grad = req.wait()
-
-            tensor_dim = np.zeros(1, dtype=np.int)
-            req = P_common.comm.Irecv(tensor_dim, source=partner, tag=2232)
-            req.Wait()
-
-            tensor_sizes = np.zeros(tensor_dim, dtype=np.int)
-            req = P_common.comm.Irecv(tensor_sizes, source=partner, tag=2233)
-            req.Wait()
-
-            # Allocate and receive the output tensor
-            output = np.zeros(tensor_sizes, dtype=dtype)
-            req = P_common.comm.Irecv(output, source=partner, tag=2234)
-            req.Wait()
-
-            # Only P_out root has data to return
-            output = torch.tensor(output, requires_grad=input_requires_grad)
-        else:
-            # Everyone else has nothing
-            output = None
-
-        # Ensure that all send requests have cleared.
         MPI.Request.Waitall(requests)
+
+        # If we had to receive data, we need to tensorify it.
+        if P_recv.active:
+            output = torch.tensor(reduced_data, requires_grad=input_requires_grad)
 
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
 
-        P_common = ctx.P_common
-        P_in = ctx.P_in
-        P_out = ctx.P_out
-        in_root = ctx.in_root
-        out_root = ctx.out_root
+        P_send = ctx.P_send
+        P_recv = ctx.P_recv
         dtype = ctx.dtype
-
-        # We need to move data between two potentially disjoint partitions,
-        # so we have to find a common mapping, which requires the common
-        # partition.
-        P_common_to_P_in = P_in.map_from_ancestor(P_common)
-        P_common_to_P_out = P_out.map_from_ancestor(P_common)
-
-        # Collect at least the send requests so they can resolve out of order.
-        requests = []
-
-        # The output partition performs the adjoint of the sum reduction, a
-        # broadcast.  The root rank of the output partition sends data to
-        # the root rank of the input partition, where it can be broadcast to
-        # the rest of the input partition.
-        if P_out.active and P_out.rank == out_root:
-
-            grad_output_numpy = grad_output.detach().numpy()
-
-            partner = np.where(P_common_to_P_in == in_root)[0][0]
-            req = P_common.comm.Isend(grad_output_numpy, dest=partner, tag=2235)
-            requests.append(req)
+        input_requires_grad = ctx.input_requires_grad
+        tensor_sizes = ctx.tensor_sizes
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        grad_input = None
+        grad_input = NoneTensor()
 
-        if P_in.active:
+        requests = []
 
-            tensor_sizes = ctx.tensor_sizes
-            input_requires_grad = ctx.input_requires_grad
+        # If I received the reduction in the forward call, I broadcast my data
+        if P_recv.active:
+            grad_output_numpy = grad_output.detach().numpy()
+            req = P_recv.comm.Ibcast(grad_output_numpy, root=0)
+            requests.append(req)
 
-            grad_input = np.zeros(tensor_sizes, dtype=dtype)
+        # If I just receive, receive the broadcast
+        if P_send.active:
+            # If I both sent and received reduction data, then I copy the "input"
+            if P_send == P_recv:
+                grad_input = grad_output.clone()
+            else:
+                grad_input = np.zeros(tensor_sizes, dtype=dtype)
 
-            # Only the root rank of the input partition receives the data.
-            # Then, it broadcasts it to the rest of the partition.
-            if P_in.rank == in_root:
-
-                partner = np.where(P_common_to_P_out == out_root)[0][0]
-                req = P_common.comm.Irecv(grad_input, source=partner, tag=2235)
+                req = P_send.comm.Ibcast(grad_input, root=0)
                 req.Wait()
+                grad_input = torch.tensor(grad_input,
+                                          requires_grad=input_requires_grad)
 
-            # Everyone can then complete the broadcast
-            P_in.comm.Bcast(grad_input, root=out_root)
-
-            grad_input = torch.tensor(grad_input, requires_grad=input_requires_grad)
-
-        # Ensure all sends have finished.
         MPI.Request.Waitall(requests)
 
-        return grad_input, None, None, None, None, None
+        return grad_input, None, None, None
 
 
 class SumReduce(torch.nn.Module):
 
-    def __init__(self, P_in, P_out, out_root=0):
+    def __init__(self, P_in, P_out):
         super(SumReduce, self).__init__()
 
         self.P_in = P_in
         self.P_out = P_out
 
-        # Find the common partition between the input and output partitions
-        P_common = P_in.common_ancestor(P_out)
-        if P_common is None:
-            raise Exception()
-        self.P_common = P_common
-
-        self.out_root = out_root
-
         # TODO: #25  Make selection of dtype more sensible.
         self.dtype = np.float32
 
+        if P_in == P_out:
+            self.identity = True
+        else:
+            self.identity = False
+            reduce_partitions = P_in.create_reduction_partition_to(P_out)
+            self.P_send = reduce_partitions[0]
+            self.P_recv = reduce_partitions[1]
+
     def forward(self, input):
+
+        if self.identity:
+            return input.clone()
+
         return SumReduceFunction.apply(input,
-                                       self.P_common, self.P_in, self.P_out,
-                                       self.out_root, self.dtype)
+                                       self.P_send,
+                                       self.P_recv,
+                                       self.dtype)
