@@ -2,60 +2,70 @@ import numpy as np
 from mpi4py import MPI
 
 
+# Holy cow this is a touchy function, be very careful if modifying it...
 def exchange_tensor_structure(tensor, P_send, P_recv):
 
-    tensor_requires_grad = None
-    tensor_dim = None
-    tensor_sizes = None
+    if not P_send.active and not P_recv.active:
+        return None, None, None
 
     requests = []
 
+    # Pre-allocate as many communication variables as possible.
+    rg_int = np.array([-10000], dtype=np.int)
+    rg_int_red = np.array([0], dtype=np.int)
+
+    tensor_dim_in = np.zeros(1, np.int)
+    tensor_dim_out = np.zeros(1, np.int)
+
+    # Cannot pre-allocate these.  Many ranks need the former values first.
+    tensor_sizes_in = None
+    tensor_sizes_out = None
+
     if P_send.active:
 
-        tensor_requires_grad = tensor.requires_grad
-        tensor_dim = len(tensor.shape)
-        tensor_sizes = np.array(tensor.shape, dtype=np.int)
-
-        irg_in = np.array([1 if tensor_requires_grad else 0], dtype=np.int)
-        irg = np.array([-1], dtype=np.int)
-        req = P_send.comm.Iallreduce(irg_in.copy(), irg, op=MPI.MAX)
+        # Need to send non-Python types, so convert the boolean temporarily
+        rg_int[0] = 1 if tensor.requires_grad else 0
+        req = P_send.comm.Iallreduce(rg_int, rg_int_red, op=MPI.MAX)
         requests.append(req)
 
-        # The output tensors do not know the size or dimension, so we must
-        # share that information first.
-        tensor_dim_in = np.array(len(tensor_sizes), dtype=np.int)
-        tensor_dim = -1*np.ones(1, dtype=np.int)
-        req = P_send.comm.Iallreduce(tensor_dim_in.copy(), tensor_dim, op=MPI.MAX)
+        # Sending processes know the shape, so they can set the send data, but
+        # should still use null receive data
+        tensor_dim_in[0] = len(tensor.shape)
+        req = P_send.comm.Iallreduce(tensor_dim_in, tensor_dim_out, op=MPI.MAX)
         requests.append(req)
 
-        tensor_sizes_in = tensor_sizes.copy()
-        tensor_sizes = -1*np.ones(tensor_dim, dtype=np.int)
-        req = P_send.comm.Iallreduce(tensor_sizes_in.copy(), tensor_sizes, op=MPI.MAX)
+        # Similarly, sending processes know the tensor shape, but we allocate
+        # space here for symmetry and to ensure that only processes that know
+        # the data try to allocate something.
+        tensor_sizes_in = np.array(tensor.shape, dtype=np.int)
+        tensor_sizes_out = np.zeros(len(tensor.shape), dtype=np.int)
+        req = P_send.comm.Iallreduce(tensor_sizes_in, tensor_sizes_out, op=MPI.MAX)
         requests.append(req)
 
-    if P_send != P_recv and P_recv.active:
-        r_irg_in = -1*np.ones(1, dtype=np.int)
-        r_irg = np.array([-1], dtype=np.int)
-        req = P_recv.comm.Iallreduce(r_irg_in, r_irg, op=MPI.MAX)
-        req.Wait()
-        r_tensor_requires_grad = bool(r_irg[0] == 1)
+    # If the process is a receiving process, but doesn't already know the data
+    # because it is the _same_ sending process, then we receive the results.
+    if (P_send != P_recv) and P_recv.active:
 
-        r_tensor_dim_in = -1*np.ones(1, dtype=np.int)
-        r_tensor_dim = -1*np.ones(1, dtype=np.int)
-        req = P_recv.comm.Iallreduce(r_tensor_dim_in, r_tensor_dim, op=MPI.MAX)
+        # Everyone needs to receive this, but we don't need it for future
+        # communication so we can defer receiving the data.
+        req = P_recv.comm.Iallreduce(rg_int, rg_int_red, op=MPI.MAX)
+        requests.append(req)
+
+        # We need this value for the next communication, so we have to wait
+        # for it to complete before moving on.
+        tensor_dim_in[0] = -1
+        req = P_recv.comm.Iallreduce(tensor_dim_in, tensor_dim_out, op=MPI.MAX)
         req.Wait()
 
-        r_tensor_sizes_in = -1*np.ones(r_tensor_dim, dtype=np.int)
-        r_tensor_sizes = -1*np.ones(r_tensor_dim, dtype=np.int)
-        req = P_recv.comm.Iallreduce(r_tensor_sizes_in, r_tensor_sizes, op=MPI.MAX)
-        req.Wait()
+        tensor_sizes_in = np.zeros(tensor_dim_out, dtype=np.int)-100000
+        tensor_sizes_out = np.zeros(tensor_dim_out, dtype=np.int)
+        req = P_recv.comm.Iallreduce(tensor_sizes_in, tensor_sizes_out, op=MPI.MAX)
+        requests.append(req)
 
     MPI.Request.Waitall(requests)
 
-    # Don't change the send buffers until they are complete!
-    if P_send != P_recv and P_recv.active:
-        tensor_requires_grad = r_tensor_requires_grad
-        tensor_dim = r_tensor_dim
-        tensor_sizes = r_tensor_sizes
+    tensor_requires_grad = bool(rg_int_red[0] == 1)
+    tensor_dim = tensor_dim_out
+    tensor_sizes = tensor_sizes_out
 
     return tensor_requires_grad, tensor_dim, tensor_sizes
