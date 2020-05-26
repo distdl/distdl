@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
-from distdl.nn.exchange_tensor_structure_mixin import exchange_tensor_structure
+from distdl.backends.mpi.exchange_tensor import exchange_tensor_structure
 from distdl.utilities.torch import NoneTensor
 
 
