@@ -102,7 +102,6 @@ class MPIPartition:
 
         P_src = self
 
-        P_same = MPIPartition(MPI.COMM_NULL)
         P_send = MPIPartition(MPI.COMM_NULL)
         P_recv = MPIPartition(MPI.COMM_NULL)
 
@@ -113,7 +112,7 @@ class MPIPartition:
         # If we are not active in one of the two partitions, return null
         # partitions
         if not P_union.active:
-            return P_same, P_send, P_recv
+            return P_send, P_recv
 
         # Find the rank in P_union with rank 0 of P_src
         rank_map_data = np.array([-1], dtype=np.int)
@@ -252,25 +251,18 @@ class MPIPartition:
         has_recv_group = not check_null_group(group_recv)
         same_send_recv_group = check_identical_group(group_send, group_recv)
 
-        # If the send and receive group are the same, we will deadlock making
-        # two communicators (via MPIPartition).  So we only create one.
-        if same_send_recv_group:
-            comm_common = P_union.comm.Create_group(group_send)
-            group_common = comm_common.Get_group()
-            P_same = MPIPartition(comm_common, group_common,
+        if has_send_group:
+            comm_send = P_union.comm.Create_group(group_send)
+            P_send = MPIPartition(comm_send, group_send,
                                   root=P_union.root)
-        # Otherwise, we create separate partitions for sending and receiving
-        else:
-            if has_send_group:
-                comm_send = P_union.comm.Create_group(group_send)
-                P_send = MPIPartition(comm_send, group_send,
-                                      root=P_union.root)
-            if has_recv_group:
-                comm_recv = P_union.comm.Create_group(group_recv)
-                P_recv = MPIPartition(comm_recv, group_recv,
-                                      root=P_union.root)
+        if same_send_recv_group:
+            P_recv = P_send
+        elif has_recv_group:
+            comm_recv = P_union.comm.Create_group(group_recv)
+            P_recv = MPIPartition(comm_recv, group_recv,
+                                  root=P_union.root)
 
-        return P_same, P_send, P_recv
+        return P_send, P_recv
 
     def create_reduction_partition_to(self, P_dest):
 
