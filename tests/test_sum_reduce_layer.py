@@ -1,5 +1,5 @@
 # Tests if root in P_in is also in P_out
-def test_sum_reduce_parallel_overlap():
+def test_sum_reduce_parallel_overlap_layer():
 
     import numpy as np
     import torch
@@ -7,7 +7,6 @@ def test_sum_reduce_parallel_overlap():
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
-    from distdl.nn.sum_reduce import SumReduceFunction
     from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
@@ -21,28 +20,24 @@ def test_sum_reduce_parallel_overlap():
 
     layer = SumReduce(PC_in, PC_out)
 
+    tensor_sizes = np.array([7, 5])
+
     x = NoneTensor()
     if PC_in.active:
-        tensor_sizes = np.array([7, 5])
         x = torch.Tensor(np.random.randn(*tensor_sizes))
     x.requires_grad = True
 
     y = NoneTensor()
     if PC_out.active:
-        tensor_sizes = np.array([7, 5])
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = SumReduceFunction()
-
     # Apply A
-    Ax = SumReduceFunction.forward(ctx, x,
-                                   layer.P_send,
-                                   layer.P_recv,
-                                   layer.dtype)
+    Ax = layer(x)
 
     # Apply A*
-    Asy = SumReduceFunction.backward(ctx, y)[0]
+    Ax.backward(y)
+    Asy = x.grad
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
@@ -98,7 +93,7 @@ def test_sum_reduce_parallel_overlap():
     P_world.comm.Barrier()
 
 # Tests if all ranks have work to do, but root of P_in is not in P_out
-def test_sum_reduce_parallel_barely_disjoint():
+def test_sum_reduce_parallel_barely_disjoint_layer():
 
     import numpy as np
     import torch
@@ -106,7 +101,6 @@ def test_sum_reduce_parallel_barely_disjoint():
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
-    from distdl.nn.sum_reduce import SumReduceFunction
     from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
@@ -132,16 +126,12 @@ def test_sum_reduce_parallel_barely_disjoint():
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = SumReduceFunction()
-
     # Apply A
-    Ax = SumReduceFunction.forward(ctx, x,
-                                   layer.P_send,
-                                   layer.P_recv,
-                                   layer.dtype)
+    Ax = layer(x)
 
     # Apply A*
-    Asy = SumReduceFunction.backward(ctx, y)[0]
+    Ax.backward(y)
+    Asy = x.grad
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
@@ -199,7 +189,7 @@ def test_sum_reduce_parallel_barely_disjoint():
 
 # Tests if there are ranks that do not have any work to do at all but still
 # go through the layer logic.
-def test_sum_reduce_parallel_completely_disjoint():
+def test_sum_reduce_parallel_completely_disjoint_layer():
 
     import numpy as np
     import torch
@@ -207,7 +197,6 @@ def test_sum_reduce_parallel_completely_disjoint():
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
-    from distdl.nn.sum_reduce import SumReduceFunction
     from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
@@ -233,16 +222,12 @@ def test_sum_reduce_parallel_completely_disjoint():
         # Adjoint Input
         y = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    ctx = SumReduceFunction()
-
     # Apply A
-    Ax = SumReduceFunction.forward(ctx, x,
-                                   layer.P_send,
-                                   layer.P_recv,
-                                   layer.dtype)
-    return
+    Ax = layer(x)
+
     # Apply A*
-    Asy = SumReduceFunction.backward(ctx, y)[0]
+    Ax.backward(y)
+    Asy = x.grad
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
@@ -296,3 +281,65 @@ def test_sum_reduce_parallel_completely_disjoint():
 
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
+
+
+def test_sum_reduce_sequential():
+
+    import numpy as np
+    import torch
+    from mpi4py import MPI
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.sum_reduce import SumReduce
+
+    MPI.COMM_WORLD.Barrier()
+
+    # Isolate a single processor to use for this test.
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        color = 0
+        comm = MPI.COMM_WORLD.Split(color)
+    else:
+        color = 1
+        comm = MPI.COMM_WORLD.Split(color)
+
+        MPI.COMM_WORLD.Barrier()
+        return
+
+    P_world = MPIPartition(comm)
+
+    layer = SumReduce(P_world, P_world)
+
+    tensor_sizes = np.array([7, 5])
+
+    # Forward Input
+    x = torch.Tensor(np.random.randn(*tensor_sizes))
+    x.requires_grad = True
+
+    # Adjoint Input
+    y = torch.Tensor(np.random.randn(*tensor_sizes))
+
+    # Apply A
+    Ax = layer.forward(x)
+
+    # Apply A*
+    Ax.backward(y)
+    Asy = x.grad
+
+    x_d = x.detach()
+    y_d = y.detach()
+    Ax_d = Ax.detach()
+    Asy_d = Asy.detach()
+
+    norm_x = np.sqrt((torch.norm(x_d)**2).numpy())
+    norm_y = np.sqrt((torch.norm(y_d)**2).numpy())
+    norm_Ax = np.sqrt((torch.norm(Ax_d)**2).numpy())
+    norm_Asy = np.sqrt((torch.norm(Asy_d)**2).numpy())
+
+    ip1 = np.array([torch.sum(torch.mul(y_d, Ax_d))])
+    ip2 = np.array([torch.sum(torch.mul(Asy_d, x_d))])
+
+    d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
+    print(f"Adjoint test: {ip1/d} {ip2/d}")
+    assert(np.isclose(ip1/d, ip2/d))
+
+    MPI.COMM_WORLD.Barrier()
