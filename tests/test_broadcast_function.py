@@ -37,9 +37,8 @@ def test_broadcast_parallel_overlap():
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x,
-                                   layer.P_bcast_same,
-                                   layer.P_bcast_send,
-                                   layer.P_bcast_recv,
+                                   layer.P_send,
+                                   layer.P_recv,
                                    layer.dtype)
 
     # Apply A*
@@ -138,9 +137,8 @@ def test_broadcast_parallel_barely_disjoint():
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x,
-                                   layer.P_bcast_same,
-                                   layer.P_bcast_send,
-                                   layer.P_bcast_recv,
+                                   layer.P_send,
+                                   layer.P_recv,
                                    layer.dtype)
 
     # Apply A*
@@ -240,9 +238,8 @@ def test_broadcast_parallel_completely_disjoint():
 
     # Apply A
     Ax = BroadcastFunction.forward(ctx, x,
-                                   layer.P_bcast_same,
-                                   layer.P_bcast_send,
-                                   layer.P_bcast_recv,
+                                   layer.P_send,
+                                   layer.P_recv,
                                    layer.dtype)
 
     # Apply A*
