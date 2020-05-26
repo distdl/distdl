@@ -5,7 +5,7 @@ def test_broadcast_parallel_overlap_layer():
     import torch
     from mpi4py import MPI
 
-    from distdl.backends.mpi.newnew_partition import MPIPartition
+    from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.utilities.torch import NoneTensor
 
