@@ -90,7 +90,7 @@ class BroadcastFunction(torch.autograd.Function):
         requests = []
 
         # If I received data (either from a remote worker or just from myself)
-        # I need to reduce that data.  If I I send and receive to myself, this
+        # I need to reduce that data.  If I send and receive to myself, this
         # is OK, as the reduction accounts for the copy, unlike the broadcast
         # above.
         if P_recv.active:
