@@ -113,7 +113,7 @@ class BroadcastFunction(torch.autograd.Function):
         if P_send.active or P_bcast_same.active:
             grad_input = torch.tensor(reduced_data, requires_grad=input_requires_grad)
 
-        return grad_input, None, None, None, None, None
+        return grad_input, None, None, None, None
 
 
 class Broadcast(torch.nn.Module):
