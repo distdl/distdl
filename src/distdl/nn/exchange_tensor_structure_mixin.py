@@ -19,33 +19,39 @@ class _ExchangeTensorStructureMixin:
 
             tensor_requires_grad = tensor.requires_grad
             # mpi4py does not support lowercase ibcast, so we have to hack it
-            irg = np.array([1 if tensor_requires_grad else 0], dtype=np.int)
-            req = P_send.comm.Ibcast(irg, root=0)
+            irg_in = np.array([1 if tensor_requires_grad else 0], dtype=np.int)
+            irg = np.array([-1], dtype=np.int)
+            req = P_send.comm.Iallreduce(irg_in, irg, op=MPI.MAX)
             requests.append(req)
 
             # The output tensors do not know the size or dimension, so we must
             # share that information first.
-            tensor_dim = np.array(len(tensor_numpy.shape), dtype=np.int)
-            req = P_send.comm.Ibcast(tensor_dim, root=0)
+            tensor_dim_in = np.array(len(tensor_numpy.shape), dtype=np.int)
+            tensor_dim = -1*np.ones(1, dtype=np.int)
+            req = P_send.comm.Iallreduce(tensor_dim_in, tensor_dim, op=MPI.MAX)
             requests.append(req)
 
-            tensor_sizes = np.array(tensor_numpy.shape, dtype=np.int)
-            req = P_send.comm.Ibcast(tensor_sizes, root=0)
+            tensor_sizes_in = np.array(tensor_numpy.shape, dtype=np.int)
+            tensor_sizes = -1*np.ones(len(tensor_numpy.shape), dtype=np.int)
+            req = P_send.comm.Iallreduce(tensor_sizes_in, tensor_sizes, op=MPI.MAX)
             requests.append(req)
 
         if P_recv.active:
             # mpi4py does not support lowercase ibcast, so we have to hack it
-            irg = np.zeros(1, dtype=np.int) - 1
-            req = P_recv.comm.Ibcast(irg, root=0)
+            irg_in = -1*np.ones(1, dtype=np.int)
+            irg = np.array([-1], dtype=np.int)
+            req = P_recv.comm.Iallreduce(irg_in, irg, op=MPI.MAX)
             req.Wait()
             tensor_requires_grad = bool(irg[0] == 1)
 
-            tensor_dim = np.zeros(1, dtype=np.int)
-            req = P_recv.comm.Ibcast(tensor_dim, root=0)
+            tensor_dim_in = -1*np.ones(1, dtype=np.int)
+            tensor_dim = -1*np.ones(1, dtype=np.int)
+            req = P_recv.comm.Iallreduce(tensor_dim_in, tensor_dim, op=MPI.MAX)
             req.Wait()
 
-            tensor_sizes = np.zeros(tensor_dim, dtype=np.int)
-            req = P_recv.comm.Ibcast(tensor_sizes, root=0)
+            tensor_sizes_in = -1*np.ones(tensor_dim, dtype=np.int)
+            tensor_sizes = -1*np.ones(tensor_dim, dtype=np.int)
+            req = P_recv.comm.Iallreduce(tensor_sizes_in, tensor_sizes, op=MPI.MAX)
             req.Wait()
 
         MPI.Request.Waitall(requests)
