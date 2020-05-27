@@ -39,8 +39,8 @@ def test_mixin():
     P_size = np.prod(dims)
     use_ranks = ranks[:P_size]
 
-    P = P_world.create_subpartition(use_ranks)
-    P_cart = P.create_cartesian_subpartition(dims)
+    P = P_world.create_partition_inclusive(use_ranks)
+    P_cart = P.create_cartesian_topology_partition(dims)
     rank = P_cart.rank
 
     layer = MockupMaxPoolLayer()
