@@ -8,69 +8,73 @@ def test_transpose_parallel():
     from distdl.nn.transpose import DistributedTranspose
     from distdl.nn.transpose import DistributedTransposeFunction
     from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
-    # Set up MPI communication wrapper
     P_world = MPIPartition(MPI.COMM_WORLD)
-    ranks = np.arange(P_world.size)
-
     P_world.comm.Barrier()
 
     in_dims = (4, 1)
-    out_dims = (2, 2)
-
+    out_dims = (3, 4)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
 
-    # In partition is the first in_size ranks
-    in_ranks = ranks[:in_size]
-    P_in = P_world.create_subpartition(in_ranks)
-    P_in_cart = P_in.create_cartesian_subpartition(in_dims)
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
 
-    # Out partition is the last outsize ranks
-    out_ranks = ranks[-out_size:]
-    P_out = P_world.create_subpartition(out_ranks)
-    P_out_cart = P_out.create_cartesian_subpartition(out_dims)
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
 
-    tensor_sizes = np.array([7, 5])
-    layer = DistributedTranspose(tensor_sizes, P_in_cart, P_out_cart)
+    global_tensor_sizes = np.array([77, 55])
+
+    layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)
 
     # Forward Input
-    if P_in_cart.active:
-        in_subsizes = compute_subsizes(P_in_cart.comm.dims,
-                                       P_in_cart.comm.Get_coords(P_in.rank),
-                                       tensor_sizes)
+    x = NoneTensor()
+    if PC_in.active:
+        in_subsizes = compute_subsizes(PC_in.comm.dims,
+                                       PC_in.comm.Get_coords(P_in.rank),
+                                       global_tensor_sizes)
         x = torch.Tensor(np.random.randn(*in_subsizes))
-        x_clone = x.clone()
-    else:
-        x = None
-        x_clone = None
+    x.requires_grad = True
 
     # Adjoint Input
-    if P_out_cart.active:
-        out_subsizes = compute_subsizes(P_out_cart.comm.dims,
-                                        P_out_cart.comm.Get_coords(P_out.rank),
-                                        tensor_sizes)
+    y = NoneTensor()
+    if PC_out.active:
+        out_subsizes = compute_subsizes(PC_out.comm.dims,
+                                        PC_out.comm.Get_coords(P_out.rank),
+                                        global_tensor_sizes)
         y = torch.Tensor(np.random.randn(*out_subsizes))
-        y_clone = y.clone()
-    else:
-        y = None
-        y_clone = None
 
     ctx = DistributedTransposeFunction()
 
     # Apply A
-    Ax = DistributedTransposeFunction.forward(ctx, x_clone,
-                                              layer.P_common, layer.sizes,
-                                              layer.P_in, layer.in_data, layer.in_buffers,
-                                              layer.P_out, layer.out_data, layer.out_buffers)
+    Ax = DistributedTransposeFunction.forward(ctx, x,
+                                              layer.P_union,
+                                              layer.sizes,
+                                              layer.P_in,
+                                              layer.in_data,
+                                              layer.in_buffers,
+                                              layer.P_out,
+                                              layer.out_data,
+                                              layer.out_buffers,
+                                              layer.dtype)
 
     # Apply A*
-    Asy = DistributedTransposeFunction.backward(ctx, y_clone)[0]
+    Asy = DistributedTransposeFunction.backward(ctx, y)[0]
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
 
-    # Compute all of the local norms and inner products
+    x = x.detach()
+    Asy = Asy.detach()
+    y = y.detach()
+    Ax = Ax.detach()
+
+    # Compute all of the local norms and inner products.
+    # We only perform the inner product calculation between
+    # x and Asy on the root rank, as the input space of the forward
+    # operator and the output space of the adjoint operator
+    # are only relevant to the root rank
     if P_in.active:
         # ||x||^2
         local_results[0] = (torch.norm(x)**2).numpy()
@@ -89,6 +93,7 @@ def test_transpose_parallel():
 
     # Reduce the norms and inner products
     P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+    # assert(0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point
@@ -105,80 +110,10 @@ def test_transpose_parallel():
         print(f"Adjoint test: {ip1/d} {ip2/d}")
         assert(np.isclose(ip1/d, ip2/d))
     else:
-        # Ranks other than 0 always pass
-        pass
+        # All other ranks pass the adjoint test
+        assert(True)
 
-    P_world.comm.Barrier()
-
-
-def test_transpose_sequential():
-
-    import numpy as np
-    import torch
-    from mpi4py import MPI
-
-    from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
-    from distdl.nn.transpose import DistributedTransposeFunction
-    from distdl.utilities.slicing import compute_subsizes
-
-    # Isolate a single processor to use for this test.
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        color = 0
-        comm = MPI.COMM_WORLD.Split(color)
-    else:
-        color = 1
-        comm = MPI.COMM_WORLD.Split(color)
-        return
-
-    P_world = MPIPartition(comm)
-
-    P_world.comm.Barrier()
-
-    in_dims = (1, )
-    out_dims = (1, )
-
-    P_in_cart = P_world.create_cartesian_subpartition(in_dims)
-    P_out_cart = P_world.create_cartesian_subpartition(out_dims)
-
-    tensor_sizes = np.array([7, 5])
-    layer = DistributedTranspose(tensor_sizes, P_in_cart, P_out_cart)
-
-    # Forward Input
-    in_subsizes = compute_subsizes(P_in_cart.comm.dims,
-                                   P_in_cart.comm.Get_coords(P_world.rank),
-                                   tensor_sizes)
-    x = torch.Tensor(np.random.randn(*in_subsizes))
-
-    # Adjoint Input
-    out_subsizes = compute_subsizes(P_out_cart.comm.dims,
-                                    P_out_cart.comm.Get_coords(P_world.rank),
-                                    tensor_sizes)
-    y = torch.Tensor(np.random.randn(*out_subsizes))
-
-    ctx = DistributedTransposeFunction()
-
-    # Apply A
-    Ax = DistributedTransposeFunction.forward(ctx, x.clone(),
-                                              layer.P_common, layer.sizes,
-                                              layer.P_in, layer.in_data, layer.in_buffers,
-                                              layer.P_out, layer.out_data, layer.out_buffers)
-
-    # Apply A*
-    Asy = DistributedTransposeFunction.backward(ctx, y.clone())[0]
-
-    norm_x = np.sqrt((torch.norm(x)**2).numpy())
-    norm_y = np.sqrt((torch.norm(y)**2).numpy())
-    norm_Ax = np.sqrt((torch.norm(Ax)**2).numpy())
-    norm_Asy = np.sqrt((torch.norm(Asy)**2).numpy())
-
-    ip1 = np.array([torch.sum(torch.mul(y, Ax))])
-    ip2 = np.array([torch.sum(torch.mul(Asy, x))])
-
-    d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-    print(f"Adjoint test: {ip1/d} {ip2/d}")
-    assert(np.isclose(ip1/d, ip2/d))
-
+    # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
 
 
@@ -192,69 +127,73 @@ def test_transpose_as_scatter():
     from distdl.nn.transpose import DistributedTranspose
     from distdl.nn.transpose import DistributedTransposeFunction
     from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
-    # Set up MPI communication wrapper
     P_world = MPIPartition(MPI.COMM_WORLD)
-    ranks = np.arange(P_world.size)
-
     P_world.comm.Barrier()
 
-    in_dims = (1, 1)
-    out_dims = (2, 2)
-
+    in_dims = (1,)
+    out_dims = (4, 3)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
 
-    # In partition is the first in_size ranks
-    in_ranks = ranks[:in_size]
-    P_in = P_world.create_subpartition(in_ranks)
-    P_in_cart = P_in.create_cartesian_subpartition(in_dims)
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
 
-    # Out partition is the last outsize ranks
-    out_ranks = ranks[-out_size:]
-    P_out = P_world.create_subpartition(out_ranks)
-    P_out_cart = P_out.create_cartesian_subpartition(out_dims)
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
 
-    tensor_sizes = np.array([7, 5])
-    layer = DistributedTranspose(tensor_sizes, P_in_cart, P_out_cart)
+    global_tensor_sizes = np.array([77, 55])
+
+    layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)
 
     # Forward Input
-    if P_in_cart.active:
-        in_subsizes = compute_subsizes(P_in_cart.comm.dims,
-                                       P_in_cart.comm.Get_coords(P_in.rank),
-                                       tensor_sizes)
+    x = NoneTensor()
+    if PC_in.active:
+        in_subsizes = compute_subsizes(PC_in.comm.dims,
+                                       PC_in.comm.Get_coords(P_in.rank),
+                                       global_tensor_sizes)
         x = torch.Tensor(np.random.randn(*in_subsizes))
-        x_clone = x.clone()
-    else:
-        x = None
-        x_clone = None
+    x.requires_grad = True
 
     # Adjoint Input
-    if P_out_cart.active:
-        out_subsizes = compute_subsizes(P_out_cart.comm.dims,
-                                        P_out_cart.comm.Get_coords(P_out.rank),
-                                        tensor_sizes)
+    y = NoneTensor()
+    if PC_out.active:
+        out_subsizes = compute_subsizes(PC_out.comm.dims,
+                                        PC_out.comm.Get_coords(P_out.rank),
+                                        global_tensor_sizes)
         y = torch.Tensor(np.random.randn(*out_subsizes))
-        y_clone = y.clone()
-    else:
-        y = None
-        y_clone = None
 
     ctx = DistributedTransposeFunction()
 
     # Apply A
-    Ax = DistributedTransposeFunction.forward(ctx, x_clone,
-                                              layer.P_common, layer.sizes,
-                                              layer.P_in, layer.in_data, layer.in_buffers,
-                                              layer.P_out, layer.out_data, layer.out_buffers)
+    Ax = DistributedTransposeFunction.forward(ctx, x,
+                                              layer.P_union,
+                                              layer.sizes,
+                                              layer.P_in,
+                                              layer.in_data,
+                                              layer.in_buffers,
+                                              layer.P_out,
+                                              layer.out_data,
+                                              layer.out_buffers,
+                                              layer.dtype)
 
     # Apply A*
-    Asy = DistributedTransposeFunction.backward(ctx, y_clone)[0]
+    Asy = DistributedTransposeFunction.backward(ctx, y)[0]
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
 
-    # Compute all of the local norms and inner products
+    x = x.detach()
+    Asy = Asy.detach()
+    y = y.detach()
+    Ax = Ax.detach()
+
+    # Compute all of the local norms and inner products.
+    # We only perform the inner product calculation between
+    # x and Asy on the root rank, as the input space of the forward
+    # operator and the output space of the adjoint operator
+    # are only relevant to the root rank
     if P_in.active:
         # ||x||^2
         local_results[0] = (torch.norm(x)**2).numpy()
@@ -273,6 +212,7 @@ def test_transpose_as_scatter():
 
     # Reduce the norms and inner products
     P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+    # assert(0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point
@@ -289,9 +229,10 @@ def test_transpose_as_scatter():
         print(f"Adjoint test: {ip1/d} {ip2/d}")
         assert(np.isclose(ip1/d, ip2/d))
     else:
-        # Ranks other than 0 always pass
-        pass
+        # All other ranks pass the adjoint test
+        assert(True)
 
+    # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
 
 
@@ -305,69 +246,73 @@ def test_transpose_as_gather():
     from distdl.nn.transpose import DistributedTranspose
     from distdl.nn.transpose import DistributedTransposeFunction
     from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
-    # Set up MPI communication wrapper
     P_world = MPIPartition(MPI.COMM_WORLD)
-    ranks = np.arange(P_world.size)
-
     P_world.comm.Barrier()
 
-    in_dims = (2, 2)
-    out_dims = (1, 1)
-
+    in_dims = (3, 4)
+    out_dims = (1,)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
 
-    # In partition is the first in_size ranks
-    in_ranks = ranks[:in_size]
-    P_in = P_world.create_subpartition(in_ranks)
-    P_in_cart = P_in.create_cartesian_subpartition(in_dims)
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
 
-    # Out partition is the last outsize ranks
-    out_ranks = ranks[-out_size:]
-    P_out = P_world.create_subpartition(out_ranks)
-    P_out_cart = P_out.create_cartesian_subpartition(out_dims)
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
 
-    tensor_sizes = np.array([7, 5])
-    layer = DistributedTranspose(tensor_sizes, P_in_cart, P_out_cart)
+    global_tensor_sizes = np.array([77, 55])
+
+    layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)
 
     # Forward Input
-    if P_in_cart.active:
-        in_subsizes = compute_subsizes(P_in_cart.comm.dims,
-                                       P_in_cart.comm.Get_coords(P_in.rank),
-                                       tensor_sizes)
+    x = NoneTensor()
+    if PC_in.active:
+        in_subsizes = compute_subsizes(PC_in.comm.dims,
+                                       PC_in.comm.Get_coords(P_in.rank),
+                                       global_tensor_sizes)
         x = torch.Tensor(np.random.randn(*in_subsizes))
-        x_clone = x.clone()
-    else:
-        x = None
-        x_clone = None
+    x.requires_grad = True
 
     # Adjoint Input
-    if P_out_cart.active:
-        out_subsizes = compute_subsizes(P_out_cart.comm.dims,
-                                        P_out_cart.comm.Get_coords(P_out.rank),
-                                        tensor_sizes)
+    y = NoneTensor()
+    if PC_out.active:
+        out_subsizes = compute_subsizes(PC_out.comm.dims,
+                                        PC_out.comm.Get_coords(P_out.rank),
+                                        global_tensor_sizes)
         y = torch.Tensor(np.random.randn(*out_subsizes))
-        y_clone = y.clone()
-    else:
-        y = None
-        y_clone = None
 
     ctx = DistributedTransposeFunction()
 
     # Apply A
-    Ax = DistributedTransposeFunction.forward(ctx, x_clone,
-                                              layer.P_common, layer.sizes,
-                                              layer.P_in, layer.in_data, layer.in_buffers,
-                                              layer.P_out, layer.out_data, layer.out_buffers)
+    Ax = DistributedTransposeFunction.forward(ctx, x,
+                                              layer.P_union,
+                                              layer.sizes,
+                                              layer.P_in,
+                                              layer.in_data,
+                                              layer.in_buffers,
+                                              layer.P_out,
+                                              layer.out_data,
+                                              layer.out_buffers,
+                                              layer.dtype)
 
     # Apply A*
-    Asy = DistributedTransposeFunction.backward(ctx, y_clone)[0]
+    Asy = DistributedTransposeFunction.backward(ctx, y)[0]
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
 
-    # Compute all of the local norms and inner products
+    x = x.detach()
+    Asy = Asy.detach()
+    y = y.detach()
+    Ax = Ax.detach()
+
+    # Compute all of the local norms and inner products.
+    # We only perform the inner product calculation between
+    # x and Asy on the root rank, as the input space of the forward
+    # operator and the output space of the adjoint operator
+    # are only relevant to the root rank
     if P_in.active:
         # ||x||^2
         local_results[0] = (torch.norm(x)**2).numpy()
@@ -386,6 +331,7 @@ def test_transpose_as_gather():
 
     # Reduce the norms and inner products
     P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+    # assert(0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point
@@ -402,7 +348,8 @@ def test_transpose_as_gather():
         print(f"Adjoint test: {ip1/d} {ip2/d}")
         assert(np.isclose(ip1/d, ip2/d))
     else:
-        # Ranks other than 0 always pass
-        pass
+        # All other ranks pass the adjoint test
+        assert(True)
 
+    # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
