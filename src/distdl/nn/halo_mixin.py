@@ -22,11 +22,31 @@ class HaloMixin:
         rank = cartesian_parition.rank
         coords = cartesian_parition.cartesian_coordinates(rank)
 
-        x_in_sizes = np.asarray(x_in_sizes)
-        kernel_sizes = np.asarray(kernel_sizes)
-        strides = np.asarray(strides)
-        pads = np.asarray(pads)
-        dilations = np.asarray(dilations)
+        x_in_sizes = np.atleast_1d(x_in_sizes)
+        kernel_sizes = np.atleast_1d(kernel_sizes)
+        strides = np.atleast_1d(strides)
+        pads = np.atleast_1d(pads)
+        dilations = np.atleast_1d(dilations)
+
+        def compute_lpad_length(array):
+            return len(x_in_sizes) - len(array)
+
+        kernel_sizes = np.pad(kernel_sizes,
+                              pad_width=(compute_lpad_length(kernel_sizes), 0),
+                              mode='constant',
+                              constant_values=1)
+        strides = np.pad(strides,
+                         pad_width=(compute_lpad_length(strides), 0),
+                         mode='constant',
+                         constant_values=1)
+        pads = np.pad(pads,
+                      pad_width=(compute_lpad_length(pads), 0),
+                      mode='constant',
+                      constant_values=0)
+        dilations = np.pad(dilations,
+                           pad_width=(compute_lpad_length(dilations), 0),
+                           mode='constant',
+                           constant_values=1)
 
         halo_sizes = self._compute_halo_sizes(dims,
                                               coords,
@@ -151,3 +171,14 @@ class HaloMixin:
             x_in_right_ghost = np.maximum(x_in_right_ghost, 0)
 
         return np.hstack([x_in_left_ghost, x_in_right_ghost]).reshape(2, -1).T
+
+    def _compute_local_x_in_sizes(self, x_in_sizes, cartesian_parition):
+        coords = cartesian_parition.cartesian_coordinates(cartesian_parition.rank)
+        local_x_in_sizes = compute_subsizes(cartesian_parition.dims,
+                                            coords,
+                                            x_in_sizes)
+        return local_x_in_sizes
+
+    def _compute_local_x_in_sizes_padded(self, x_in_sizes, cartesian_parition, halo_sizes):
+        local_x_in_sizes = self._compute_local_x_in_sizes(x_in_sizes, cartesian_parition)
+        return [x + lpad + rpad for x, (lpad, rpad) in zip(local_x_in_sizes, halo_sizes)]
