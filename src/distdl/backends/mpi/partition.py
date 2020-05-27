@@ -7,7 +7,8 @@ from distdl.backends.mpi.compare import check_null_comm
 from distdl.backends.mpi.compare import check_null_group
 from distdl.backends.mpi.compare import check_null_rank
 from distdl.utilities.debug import print_sequential
-from distdl.utilities.index_tricks import cartesian_index
+from distdl.utilities.index_tricks import cartesian_index_c
+from distdl.utilities.index_tricks import cartesian_index_f
 
 
 class MPIPartition:
@@ -98,7 +99,9 @@ class MPIPartition:
             comm = MPI.COMM_NULL
             return MPIPartition(comm, self.group, root=self.root)
 
-    def create_broadcast_partition_to(self, P_dest):
+    def create_broadcast_partition_to(self, P_dest,
+                                      transpose_src=False,
+                                      transpose_dest=False):
 
         P_src = self
 
@@ -152,7 +155,10 @@ class MPIPartition:
         # ones to make a valid comparison.
         src_dims = np.ones(dest_dim, dtype=np.int)
         if P_src.active and P_src.rank == 0:
-            src_dims[-src_dim[0]:] = P_src.dims
+            if transpose_src:
+                src_dims[:src_dim[0]] = P_src.dims
+            else:
+                src_dims[-src_dim[0]:] = P_src.dims
         P_union.comm.Bcast(src_dims, root=src_root)
 
         # Share the dest partition dimensions with everyone
@@ -160,6 +166,12 @@ class MPIPartition:
         if P_dest.active and P_dest.rank == 0:
             dest_dims = P_dest.dims
         P_union.comm.Bcast(dest_dims, root=dest_root)
+
+        if transpose_src:
+            src_dims = src_dims[::-1]
+
+        if transpose_dest:
+            dest_dims = dest_dims[::-1]
 
         # Find any location that the dimensions differ and where the source
         # dimension is not 1 where they differ.  If there are any such
@@ -179,9 +191,16 @@ class MPIPartition:
         src_index = -1
         if P_src.active:
             coords_src = np.ones_like(src_dims)
-            coords_src[-src_dim[0]:] = P_src.cartesian_coordinates(P_src.rank)
-            src_index = cartesian_index(src_dims[match_loc],
-                                        coords_src[match_loc])
+            c = P_src.cartesian_coordinates(P_src.rank)
+            if transpose_src:
+                coords_src[:src_dim[0]] = c
+                coords_src = coords_src[::-1]
+                src_index = cartesian_index_f(src_dims[match_loc],
+                                              coords_src[match_loc])
+            else:
+                coords_src[-src_dim[0]:] = c
+                src_index = cartesian_index_c(src_dims[match_loc],
+                                              coords_src[match_loc])
 
         # Compute the Cartesian index of the destination rank, in the matching
         # dimensions only.  This index will match the index in the source we
@@ -189,8 +208,13 @@ class MPIPartition:
         dest_index = -1
         if P_dest.active:
             coords_dest = P_dest.cartesian_coordinates(P_dest.rank)
-            dest_index = cartesian_index(dest_dims[match_loc],
-                                         coords_dest[match_loc])
+            if transpose_dest:
+                coords_dest = coords_dest[::-1]
+                dest_index = cartesian_index_f(dest_dims[match_loc],
+                                               coords_dest[match_loc])
+            else:
+                dest_index = cartesian_index_c(dest_dims[match_loc],
+                                               coords_dest[match_loc])
 
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source "index" and the second contains
@@ -264,7 +288,9 @@ class MPIPartition:
 
         return P_send, P_recv
 
-    def create_reduction_partition_to(self, P_dest):
+    def create_reduction_partition_to(self, P_dest,
+                                      transpose_src=False,
+                                      transpose_dest=False):
 
         P_src = self
 
@@ -324,8 +350,17 @@ class MPIPartition:
         # ones to make a valid comparison.
         dest_dims = np.ones(src_dim, dtype=np.int)
         if P_dest.active and P_dest.rank == 0:
-            dest_dims[-dest_dim[0]:] = P_dest.dims
+            if transpose_dest:
+                dest_dims[:dest_dim[0]] = P_dest.dims
+            else:
+                dest_dims[-dest_dim[0]:] = P_dest.dims
         P_union.comm.Bcast(dest_dims, root=dest_root)
+
+        if transpose_src:
+            src_dims = src_dims[::-1]
+
+        if transpose_dest:
+            dest_dims = dest_dims[::-1]
 
         # Find any location that the dimensions differ and where the dest
         # dimension is not 1 where they differ.  If there are any such
@@ -345,8 +380,13 @@ class MPIPartition:
         src_index = -1
         if P_src.active:
             coords_src = P_src.cartesian_coordinates(P_src.rank)
-            src_index = cartesian_index(src_dims[match_loc],
-                                        coords_src[match_loc])
+            if transpose_src:
+                coords_src = coords_src[::-1]
+                src_index = cartesian_index_f(src_dims[match_loc],
+                                              coords_src[match_loc])
+            else:
+                src_index = cartesian_index_c(src_dims[match_loc],
+                                              coords_src[match_loc])
 
         # Compute the Cartesian index of the destination rank, in the matching
         # dimensions only.  This index will match the index in the source we
@@ -354,9 +394,16 @@ class MPIPartition:
         dest_index = -1
         if P_dest.active:
             coords_dest = np.ones_like(dest_dims)
-            coords_dest[-dest_dim[0]:] = P_dest.cartesian_coordinates(P_dest.rank)
-            dest_index = cartesian_index(dest_dims[match_loc],
-                                         coords_dest[match_loc])
+            c = P_dest.cartesian_coordinates(P_dest.rank)
+            if transpose_dest:
+                coords_dest[:dest_dim[0]] = c
+                coords_dest = coords_dest[::-1]
+                dest_index = cartesian_index_f(dest_dims[match_loc],
+                                               coords_dest[match_loc])
+            else:
+                coords_dest[-dest_dim[0]:] = c
+                dest_index = cartesian_index_c(dest_dims[match_loc],
+                                               coords_dest[match_loc])
 
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source "index" and the second contains
