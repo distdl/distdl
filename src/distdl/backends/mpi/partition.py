@@ -190,7 +190,7 @@ class MPIPartition:
         # the destination that we are broadcasting along.
         src_index = -1
         if P_src.active:
-            coords_src = np.ones_like(src_dims)
+            coords_src = np.zeros_like(src_dims)
             c = P_src.cartesian_coordinates(P_src.rank)
             if transpose_src:
                 coords_src[:src_dim[0]] = c
@@ -393,7 +393,7 @@ class MPIPartition:
         # receive the broadcast from.
         dest_index = -1
         if P_dest.active:
-            coords_dest = np.ones_like(dest_dims)
+            coords_dest = np.zeros_like(dest_dims)
             c = P_dest.cartesian_coordinates(P_dest.rank)
             if transpose_dest:
                 coords_dest[:dest_dim[0]] = c
