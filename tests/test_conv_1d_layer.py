@@ -22,14 +22,14 @@ def test_conv_1d_no_bias_parallel():
     x = NoneTensor()
     if P_cart.active:
         input_tensor_sizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), global_tensor_sizes)
-        x = torch.tensor(np.random.randn(*input_tensor_sizes))
+        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
     Ax = layer(x)
 
     y = NoneTensor()
     if P_cart.active:
-        y = torch.tensor(np.random.randn(*Ax.shape))
+        y = torch.Tensor(np.random.randn(*Ax.shape))
     y.requires_grad = True
 
     Ax.backward(y)
@@ -118,7 +118,7 @@ def test_conv_1d_bias_only_parallel():
 
     y = NoneTensor()
     if P_cart.active:
-        y = torch.tensor(np.random.randn(*Ax.shape))
+        y = torch.Tensor(np.random.randn(*Ax.shape))
     y.requires_grad = True
 
     Ax.backward(y)
