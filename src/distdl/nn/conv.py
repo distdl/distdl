@@ -42,11 +42,13 @@ class ConvMixin:
         return bases + kernel_offsets
 
 
-class DistributedConv1d(torch.nn.Module, HaloMixin, ConvMixin):
+class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
+
+    TorchConvType = None
 
     def __init__(self, x_in_sizes, P_cart, *args, **kwargs):
 
-        super(DistributedConv1d, self).__init__()
+        super(DistributedConvBase, self).__init__()
 
         self.x_in_sizes = x_in_sizes
         self.P_cart = P_cart
@@ -56,7 +58,7 @@ class DistributedConv1d(torch.nn.Module, HaloMixin, ConvMixin):
 
         # Do this before checking serial so that the layer works properly
         # in the serial case
-        self.conv_layer = torch.nn.Conv1d(*args, **kwargs)
+        self.conv_layer = self.TorchConvType(*args, **kwargs)
 
         self.serial = False
         if self.P_cart.size == 1:
@@ -147,3 +149,13 @@ class DistributedConv1d(torch.nn.Module, HaloMixin, ConvMixin):
         input_exchanged = self.halo_layer(input_padded)
         input_needed = input_exchanged[self.needed_slices]
         return self.conv_layer(input_needed)
+
+
+class DistributedConv1d(DistributedConvBase):
+
+    TorchConvType = torch.nn.Conv1d
+
+
+class DistributedConv2d(DistributedConvBase):
+
+    TorchConvType = torch.nn.Conv2d
