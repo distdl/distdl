@@ -15,21 +15,26 @@ def test_conv_2d_no_bias_parallel():
     P = P_world.create_partition_inclusive(np.arange(4))
     P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
 
-    global_tensor_sizes = np.array([1, 1, 10, 10])
+    global_tensor_sizes = np.array([1, 5, 10, 10])
 
-    layer = DistributedConv2d(global_tensor_sizes, P_cart, in_channels=1, out_channels=1, kernel_size=[3, 3], bias=False)
+    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
+                              kernel_size=[3, 3], bias=False)
 
     x = NoneTensor()
     if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), global_tensor_sizes)
-        x = torch.tensor(np.random.randn(*input_tensor_sizes))
+        input_tensor_sizes = compute_subsizes(P_cart.dims,
+                                              P_cart.coords,
+                                              global_tensor_sizes)
+        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
     Ax = layer(x)
 
     y = NoneTensor()
     if P_cart.active:
-        y = torch.tensor(np.random.randn(*Ax.shape))
+        y = torch.Tensor(np.random.randn(*Ax.shape))
     y.requires_grad = True
 
     Ax.backward(y)
@@ -83,6 +88,49 @@ def test_conv_2d_no_bias_parallel():
         # All other ranks pass the adjoint test
         assert(True)
 
+    local_results = np.zeros(6, dtype=np.float64)
+    global_results = np.zeros(6, dtype=np.float64)
+
+    if P_cart.active:
+
+        W = layer.weight.detach()
+        dW = layer.weight.grad.detach()
+
+        # ||W||^2
+        local_results[0] = (torch.norm(W)**2).numpy()
+        # ||A*@y = dW||^2
+        local_results[3] = (torch.norm(dW)**2).numpy()
+        # <W, dW>
+        local_results[5] = np.array([torch.sum(torch.mul(dW, W))])
+
+        # ||y||^2
+        local_results[1] = (torch.norm(y)**2).numpy()
+        # ||A@x||^2
+        local_results[2] = (torch.norm(Ax)**2).numpy()
+        # <A@x, y>
+        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
+
+    # Reduce the norms and inner products
+    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+
+    # Because this is being computed in parallel, we risk that these norms
+    # and inner products are not exactly equal, because the floating point
+    # arithmetic is not commutative.  The only way to fix this is to collect
+    # the results to a single rank to do the test.
+    if(P_world.rank == 0):
+        # Correct the norms from distributed calculation
+        global_results[:4] = np.sqrt(global_results[:4])
+
+        # Unpack the values
+        norm_W, norm_y, norm_dW, norm_Asy, ip1, ip2 = global_results
+
+        d = np.max([norm_dW*norm_y, norm_Asy*norm_W])
+        print(f"Adjoint test: {ip1/d} {ip2/d}")
+        assert(np.isclose(ip1/d, ip2/d))
+    else:
+        # All other ranks pass the adjoint test
+        assert(True)
+
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
 
@@ -104,21 +152,26 @@ def test_conv_2d_bias_only_parallel():
     P = P_world.create_partition_inclusive(np.arange(4))
     P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
 
-    global_tensor_sizes = np.array([1, 1, 10, 10])
+    global_tensor_sizes = np.array([1, 5, 10, 10])
 
-    layer = DistributedConv2d(global_tensor_sizes, P_cart, in_channels=1, out_channels=1, kernel_size=[3, 3], bias=True)
+    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
+                              kernel_size=[3, 3], bias=True)
 
     x = NoneTensor()
     if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), global_tensor_sizes)
-        x = torch.zeros(*input_tensor_sizes).double()
+        input_tensor_sizes = compute_subsizes(P_cart.dims,
+                                              P_cart.coords,
+                                              global_tensor_sizes)
+        x = torch.zeros(*input_tensor_sizes)
     x.requires_grad = True
 
     Ax = layer(x)
 
     y = NoneTensor()
     if P_cart.active:
-        y = torch.tensor(np.random.randn(*Ax.shape))
+        y = torch.Tensor(np.random.randn(*Ax.shape))
     y.requires_grad = True
 
     Ax.backward(y)
@@ -131,8 +184,8 @@ def test_conv_2d_bias_only_parallel():
 
     if P_cart.active:
 
-        b = layer.conv_layer.bias.detach()
-        db = layer.conv_layer.bias.grad.detach()
+        b = layer.bias.detach()
+        db = layer.bias.grad.detach()
 
         # ||b||^2
         local_results[0] = (torch.norm(b)**2).numpy()
