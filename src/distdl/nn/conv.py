@@ -159,3 +159,8 @@ class DistributedConv1d(DistributedConvBase):
 class DistributedConv2d(DistributedConvBase):
 
     TorchConvType = torch.nn.Conv2d
+
+
+class DistributedConv3d(DistributedConvBase):
+
+    TorchConvType = torch.nn.Conv3d
