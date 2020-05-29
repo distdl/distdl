@@ -15,10 +15,11 @@ def test_conv_1d_no_bias_parallel():
     P = P_world.create_partition_inclusive(np.arange(3))
     P_cart = P.create_cartesian_topology_partition([1, 1, 3])
 
-    global_tensor_sizes = np.array([1, 1, 10])
+    global_tensor_sizes = np.array([1, 5, 10])
 
     layer = DistributedConv1d(global_tensor_sizes, P_cart,
-                              in_channels=1, out_channels=1,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
                               kernel_size=[3], bias=False)
 
     x = NoneTensor()
@@ -108,10 +109,11 @@ def test_conv_1d_bias_only_parallel():
     P = P_world.create_partition_inclusive(np.arange(3))
     P_cart = P.create_cartesian_topology_partition([1, 1, 3])
 
-    global_tensor_sizes = np.array([1, 1, 10])
+    global_tensor_sizes = np.array([1, 5, 10])
 
     layer = DistributedConv1d(global_tensor_sizes, P_cart,
-                              in_channels=1, out_channels=1,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
                               kernel_size=[3], bias=True)
 
     x = NoneTensor()
