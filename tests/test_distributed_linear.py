@@ -6,6 +6,7 @@ def test_distributed_linear_no_bias_parallel():
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.distributed_linear import DistributedLinear
+    from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
@@ -20,20 +21,24 @@ def test_distributed_linear_no_bias_parallel():
     P_y = P_world.create_partition_inclusive(np.arange(0, 3))
     PC_y = P_y.create_cartesian_topology_partition([1, 3])
 
-    x_sizes = np.array([1, 3])
-    y_sizes = np.array([1, 2])
+    x_global_sizes = np.array([1, 12])
+    y_global_sizes = np.array([1, 6])
 
-    layer = DistributedLinear(PC_x, x_sizes, PC_y, y_sizes, PC_mul, bias=False)
+    layer = DistributedLinear(PC_x, x_global_sizes,
+                              PC_y, y_global_sizes,
+                              PC_mul, bias=False)
 
     x = NoneTensor()
     if PC_x.active:
-        x = torch.Tensor(np.random.randn(*x_sizes))
+        x_local_subsizes = compute_subsizes(PC_x.dims, PC_x.coords, x_global_sizes)
+        x = torch.Tensor(np.random.randn(*x_local_subsizes))
     x.requires_grad = True
 
     y = NoneTensor()
     if PC_y.active:
         # Adjoint Input
-        y = torch.Tensor(np.random.randn(*y_sizes))
+        y_local_subsizes = compute_subsizes(PC_y.dims, PC_y.coords, y_global_sizes)
+        y = torch.Tensor(np.random.randn(*y_local_subsizes))
 
     # Apply A
     Ax = layer(x)
@@ -147,6 +152,7 @@ def test_distributed_linear_bias_only_parallel():
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.distributed_linear import DistributedLinear
+    from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
     P_world = MPIPartition(MPI.COMM_WORLD)
@@ -161,10 +167,12 @@ def test_distributed_linear_bias_only_parallel():
     P_y = P_world.create_partition_inclusive(np.arange(0, 3))
     PC_y = P_y.create_cartesian_topology_partition([1, 3])
 
-    x_sizes = np.array([1, 3])
-    y_sizes = np.array([1, 2])
+    x_global_sizes = np.array([1, 12])
+    y_global_sizes = np.array([1, 6])
 
-    layer = DistributedLinear(PC_x, x_sizes, PC_y, y_sizes, PC_mul, bias=True)
+    layer = DistributedLinear(PC_x, x_global_sizes,
+                              PC_y, y_global_sizes,
+                              PC_mul, bias=True)
 
     x = NoneTensor()
     if PC_x.active:
@@ -173,13 +181,15 @@ def test_distributed_linear_bias_only_parallel():
         # Jacobian of the linear layer.  The Jacobian block for b is 0 for x
         # and W, so killing x makes the forward operator equal to its Jacobian
         # and we can test to see that adjoint is computed correctly.
-        x = torch.Tensor(np.zeros(x_sizes))
+        x_local_subsizes = compute_subsizes(PC_x.dims, PC_x.coords, x_global_sizes)
+        x = torch.Tensor(np.zeros(x_local_subsizes))
     x.requires_grad = True
 
     y = NoneTensor()
     if PC_y.active:
         # Adjoint Input
-        y = torch.Tensor(np.random.randn(*y_sizes))
+        y_local_subsizes = compute_subsizes(PC_y.dims, PC_y.coords, y_global_sizes)
+        y = torch.Tensor(np.random.randn(*y_local_subsizes))
 
     # Apply A
     Ax = layer(x)

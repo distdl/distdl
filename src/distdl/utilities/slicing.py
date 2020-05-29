@@ -7,7 +7,9 @@ MIN_INT = np.iinfo(INDEX_DTYPE).min
 
 def compute_subsizes(dims, coords, sizes):
 
-    sizes = np.asarray(sizes)
+    dims = np.atleast_1d(dims)
+    coords = np.atleast_1d(coords)
+    sizes = np.atleast_1d(sizes)
     subsizes = sizes // dims
     subsizes[coords < sizes % dims] += 1
 
@@ -16,7 +18,9 @@ def compute_subsizes(dims, coords, sizes):
 
 def compute_starts(dims, coords, sizes):
 
-    sizes = np.asarray(sizes)
+    dims = np.atleast_1d(dims)
+    coords = np.atleast_1d(coords)
+    sizes = np.atleast_1d(sizes)
     starts = (sizes // dims)*coords
     starts += np.minimum(coords, sizes % dims)
 
