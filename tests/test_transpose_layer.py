@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_transpose_parallel_layer():
 
     import numpy as np
@@ -120,7 +123,7 @@ def test_transpose_as_scatter_layer():
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
 
-    in_dims = (1,)
+    in_dims = (1, 1)
     out_dims = (4, 3)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -229,7 +232,7 @@ def test_transpose_as_gather_layer():
     P_world.comm.Barrier()
 
     in_dims = (3, 4)
-    out_dims = (1,)
+    out_dims = (1, 1)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
 
@@ -345,8 +348,8 @@ def test_transpose_sequential_layer():
 
     P_world = MPIPartition(comm)
 
-    in_dims = (1, )
-    out_dims = (1, )
+    in_dims = (1, 1)
+    out_dims = (1, 1)
     PC_in = P_world.create_cartesian_topology_partition(in_dims)
     PC_out = P_world.create_cartesian_topology_partition(out_dims)
 
@@ -383,5 +386,181 @@ def test_transpose_sequential_layer():
     d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
     print(f"Adjoint test: {ip1/d} {ip2/d}")
     assert(np.isclose(ip1/d, ip2/d))
+
+    MPI.COMM_WORLD.Barrier()
+
+
+def test_transpose_layer_mismatched_partitions():
+
+    import numpy as np
+    from mpi4py import MPI
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.transpose import DistributedTranspose
+
+    MPI.COMM_WORLD.Barrier()
+
+    # Isolate a single processor to use for this test.
+    if MPI.COMM_WORLD.Get_rank() < 4:
+        color = 0
+        comm = MPI.COMM_WORLD.Split(color)
+    else:
+        color = 1
+        comm = MPI.COMM_WORLD.Split(color)
+
+        MPI.COMM_WORLD.Barrier()
+        return
+
+    P_world = MPIPartition(comm)
+    P_world.comm.Barrier()
+
+    in_dims = (1, 4, 1, 1)
+    out_dims = (1, 2)
+
+    in_size = np.prod(in_dims)
+    out_size = np.prod(out_dims)
+
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
+
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
+
+    global_tensor_sizes = np.array([1, 16, 5, 5])
+
+    with pytest.raises(ValueError) as e_info:  # noqa: F841
+        layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)  # noqa: F841
+
+    MPI.COMM_WORLD.Barrier()
+
+
+def test_transpose_layer_mismatched_input_dims():
+
+    import numpy as np
+    from mpi4py import MPI
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.transpose import DistributedTranspose
+
+    MPI.COMM_WORLD.Barrier()
+
+    # Isolate a single processor to use for this test.
+    if MPI.COMM_WORLD.Get_rank() < 4:
+        color = 0
+        comm = MPI.COMM_WORLD.Split(color)
+    else:
+        color = 1
+        comm = MPI.COMM_WORLD.Split(color)
+
+        MPI.COMM_WORLD.Barrier()
+        return
+
+    P_world = MPIPartition(comm)
+    P_world.comm.Barrier()
+
+    in_dims = (1, 4, 1, 1)
+    out_dims = (1, 1, 1, 2)
+
+    in_size = np.prod(in_dims)
+    out_size = np.prod(out_dims)
+
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
+
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
+
+    global_tensor_sizes = np.array([16, 5, 5])
+
+    with pytest.raises(ValueError) as e_info:  # noqa: F841
+        layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)  # noqa: F841
+
+    MPI.COMM_WORLD.Barrier()
+
+
+def test_transpose_layer_mismatched_output_dims():
+
+    import numpy as np
+    from mpi4py import MPI
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.transpose import DistributedTranspose
+
+    MPI.COMM_WORLD.Barrier()
+
+    # Isolate a single processor to use for this test.
+    if MPI.COMM_WORLD.Get_rank() < 4:
+        color = 0
+        comm = MPI.COMM_WORLD.Split(color)
+    else:
+        color = 1
+        comm = MPI.COMM_WORLD.Split(color)
+
+        MPI.COMM_WORLD.Barrier()
+        return
+
+    P_world = MPIPartition(comm)
+    P_world.comm.Barrier()
+
+    in_dims = (4, 1, 1)
+    out_dims = (1, 1, 1, 2)
+
+    in_size = np.prod(in_dims)
+    out_size = np.prod(out_dims)
+
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
+
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
+
+    global_tensor_sizes = np.array([16, 5, 5])
+
+    with pytest.raises(ValueError) as e_info:  # noqa: F841
+        layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)  # noqa: F841
+
+    MPI.COMM_WORLD.Barrier()
+
+
+def test_transpose_layer_1_in_tensor_size():
+
+    import numpy as np
+    from mpi4py import MPI
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.transpose import DistributedTranspose
+
+    MPI.COMM_WORLD.Barrier()
+
+    # Isolate a single processor to use for this test.
+    if MPI.COMM_WORLD.Get_rank() < 4:
+        color = 0
+        comm = MPI.COMM_WORLD.Split(color)
+    else:
+        color = 1
+        comm = MPI.COMM_WORLD.Split(color)
+
+        MPI.COMM_WORLD.Barrier()
+        return
+
+    P_world = MPIPartition(comm)
+    P_world.comm.Barrier()
+
+    in_dims = (1, 4, 1, 1)
+    out_dims = (1, 1, 1, 2)
+
+    in_size = np.prod(in_dims)
+    out_size = np.prod(out_dims)
+
+    P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
+    PC_in = P_in.create_cartesian_topology_partition(in_dims)
+
+    P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+    PC_out = P_out.create_cartesian_topology_partition(out_dims)
+
+    global_tensor_sizes = np.array([1, 16, 5, 1])
+
+    with pytest.raises(ValueError) as e_info:  # noqa: F841
+        layer = DistributedTranspose(global_tensor_sizes, PC_in, PC_out)  # noqa: F841
 
     MPI.COMM_WORLD.Barrier()

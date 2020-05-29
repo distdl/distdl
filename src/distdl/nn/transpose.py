@@ -13,12 +13,12 @@ from distdl.utilities.torch import NoneTensor
 class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, P_union, sizes,
+    def forward(ctx, input, P_union, global_tensor_sizes,
                 P_in, in_data, in_buffers,
                 P_out, out_data, out_buffers, dtype):
 
         ctx.P_union = P_union
-        ctx.sizes = sizes
+        ctx.global_tensor_sizes = global_tensor_sizes
 
         ctx.P_in = P_in
         ctx.in_data = in_data
@@ -81,7 +81,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # allocations.
         if P_out.active:
             coords = P_out.cartesian_coordinates(P_out.rank)
-            out_sizes = compute_subsizes(P_out.comm.dims, coords, sizes)
+            out_sizes = compute_subsizes(P_out.comm.dims, coords, global_tensor_sizes)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             output = np.zeros(out_sizes, dtype=dtype)
@@ -114,7 +114,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
 
         P_union = ctx.P_union
-        sizes = ctx.sizes
+        global_tensor_sizes = ctx.global_tensor_sizes
 
         P_in = ctx.P_in
         in_data = ctx.in_data
@@ -163,7 +163,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         if P_in.active:
             coords = P_in.cartesian_coordinates(P_in.rank)
-            in_sizes = compute_subsizes(P_in.comm.dims, coords, sizes)
+            in_sizes = compute_subsizes(P_in.comm.dims, coords, global_tensor_sizes)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             grad_input = np.zeros(in_sizes, dtype=dtype)
@@ -197,10 +197,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
 class DistributedTranspose(torch.nn.Module):
 
-    def __init__(self, sizes, P_in, P_out):
+    def __init__(self, global_tensor_sizes, P_in, P_out):
         super(DistributedTranspose, self).__init__()
 
-        self.sizes = sizes
+        self.global_tensor_sizes = global_tensor_sizes
         self.P_in = P_in
         self.P_out = P_out
 
@@ -283,6 +283,24 @@ class DistributedTranspose(torch.nn.Module):
         self.P_union.comm.Allgather(local_indices, union_indices)
         union_indices.shape = (-1, 2)
 
+        tensor_dim = global_tensor_sizes.shape
+
+        if in_dim != out_dim:
+            raise ValueError("Input and output partition must be same dimension.")
+
+        if in_dim != tensor_dim:
+            raise ValueError(f"Input partition mush have same dimension "
+                             f"({in_dim}) as input tensor rank ({tensor_dim}).")
+
+        if out_dim != tensor_dim:
+            raise ValueError(f"Output partition mush have same dimension "
+                             f"({out_dim}) as input tensor rank ({tensor_dim}).")
+
+        if 1 in global_tensor_sizes[global_tensor_sizes != out_dims]:
+            raise ValueError(f"Input tensor must not be size 1 "
+                             f"({global_tensor_sizes}) in a dimension where "
+                             f"output partition is other than 1 ({out_dims}).")
+
         # We only need to move data to the output partition if we actually
         # have input data.  It is possible to have both input and output data,
         # either input or output data, or neither.  Hence the active guard.
@@ -293,7 +311,7 @@ class DistributedTranspose(torch.nn.Module):
             for rank, out_coords in enumerate(range_coords(out_dims)):
                 sl = compute_partition_intersection(in_dims, in_coords,
                                                     out_dims, out_coords,
-                                                    sizes)
+                                                    global_tensor_sizes)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the output partner's rank in
@@ -312,7 +330,7 @@ class DistributedTranspose(torch.nn.Module):
             for rank, in_coords in enumerate(range_coords(in_dims)):
                 sl = compute_partition_intersection(out_dims, out_coords,
                                                     in_dims, in_coords,
-                                                    sizes)
+                                                    global_tensor_sizes)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the input partner's rank in
@@ -353,7 +371,7 @@ class DistributedTranspose(torch.nn.Module):
 
         return DistributedTransposeFunction.apply(input,
                                                   self.P_union,
-                                                  self.sizes,
+                                                  self.global_tensor_sizes,
                                                   self.P_in,
                                                   self.in_data,
                                                   self.in_buffers,

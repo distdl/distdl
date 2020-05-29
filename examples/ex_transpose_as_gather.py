@@ -15,7 +15,7 @@ P_world = MPIPartition(MPI.COMM_WORLD)
 P_world.comm.Barrier()
 
 in_dims = (2, 2)
-out_dims = (1, )
+out_dims = (1, 1)
 in_size = np.prod(in_dims)
 out_size = np.prod(out_dims)
 
