@@ -83,6 +83,9 @@ class DistributedConv1d(torch.nn.Module, HaloMixin, ConvMixin):
 
         self.weight.requires_grad = self.conv_layer.weight.requires_grad
 
+        if self.conv_layer.bias is not None:
+            self.bias.requires_grad = self.conv_layer.bias.requires_grad
+
         # https://discuss.pytorch.org/t/assign-parameters-to-nn-module-and-have-grad-fn-track-it/62677/2
         new_weight = self.conv_layer.weight.detach() * 0
         new_weight.requires_grad = self.conv_layer.weight.requires_grad

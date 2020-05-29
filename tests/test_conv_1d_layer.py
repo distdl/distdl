@@ -17,11 +17,15 @@ def test_conv_1d_no_bias_parallel():
 
     global_tensor_sizes = np.array([1, 1, 10])
 
-    layer = DistributedConv1d(global_tensor_sizes, P_cart, in_channels=1, out_channels=1, kernel_size=[3], bias=False)
+    layer = DistributedConv1d(global_tensor_sizes, P_cart,
+                              in_channels=1, out_channels=1,
+                              kernel_size=[3], bias=False)
 
     x = NoneTensor()
     if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), global_tensor_sizes)
+        input_tensor_sizes = compute_subsizes(P_cart.dims,
+                                              P_cart.coords,
+                                              global_tensor_sizes)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -106,12 +110,16 @@ def test_conv_1d_bias_only_parallel():
 
     global_tensor_sizes = np.array([1, 1, 10])
 
-    layer = DistributedConv1d(global_tensor_sizes, P_cart, in_channels=1, out_channels=1, kernel_size=[3], bias=True)
+    layer = DistributedConv1d(global_tensor_sizes, P_cart,
+                              in_channels=1, out_channels=1,
+                              kernel_size=[3], bias=True)
 
     x = NoneTensor()
     if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), global_tensor_sizes)
-        x = torch.zeros(*input_tensor_sizes).double()
+        input_tensor_sizes = compute_subsizes(P_cart.dims,
+                                              P_cart.coords,
+                                              global_tensor_sizes)
+        x = torch.zeros(*input_tensor_sizes)
     x.requires_grad = True
 
     Ax = layer(x)
@@ -131,8 +139,8 @@ def test_conv_1d_bias_only_parallel():
 
     if P_cart.active:
 
-        b = layer.conv_layer.bias.detach()
-        db = layer.conv_layer.bias.grad.detach()
+        b = layer.bias.detach()
+        db = layer.bias.grad.detach()
 
         # ||b||^2
         local_results[0] = (torch.norm(b)**2).numpy()
