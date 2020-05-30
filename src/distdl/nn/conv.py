@@ -1,9 +1,11 @@
+import numpy as np
 import torch
 
 from distdl.nn.broadcast import Broadcast
 from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.halo_mixin import HaloMixin
 from distdl.nn.padnd import PadNd
+from distdl.nn.unpadnd import UnPadNd
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.torch import NoneTensor
 
@@ -113,9 +115,18 @@ class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
         self.halo_sizes = self.halo_sizes.astype(int)
         self.needed_ranges = self.needed_ranges.astype(int)
 
+        # Unpad sizes are padding in the dimensions where we have a halo,
+        # otherwise 0
+        self.pads = np.concatenate(([0, 0], self.conv_layer.padding))
+        self.unpad_sizes = []
+        for pad, halo_size in zip(self.pads, self.halo_sizes):
+            self.unpad_sizes.append(np.where(halo_size > 0, pad, 0))
+        self.unpad_sizes = np.asarray(self.unpad_sizes)
+
         self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
 
         self.pad_layer = PadNd(self.halo_sizes, value=0, partition=self.P_cart)
+        self.unpad_layer = UnPadNd(self.unpad_sizes, value=0, partition=self.P_cart)
 
         self.local_x_in_sizes_padded = self._compute_local_x_in_sizes_padded(self.x_in_sizes,
                                                                              self.P_cart,
@@ -136,19 +147,17 @@ class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             return self.conv_layer(input)
 
         w = self.broadcast_layer(self.weight)
-        # self.P_cart.print_sequential(f'{self.P_cart.rank}, {self.weight}')
-        # w.requires_grad = self.conv_layer.weight.requires_grad
         self.conv_layer.weight = w
 
         if self.conv_layer.bias is not None:
             b = self.broadcast_layer(self.bias)
-            # b.requires_grad = self.conv_layer.bias.requires_grad
             self.conv_layer.bias = b
 
         input_padded = self.pad_layer(input)
         input_exchanged = self.halo_layer(input_padded)
         input_needed = input_exchanged[self.needed_slices]
-        return self.conv_layer(input_needed)
+        conv_output = self.conv_layer(input_needed)
+        return self.unpad_layer(conv_output)
 
 
 class DistributedConv1d(DistributedConvBase):
