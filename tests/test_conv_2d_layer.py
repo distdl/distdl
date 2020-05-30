@@ -223,3 +223,69 @@ def test_conv_2d_bias_only_parallel():
 
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
+
+
+def test_conv_2d_sizes():
+
+    import numpy as np
+    import torch
+    from mpi4py import MPI
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.conv import DistributedConv2d
+    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
+
+    P_world = MPIPartition(MPI.COMM_WORLD)
+    P_world.comm.Barrier()
+
+    P = P_world.create_partition_inclusive(np.arange(4))
+    P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
+
+    global_tensor_sizes = np.array([1, 5, 10, 10])
+
+    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
+                              kernel_size=[3, 3],
+                              padding=(1, 1),
+                              bias=False)
+
+    x = NoneTensor()
+    if P_cart.active:
+        input_tensor_sizes = compute_subsizes(P_cart.dims,
+                                              P_cart.coords,
+                                              global_tensor_sizes)
+        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+    x.requires_grad = True
+
+    Ax = layer(x)
+
+    if P_cart.active:
+        assert(np.array_equal(np.array(Ax.shape), np.array([1, 10, 5, 5])))
+    else:
+        assert(True)
+
+    global_tensor_sizes = np.array([1, 5, 10, 10])
+
+    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
+                              kernel_size=[3, 3],
+                              padding=(0, 0),
+                              bias=False)
+
+    x = NoneTensor()
+    if P_cart.active:
+        input_tensor_sizes = compute_subsizes(P_cart.dims,
+                                              P_cart.coords,
+                                              global_tensor_sizes)
+        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+    x.requires_grad = True
+
+    Ax = layer(x)
+
+    if P_cart.active:
+        assert(np.array_equal(np.array(Ax.shape), np.array([1, 10, 4, 4])))
+    else:
+        assert(True)
