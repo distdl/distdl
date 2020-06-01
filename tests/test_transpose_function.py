@@ -50,7 +50,7 @@ def test_transpose_parallel():
     # Apply A
     Ax = DistributedTransposeFunction.forward(ctx, x,
                                               layer.P_union,
-                                              layer.sizes,
+                                              layer.global_tensor_sizes,
                                               layer.P_in,
                                               layer.in_data,
                                               layer.in_buffers,
@@ -132,7 +132,7 @@ def test_transpose_as_scatter():
     P_world = MPIPartition(MPI.COMM_WORLD)
     P_world.comm.Barrier()
 
-    in_dims = (1,)
+    in_dims = (1, 1)
     out_dims = (4, 3)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -169,7 +169,7 @@ def test_transpose_as_scatter():
     # Apply A
     Ax = DistributedTransposeFunction.forward(ctx, x,
                                               layer.P_union,
-                                              layer.sizes,
+                                              layer.global_tensor_sizes,
                                               layer.P_in,
                                               layer.in_data,
                                               layer.in_buffers,
@@ -252,7 +252,7 @@ def test_transpose_as_gather():
     P_world.comm.Barrier()
 
     in_dims = (3, 4)
-    out_dims = (1,)
+    out_dims = (1, 1)
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
 
@@ -288,7 +288,7 @@ def test_transpose_as_gather():
     # Apply A
     Ax = DistributedTransposeFunction.forward(ctx, x,
                                               layer.P_union,
-                                              layer.sizes,
+                                              layer.global_tensor_sizes,
                                               layer.P_in,
                                               layer.in_data,
                                               layer.in_buffers,
