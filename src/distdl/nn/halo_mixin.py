@@ -12,15 +12,14 @@ class HaloMixin:
                                strides,
                                pads,
                                dilations,
-                               cartesian_parition):
+                               partition_active,
+                               partition_dims,
+                               partition_coords):
 
-        if not cartesian_parition.active:
+        if not partition_active:
             return None, None, None, None
 
-        dim = cartesian_parition.dim
-        dims = cartesian_parition.dims
-        rank = cartesian_parition.rank
-        coords = cartesian_parition.cartesian_coordinates(rank)
+        dim = len(partition_dims)
 
         x_in_sizes = np.atleast_1d(x_in_sizes)
         kernel_sizes = np.atleast_1d(kernel_sizes)
@@ -48,8 +47,8 @@ class HaloMixin:
                            mode='constant',
                            constant_values=1)
 
-        halo_sizes = self._compute_halo_sizes(dims,
-                                              coords,
+        halo_sizes = self._compute_halo_sizes(partition_dims,
+                                              partition_coords,
                                               x_in_sizes,
                                               kernel_sizes,
                                               strides,
@@ -61,8 +60,8 @@ class HaloMixin:
         send_buffer_sizes = np.zeros_like(halo_sizes)
 
         for i in range(dim):
-            lcoords = [x - 1 if j == i else x for j, x in enumerate(coords)]
-            nhalo = self._compute_halo_sizes(dims,
+            lcoords = [x - 1 if j == i else x for j, x in enumerate(partition_coords)]
+            nhalo = self._compute_halo_sizes(partition_dims,
                                              lcoords,
                                              x_in_sizes,
                                              kernel_sizes,
@@ -74,8 +73,8 @@ class HaloMixin:
             if(lcoords[i] > -1):
                 send_buffer_sizes[i, 0] = nhalo[i, 1]
 
-            rcoords = [x + 1 if j == i else x for j, x in enumerate(coords)]
-            nhalo = self._compute_halo_sizes(dims,
+            rcoords = [x + 1 if j == i else x for j, x in enumerate(partition_coords)]
+            nhalo = self._compute_halo_sizes(partition_dims,
                                              rcoords,
                                              x_in_sizes,
                                              kernel_sizes,
@@ -84,12 +83,12 @@ class HaloMixin:
                                              dilations)
             # If I have a right neighbor, my right send buffer size is my right
             # neighbor's left halo size
-            if(rcoords[i] < dims[i]):
+            if(rcoords[i] < partition_dims[i]):
                 send_buffer_sizes[i, 1] = nhalo[i, 0]
 
-        x_in_subsizes = compute_subsizes(dims, coords, x_in_sizes)
-        halo_sizes_with_negatives = self._compute_halo_sizes(dims,
-                                                             coords,
+        x_in_subsizes = compute_subsizes(partition_dims, partition_coords, x_in_sizes)
+        halo_sizes_with_negatives = self._compute_halo_sizes(partition_dims,
+                                                             partition_coords,
                                                              x_in_sizes,
                                                              kernel_sizes,
                                                              strides,

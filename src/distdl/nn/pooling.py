@@ -49,7 +49,9 @@ class DistributedAvgPool1d(torch.nn.Module, HaloMixin, PoolingMixin):
                                         self.pool_layer.stride,
                                         self.pool_layer.padding,
                                         [1],  # torch pooling layers have no dilation
-                                        self.P_cart)
+                                        self.P_cart.active,
+                                        self.P_cart.dims,
+                                        self.P_cart.coords)
 
         self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
 
@@ -97,7 +99,9 @@ class DistributedAvgPool2d(torch.nn.Module, HaloMixin, PoolingMixin):
                                         self.pool_layer.stride,
                                         self.pool_layer.padding,
                                         [1, 1],  # torch pooling layers have no dilation
-                                        self.P_cart)
+                                        self.P_cart.active,
+                                        self.P_cart.dims,
+                                        self.P_cart.coords)
 
         self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
 
@@ -145,7 +149,9 @@ class DistributedMaxPool1d(torch.nn.Module, HaloMixin, PoolingMixin):
                                         self.pool_layer.stride,
                                         self.pool_layer.padding,
                                         [1],  # torch pooling layers have no dilation
-                                        self.P_cart)
+                                        self.P_cart.active,
+                                        self.P_cart.dims,
+                                        self.P_cart.coords)
 
         self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
 
@@ -193,7 +199,9 @@ class DistributedMaxPool2d(torch.nn.Module, HaloMixin, PoolingMixin):
                                         self.pool_layer.stride,
                                         self.pool_layer.padding,
                                         [1, 1],  # torch pooling layers have no dilation
-                                        self.P_cart)
+                                        self.P_cart.active,
+                                        self.P_cart.dims,
+                                        self.P_cart.coords)
 
         self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
 

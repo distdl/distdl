@@ -110,7 +110,9 @@ class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
                                         self.conv_layer.stride,
                                         self.conv_layer.padding,
                                         self.conv_layer.dilation,
-                                        self.P_cart)
+                                        self.P_cart.active,
+                                        self.P_cart.dims,
+                                        self.P_cart.coords)
 
         self.halo_sizes = self.halo_sizes.astype(int)
         self.needed_ranges = self.needed_ranges.astype(int)
