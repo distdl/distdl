@@ -278,16 +278,42 @@ class MPIPartition:
         has_recv_group = not check_null_group(group_recv)
         same_send_recv_group = check_identical_group(group_send, group_recv)
 
-        if has_send_group:
-            comm_send = P_union.comm.Create_group(group_send)
+        # Brute force the four cases, don't try to be elegant...
+        if has_send_group and has_recv_group and not same_send_recv_group:
+
+            # If we have to both send and receive, it is possible to deadlock
+            # if we try to create all send groups first.  Instead, we have to
+            # create them starting from whichever has the smallest root rank,
+            # first.  This way, we should be able to guarantee that deadlock
+            # cannot happen.  It may be linear time, but this is part of the
+            # setup phase anyway.
+            if recv_ranks[0] < send_ranks[0]:
+                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+                P_recv = MPIPartition(comm_recv, group_recv,
+                                      root=P_union.root)
+                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+                P_send = MPIPartition(comm_send, group_send,
+                                      root=P_union.root)
+            else:
+                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+                P_send = MPIPartition(comm_send, group_send,
+                                      root=P_union.root)
+                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+                P_recv = MPIPartition(comm_recv, group_recv,
+                                      root=P_union.root)
+        elif has_send_group and not has_recv_group and not same_send_recv_group:
+            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
             P_send = MPIPartition(comm_send, group_send,
                                   root=P_union.root)
-        if same_send_recv_group:
-            P_recv = P_send
-        elif has_recv_group:
-            comm_recv = P_union.comm.Create_group(group_recv)
+        elif not has_send_group and has_recv_group and not same_send_recv_group:
+            comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
             P_recv = MPIPartition(comm_recv, group_recv,
                                   root=P_union.root)
+        else:  # if has_send_group and has_recv_group and same_send_recv_group
+            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+            P_send = MPIPartition(comm_send, group_send,
+                                  root=P_union.root)
+            P_recv = P_send
 
         return P_send, P_recv
 
@@ -469,16 +495,42 @@ class MPIPartition:
         has_recv_group = not check_null_group(group_recv)
         same_send_recv_group = check_identical_group(group_send, group_recv)
 
-        if has_send_group:
-            comm_send = P_union.comm.Create_group(group_send)
+        # Brute force the four cases, don't try to be elegant...
+        if has_send_group and has_recv_group and not same_send_recv_group:
+
+            # If we have to both send and receive, it is possible to deadlock
+            # if we try to create all send groups first.  Instead, we have to
+            # create them starting from whichever has the smallest root rank,
+            # first.  This way, we should be able to guarantee that deadlock
+            # cannot happen.  It may be linear time, but this is part of the
+            # setup phase anyway.
+            if recv_ranks[0] < send_ranks[0]:
+                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+                P_recv = MPIPartition(comm_recv, group_recv,
+                                      root=P_union.root)
+                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+                P_send = MPIPartition(comm_send, group_send,
+                                      root=P_union.root)
+            else:
+                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+                P_send = MPIPartition(comm_send, group_send,
+                                      root=P_union.root)
+                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+                P_recv = MPIPartition(comm_recv, group_recv,
+                                      root=P_union.root)
+        elif has_send_group and not has_recv_group and not same_send_recv_group:
+            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
             P_send = MPIPartition(comm_send, group_send,
                                   root=P_union.root)
-        if same_send_recv_group:
-            P_recv = P_send
-        elif has_recv_group:
-            comm_recv = P_union.comm.Create_group(group_recv)
+        elif not has_send_group and has_recv_group and not same_send_recv_group:
+            comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
             P_recv = MPIPartition(comm_recv, group_recv,
                                   root=P_union.root)
+        else:  # if has_send_group and has_recv_group and same_send_recv_group
+            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+            P_send = MPIPartition(comm_send, group_send,
+                                  root=P_union.root)
+            P_recv = P_send
 
         return P_send, P_recv
 
