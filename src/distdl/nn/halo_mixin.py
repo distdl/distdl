@@ -172,13 +172,8 @@ class HaloMixin:
 
         return np.hstack([x_in_left_ghost, x_in_right_ghost]).reshape(2, -1).T
 
-    def _compute_local_x_in_sizes(self, x_in_sizes, cartesian_parition):
-        coords = cartesian_parition.cartesian_coordinates(cartesian_parition.rank)
-        local_x_in_sizes = compute_subsizes(cartesian_parition.dims,
-                                            coords,
+    def _compute_local_x_in_sizes_padded(self, x_in_sizes, partition_dims, partition_coords, halo_sizes):
+        local_x_in_sizes = compute_subsizes(partition_dims,
+                                            partition_coords,
                                             x_in_sizes)
-        return local_x_in_sizes
-
-    def _compute_local_x_in_sizes_padded(self, x_in_sizes, cartesian_parition, halo_sizes):
-        local_x_in_sizes = self._compute_local_x_in_sizes(x_in_sizes, cartesian_parition)
         return [x + lpad + rpad for x, (lpad, rpad) in zip(local_x_in_sizes, halo_sizes)]
