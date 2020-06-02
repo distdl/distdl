@@ -143,94 +143,101 @@ def test_conv_2d_no_bias_parallel():
     P_world.comm.Barrier()
 
 
-# def test_conv_2d_bias_only_parallel():
+def test_conv_2d_bias_only_parallel():
 
-#     import numpy as np
-#     import torch
-#     from mpi4py import MPI
+    import numpy as np
+    import torch
+    from mpi4py import MPI
 
-#     from distdl.backends.mpi.partition import MPIPartition
-#     from distdl.nn.conv import DistributedConv2d
-#     from distdl.utilities.slicing import compute_subsizes
-#     from distdl.utilities.torch import NoneTensor
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.general_conv import DistributedGeneralConv2d
+    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
-#     P_world = MPIPartition(MPI.COMM_WORLD)
-#     P_world.comm.Barrier()
+    P_world = MPIPartition(MPI.COMM_WORLD)
+    P_world.comm.Barrier()
 
-#     P = P_world.create_partition_inclusive(np.arange(4))
-#     P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
+    P_6 = P_world.create_partition_inclusive(np.arange(0, 6))
+    P_x = P_6.create_cartesian_topology_partition([1, 1, 2, 3])
 
-#     global_tensor_sizes = np.array([1, 5, 10, 10])
+    P_12 = P_world.create_partition_inclusive(np.arange(4, 16))
+    P_y = P_12.create_cartesian_topology_partition([1, 2, 2, 3])
+    P_w = P_12.create_cartesian_topology_partition([2, 1, 2, 3])
 
-#     layer = DistributedConv2d(global_tensor_sizes, P_cart,
-#                               in_channels=global_tensor_sizes[1],
-#                               out_channels=10,
-#                               kernel_size=[3, 3], bias=True)
+    global_tensor_sizes = np.array([1, 5, 10, 10])
 
-#     x = NoneTensor()
-#     if P_cart.active:
-#         input_tensor_sizes = compute_subsizes(P_cart.dims,
-#                                               P_cart.coords,
-#                                               global_tensor_sizes)
-#         x = torch.zeros(*input_tensor_sizes)
-#     x.requires_grad = True
+    layer = DistributedGeneralConv2d(global_tensor_sizes,
+                                     P_x, P_y, P_w,
+                                     in_channels=global_tensor_sizes[1],
+                                     out_channels=10,
+                                     kernel_size=[3, 3], bias=True)
 
-#     Ax = layer(x)
+    x = NoneTensor()
+    if P_x.active:
+        input_tensor_sizes = compute_subsizes(P_x.dims,
+                                              P_x.coords,
+                                              global_tensor_sizes)
+        x = torch.zeros(*input_tensor_sizes)
+    x.requires_grad = True
 
-#     y = NoneTensor()
-#     if P_cart.active:
-#         y = torch.Tensor(np.random.randn(*Ax.shape))
-#     y.requires_grad = True
+    Ax = layer(x)
 
-#     Ax.backward(y)
+    y = NoneTensor()
+    if P_y.active:
+        y = torch.Tensor(np.random.randn(*Ax.shape))
+    y.requires_grad = True
 
-#     y = y.detach()
-#     Ax = Ax.detach()
+    Ax.backward(y)
 
-#     local_results = np.zeros(6, dtype=np.float64)
-#     global_results = np.zeros(6, dtype=np.float64)
+    y = y.detach()
+    Ax = Ax.detach()
 
-#     if P_cart.active:
+    local_results = np.zeros(6, dtype=np.float64)
+    global_results = np.zeros(6, dtype=np.float64)
 
-#         b = layer.bias.detach()
-#         db = layer.bias.grad.detach()
+    if P_w.active and layer.stores_bias:
 
-#         # ||b||^2
-#         local_results[0] = (torch.norm(b)**2).numpy()
-#         # ||y||^2
-#         local_results[1] = (torch.norm(y)**2).numpy()
-#         # ||A@x||^2
-#         local_results[2] = (torch.norm(Ax)**2).numpy()
-#         # ||A*@y = db||^2
-#         local_results[3] = (torch.norm(db)**2).numpy()
-#         # <A@x, y>
-#         local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-#         # <b, db>
-#         local_results[5] = np.array([torch.sum(torch.mul(db, b))])
+        b = layer._bias.detach()
+        db = layer._bias.grad.detach()
 
-#     # Reduce the norms and inner products
-#     P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+        # ||b||^2
+        local_results[0] = (torch.norm(b)**2).numpy()
+        # ||A*@y = db||^2
+        local_results[3] = (torch.norm(db)**2).numpy()
+        # <b, db>
+        local_results[5] = np.array([torch.sum(torch.mul(db, b))])
 
-#     # Because this is being computed in parallel, we risk that these norms
-#     # and inner products are not exactly equal, because the floating point
-#     # arithmetic is not commutative.  The only way to fix this is to collect
-#     # the results to a single rank to do the test.
-#     if(P_world.rank == 0):
-#         # Correct the norms from distributed calculation
-#         global_results[:4] = np.sqrt(global_results[:4])
+    if P_y.active:
+        # ||y||^2
+        local_results[1] = (torch.norm(y)**2).numpy()
+        # ||A@x||^2
+        local_results[2] = (torch.norm(Ax)**2).numpy()
+        # <A@x, y>
+        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
 
-#         # Unpack the values
-#         norm_b, norm_y, norm_db, norm_Asy, ip1, ip2 = global_results
+    # Reduce the norms and inner products
+    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
 
-#         d = np.max([norm_db*norm_y, norm_Asy*norm_b])
-#         print(f"Adjoint test: {ip1/d} {ip2/d}")
-#         assert(np.isclose(ip1/d, ip2/d))
-#     else:
-#         # All other ranks pass the adjoint test
-#         assert(True)
+    # Because this is being computed in parallel, we risk that these norms
+    # and inner products are not exactly equal, because the floating point
+    # arithmetic is not commutative.  The only way to fix this is to collect
+    # the results to a single rank to do the test.
+    if(P_world.rank == 0):
+        # Correct the norms from distributed calculation
+        global_results[:4] = np.sqrt(global_results[:4])
 
-#     # Barrier fence to ensure all enclosed MPI calls resolve.
-#     P_world.comm.Barrier()
+        # Unpack the values
+        norm_b, norm_y, norm_db, norm_Asy, ip1, ip2 = global_results
+
+        d = np.max([norm_db*norm_y, norm_Asy*norm_b])
+        print(f"Adjoint test: {ip1/d} {ip2/d}")
+        assert(np.isclose(ip1/d, ip2/d))
+    else:
+        # All other ranks pass the adjoint test
+        assert(True)
+
+    # Barrier fence to ensure all enclosed MPI calls resolve.
+    P_world.comm.Barrier()
 
 
 # def test_conv_2d_sizes():
