@@ -38,6 +38,9 @@ class MPIPartition:
             self.rank = MPI.PROC_NULL
             self.size = -1
 
+        self.dims = [1]
+        self.coords = self.rank
+
     def __eq__(self, other):
 
         # MPI_COMM_NULL is not a valid argument to MPI_Comm_compare, per the
