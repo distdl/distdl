@@ -32,12 +32,6 @@ def exchange_tensor_structure(tensor, P_send, P_recv):
         req = P_send.comm.Iallreduce(MPI.IN_PLACE, tensor_sizes_send, op=MPI.MAX)
         requests.append(req)
 
-        # This is safe to do before the requests complete, none of these are
-        # part of the communcation structure
-        tensor_requires_grad = tensor.requires_grad
-        tensor_dim = len(tensor.shape)
-        tensor_sizes = np.array(tensor.shape, dtype=np.int)
-
     # If the process is a receiving process, but doesn't already know the data
     # because it is the _same_ sending process, then we receive the results.
     # If it is a receiving process that sent data to a different set of
@@ -69,10 +63,18 @@ def exchange_tensor_structure(tensor, P_send, P_recv):
 
     # Wait until the communication is complete to set these values.  Only
     # receiving ranks that do not have the data originally should enter here.
-    if P_recv.active and not P_send.active:
+    if P_recv.active and (P_send != P_recv):
         tensor_requires_grad = bool(rg_int_recv[0] == 1)
         tensor_dim = tensor_dim_recv[0]
         tensor_sizes = tensor_sizes_recv
+    elif P_send == P_recv:
+        tensor_requires_grad = tensor.requires_grad
+        tensor_dim = len(tensor.shape)
+        tensor_sizes = np.array(tensor.shape, dtype=np.int)
+    else:
+        tensor_requires_grad = None
+        tensor_dim = None
+        tensor_sizes = None
 
     # Finally, everyone should have valid data.  Any sending rank created it
     # from input data.  Any receving _only_ rank used what it was given.
