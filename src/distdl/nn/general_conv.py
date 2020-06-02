@@ -51,7 +51,9 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
 
     TorchConvType = None
 
-    def __init__(self, x_in_sizes, P_x, P_y, P_w, *args, **kwargs):
+    def __init__(self, x_in_sizes, P_x, P_y, P_w,
+                 bias=True,
+                 *args, **kwargs):
 
         super(DistributedGeneralConvBase, self).__init__()
 
@@ -131,52 +133,79 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             self.conv_layer = self.TorchConvType(*args, **kwargs)
             return
 
+        self.receives_weight = False
+        self.stores_weight = False
+        self.receives_bias = False
+        self.stores_bias = False
+
         # Determine P_r, initialize weights there
         if self.P_w.active:
+            # All of P_w always receives the weight
+            self.receives_weight = True
+
             # This subset is taken to be the origin of the spartial component
             w_root_subset = []
             for i, c in enumerate(range_coords(P_w.dims)):
                 c = np.asarray(c)
+                # Find the P_co x P_ci x 1 x ... x 1 subset to store the weights
                 if np.all(c[2:] == 0):
                     w_root_subset.append(i)
 
             self.P_wr_base = self.P_w.create_partition_inclusive(w_root_subset)
             # ones are needed so the broadcast will work
             self.P_wr = self.P_wr_base.create_cartesian_topology_partition([P_co, P_ci] + [1]*len(P_spatial))
-            self.has_weight = self.P_wr.active
+            self.stores_weight = self.P_wr.active
 
-            in_channels = kwargs['in_channels']
-            out_channels = kwargs['out_channels']
+            b_subset = []
+            for i, c in enumerate(range_coords(P_w.dims)):
+                c = np.asarray(c)
+                # Find the P_co x 1 x P_0 x ... x P_D-1 subset that needs biases in its calculation.
+                # This is everywhere that the input channels is rank 0.
+                if c[1] == 0:
+                    b_subset.append(i)
 
-            local_channels = compute_subsizes(P_channels, P_w.coords[0:2], [out_channels, in_channels])
-            local_out_channels, local_in_channels = local_channels
+            self.P_b_base = self.P_w.create_partition_inclusive(b_subset)
+            self.P_b = self.P_b_base.create_cartesian_topology_partition([P_co] + [1] + list(P_spatial))
+            self.receives_bias = self.P_b.active and bias
 
-        #     # Ignore the bias for now.
-        #     kwargs.update({"bias": False})
-        #     # bias = False
+            # Now find the subset of _that_ which actually stores the learnable parameter.
+            b_root_subset = []
+            for i, c in enumerate(range_coords(P_w.dims)):
+                c = np.asarray(c)
+            # Find the P_co x 1 x 1 x ... x 1 subset to store the biases
+                if np.all(c[1:] == 0):
+                    b_root_subset.append(i)
 
-            # Do this before checking serial so that the layer works properly
-            # in the serial case
+            self.P_br_base = self.P_w.create_partition_inclusive(b_root_subset)
+            # ones are needed so the broadcast will work
+            self.P_br = self.P_br_base.create_cartesian_topology_partition([P_co] + [1] + [1]*len(P_spatial))
+            self.stores_bias = self.P_br.active and bias
+
+            # Correct the input arguments based on local properties
             local_kwargs = {}
             local_kwargs.update(kwargs)
+
+            # This is unsafe, these may not be in the kwargs, might be in args.  Need to force them into kwargs.
+            in_channels = kwargs['in_channels']
+            out_channels = kwargs['out_channels']
+            local_channels = compute_subsizes(P_channels, P_w.coords[0:2], [out_channels, in_channels])
+            local_out_channels, local_in_channels = local_channels
+            # Do this before checking serial so that the layer works properly
+            # in the serial case
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels
+
+            local_kwargs["bias"] = self.receives_bias
             self.conv_layer = self.TorchConvType(*args, **local_kwargs)
 
-            if self.has_weight:
+            # If we store the weight it is a learnable parameter iff it is
+            # learnable by default in the layer, which it is.
+            if self.stores_weight:
                 self._weight = torch.nn.Parameter(self.conv_layer.weight.detach())
-                # if self.conv_layer.bias is not None:
-                #     self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
-                # bias = self.bias if (self.P_wr.coords[-1] == 0) else False
             else:
                 self._weight = NoneTensor()
-                # if self.conv_layer.bias is not None:
-                #     self.bias = NoneTensor()
-
+            # This always exists so we can copy the property
             self._weight.requires_grad = self.conv_layer.weight.requires_grad
-
-            # if self.conv_layer.bias is not None:
-            #     self.bias.requires_grad = self.conv_layer.bias.requires_grad
 
             # https://discuss.pytorch.org/t/assign-parameters-to-nn-module-and-have-grad-fn-track-it/62677/2
             new_weight = self.conv_layer.weight.detach() * 0
@@ -184,13 +213,23 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             del self.conv_layer.weight
             self.conv_layer.weight = new_weight
 
-            # if self.conv_layer.bias is not None:
-            #     new_bias = self.conv_layer.bias.detach() * 0
-            #     new_bias.requires_grad = self.conv_layer.bias.requires_grad
-            #     del self.conv_layer.bias
-            #     self.conv_layer.bias = new_bias
+            # If we store the bias, it is a learnable parameter iff it is
+            # learnable by default in the layer, which is only true if it
+            # exists.
+            if self.stores_bias:
+                self._bias = torch.nn.Parameter(self.conv_layer.bias.detach())
+            else:
+                self._bias = NoneTensor()
+            # This does not always exist, but when it does we can copy the
+            # property.
+            if self.receives_bias:
+                self._bias.requires_grad = self.conv_layer.bias.requires_grad
 
-            # P_w.print_sequential(f"{self.conv_layer.weight.shape}")
+                # https://discuss.pytorch.org/t/assign-parameters-to-nn-module-and-have-grad-fn-track-it/62677/2
+                new_bias = self.conv_layer.bias.detach() * 0
+                new_bias.requires_grad = self.conv_layer.bias.requires_grad
+                del self.conv_layer.bias
+                self.conv_layer.bias = new_bias
 
         # Now we need to share the kernel structure.  The size of the kernel
         # is always the spatial dimensions.
@@ -268,6 +307,9 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
         if P_w.active:
             self.w_broadcast = Broadcast(self.P_wr, self.P_w)
 
+        if self.receives_bias or self.stores_bias:
+            self.b_broadcast = Broadcast(self.P_br, self.P_b)
+
         self.x_broadcast = Broadcast(self.P_x, self.P_w)
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y)
 
@@ -287,9 +329,15 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             x = self.halo_layer(x)
             x = x[self.needed_slices]
 
+        # Weights always received
         if self.P_w.active:
             w = self.w_broadcast(self._weight)
             self.conv_layer.weight = w
+
+        # Biases only received in some places
+        if self.receives_bias or self.stores_bias:
+            b = self.b_broadcast(self._bias)
+            self.conv_layer.bias = b
 
         x = self.x_broadcast(x)
 
@@ -302,10 +350,6 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             y = self.unpad_layer(y)
 
         return y
-
-        # if self.conv_layer.bias is not None:
-        #     b = self.broadcast_layer(self.bias)
-        #     self.conv_layer.bias = b
 
 
 class DistributedGeneralConv1d(DistributedGeneralConvBase):
