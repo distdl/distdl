@@ -97,9 +97,14 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
                 raise ValueError("Index 2 of P_w dimension must match input channel partition.")
             P_x_new_dims = list(P_x.dims)
             P_x_new_dims.insert(1, 1)
-            # Currently a hack, removing the batch dimension because P_w does not have one.
+            # Currently a hack, removing the batch dimension because P_w does
+            # not have one. This is OK because we assume there are no partitions
+            # in the batch dimension.
             P_x_new_dims = np.asarray(P_x_new_dims[1:], dtype=int)
-        self.P_x_p = self.P_x.create_cartesian_topology_partition(P_x_new_dims)
+
+        # For the purposes of this layer, we re-cast P_x to have the extra
+        # dimension.  This has no impact outside of the layer or on the results.
+        self.P_x = self.P_x.create_cartesian_topology_partition(P_x_new_dims)
 
         P_y_new_dims = []
         if self.P_y.active:
@@ -109,9 +114,14 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
                 raise ValueError("Index 1 of P_w dimension must match output channel partition.")
             P_y_new_dims = list(P_y.dims)
             P_y_new_dims.insert(2, 1)
-            # Currently a hack, removing the batch dimension because P_w does not have one.
+            # Currently a hack, removing the batch dimension because P_w does
+            # not have one. This is OK because we assume there are no partitions
+            # in the batch dimension.
             P_y_new_dims = np.asarray(P_y_new_dims[1:], dtype=int)
-        self.P_y_p = self.P_y.create_cartesian_topology_partition(P_y_new_dims)
+
+        # For the purposes of this layer, we re-cast P_x to have the extra
+        # dimension.  This has no impact outside of the layer or on the results.
+        self.P_y = self.P_y.create_cartesian_topology_partition(P_y_new_dims)
 
         P_spatial = P_w_dims[2:]
 
@@ -124,15 +134,16 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
         # Determine P_r, initialize weights there
         if self.P_w.active:
             # This subset is taken to be the origin of the spartial component
-            root_subset = []
+            w_root_subset = []
             for i, c in enumerate(range_coords(P_w.dims)):
                 c = np.asarray(c)
                 if np.all(c[2:] == 0):
-                    root_subset.append(i)
+                    w_root_subset.append(i)
 
-            self.P_r_base = self.P_w.create_partition_inclusive(root_subset)
+            self.P_wr_base = self.P_w.create_partition_inclusive(w_root_subset)
             # ones are needed so the broadcast will work
-            self.P_r = self.P_r_base.create_cartesian_topology_partition([P_co, P_ci] + [1]*len(P_spatial))
+            self.P_wr = self.P_wr_base.create_cartesian_topology_partition([P_co, P_ci] + [1]*len(P_spatial))
+            self.has_weight = self.P_wr.active
 
             in_channels = kwargs['in_channels']
             out_channels = kwargs['out_channels']
@@ -152,11 +163,11 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             local_kwargs["out_channels"] = local_out_channels
             self.conv_layer = self.TorchConvType(*args, **local_kwargs)
 
-            if self.P_r.active:
+            if self.has_weight:
                 self._weight = torch.nn.Parameter(self.conv_layer.weight.detach())
                 # if self.conv_layer.bias is not None:
                 #     self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
-                # bias = self.bias if (self.P_r.coords[-1] == 0) else False
+                # bias = self.bias if (self.P_wr.coords[-1] == 0) else False
             else:
                 self._weight = NoneTensor()
                 # if self.conv_layer.bias is not None:
@@ -255,10 +266,10 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             self.unpad_layer = UnPadNd(self.unpad_sizes, value=0, partition=self.P_y)
 
         if P_w.active:
-            self.w_broadcast = Broadcast(self.P_r, self.P_w)
+            self.w_broadcast = Broadcast(self.P_wr, self.P_w)
 
-        self.x_broadcast = Broadcast(self.P_x_p, self.P_w)
-        self.y_sum_reduce = SumReduce(self.P_w, self.P_y_p)
+        self.x_broadcast = Broadcast(self.P_x, self.P_w)
+        self.y_sum_reduce = SumReduce(self.P_w, self.P_y)
 
     def forward(self, input):
 
