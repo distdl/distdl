@@ -92,7 +92,9 @@ def test_halo_exchange_layer_same_padding():
                                                      strides,
                                                      pads,
                                                      dilations,
-                                                     P_cart)
+                                                     P_cart.active,
+                                                     P_cart.dims,
+                                                     P_cart.coords)
         halo_sizes = halo_sizes.astype(int)
 
     else:
@@ -210,7 +212,9 @@ def test_halo_exchange_layer_different_padding():
                                                      strides,
                                                      pads,
                                                      dilations,
-                                                     P_cart)
+                                                     P_cart.active,
+                                                     P_cart.dims,
+                                                     P_cart.coords)
         halo_sizes = halo_sizes.astype(int)
         subsizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), tensor_sizes)
 

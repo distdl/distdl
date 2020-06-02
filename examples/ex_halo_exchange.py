@@ -74,7 +74,9 @@ if P_cart.active:
                                                  strides,
                                                  pads,
                                                  dilations,
-                                                 P_cart)
+                                                 P_cart.active,
+                                                 P_cart.dims,
+                                                 P_cart.coords)
 
     value = (1 + rank) * (10 ** rank)
     a = np.full(shape=x_in_sizes, fill_value=value, dtype=float)

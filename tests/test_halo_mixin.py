@@ -57,7 +57,9 @@ def test_mixin():
                                      strides,
                                      pads,
                                      dilations,
-                                     P_cart)
+                                     P_cart.active,
+                                     P_cart.dims,
+                                     P_cart.coords)
 
     if P_cart.active:
         if rank == 0:
