@@ -58,7 +58,9 @@ if P_cart.active:
                                      strides,
                                      pads,
                                      dilations,
-                                     P_cart)
+                                     P_cart.active,
+                                     P_cart.dims,
+                                     P_cart.coords)
 
     print_sequential(cart_comm, f'rank = {rank}:\nhalo_sizes =\n{halo_sizes}\n\
 recv_buffer_sizes =\n{recv_buffer_sizes}\nsend_buffer_sizes =\n{send_buffer_sizes}\nneeded_ranges =\n{needed_ranges}')
