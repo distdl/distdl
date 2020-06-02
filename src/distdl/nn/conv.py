@@ -129,7 +129,8 @@ class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
         self.unpad_layer = UnPadNd(self.unpad_sizes, value=0, partition=self.P_cart)
 
         self.local_x_in_sizes_padded = self._compute_local_x_in_sizes_padded(self.x_in_sizes,
-                                                                             self.P_cart,
+                                                                             self.P_cart.dims,
+                                                                             self.P_cart.coords,
                                                                              self.halo_sizes)
 
         self.halo_layer = HaloExchange(self.local_x_in_sizes_padded,
