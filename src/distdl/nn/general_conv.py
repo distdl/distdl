@@ -52,6 +52,7 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
     TorchConvType = None
 
     def __init__(self, x_in_sizes, P_x, P_y, P_w,
+                 in_channels=1, out_channels=1,
                  bias=True,
                  *args, **kwargs):
 
@@ -185,13 +186,10 @@ class DistributedGeneralConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             local_kwargs = {}
             local_kwargs.update(kwargs)
 
-            # This is unsafe, these may not be in the kwargs, might be in args.  Need to force them into kwargs.
-            in_channels = kwargs['in_channels']
-            out_channels = kwargs['out_channels']
-            local_channels = compute_subsizes(P_channels, P_w.coords[0:2], [out_channels, in_channels])
-            local_out_channels, local_in_channels = local_channels
             # Do this before checking serial so that the layer works properly
             # in the serial case
+            local_channels = compute_subsizes(P_channels, P_w.coords[0:2], [out_channels, in_channels])
+            local_out_channels, local_in_channels = local_channels
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels
 
