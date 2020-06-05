@@ -9,6 +9,7 @@ overlap_3D = \
     pytest.param(np.arange(4, 8), [2, 2, 1],  # P_x_ranks, P_x_topo
                  np.arange(0, 12), [2, 2, 3],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  12,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-overlap-3D",
                  marks=[pytest.mark.mpi(min_size=12)])
@@ -18,6 +19,7 @@ disjoint_3D = \
     pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
                  np.arange(4, 16), [2, 2, 3],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  16,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-3D",
                  marks=[pytest.mark.mpi(min_size=16)])
@@ -27,6 +29,7 @@ disjoint_with_inactive_3D = \
     pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
                  np.arange(5, 17), [2, 2, 3],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  17,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-inactive-3D",
                  marks=[pytest.mark.mpi(min_size=17)])
@@ -37,6 +40,7 @@ sequential_identity = \
     pytest.param(np.arange(0, 1), [1],  # P_x_ranks, P_x_topo
                  np.arange(0, 1), [1],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  1,  # passed to comm_split_fixture, required MPI ranks
                  id="sequential-identity",
                  marks=[pytest.mark.mpi(min_size=1)])
@@ -47,6 +51,7 @@ ss_overlap_3D = \
     pytest.param(np.arange(2, 3), [1],  # P_x_ranks, P_x_topo
                  np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  3,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-overlap-3D-single_source",
                  marks=[pytest.mark.mpi(min_size=3)])
@@ -56,6 +61,7 @@ ss_disjoint_3D = \
     pytest.param(np.arange(3, 4), [1],  # P_x_ranks, P_x_topo
                  np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  4,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-3D-single_source",
                  marks=[pytest.mark.mpi(min_size=4)])
@@ -65,16 +71,49 @@ ss_disjoint_with_inactive_3D = \
     pytest.param(np.arange(4, 5), [1],  # P_x_ranks, P_x_topo
                  np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
                  [1, 7, 5],  # global_tensor_size
+                 False,  # transpose_src
                  5,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-inactive-3D-single_source",
                  marks=[pytest.mark.mpi(min_size=5)])
 parametrizations.append(ss_disjoint_with_inactive_3D)
+
+# Main functionality, transposed
+overlap_3D = \
+    pytest.param(np.arange(4, 8), [2, 2, 1],  # P_x_ranks, P_x_topo
+                 np.arange(0, 12), [3, 2, 2],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 True,  # transpose_src
+                 12,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-overlap-3D",
+                 marks=[pytest.mark.mpi(min_size=12)])
+parametrizations.append(overlap_3D)
+
+disjoint_3D = \
+    pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
+                 np.arange(4, 16), [3, 2, 2],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 True,  # transpose_src
+                 16,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-disjoint-3D",
+                 marks=[pytest.mark.mpi(min_size=16)])
+parametrizations.append(disjoint_3D)
+
+disjoint_with_inactive_3D = \
+    pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
+                 np.arange(5, 17), [3, 2, 2],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 True,  # transpose_src
+                 17,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-disjoint-inactive-3D",
+                 marks=[pytest.mark.mpi(min_size=17)])
+parametrizations.append(disjoint_with_inactive_3D)
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "global_tensor_size,"
+                         "transpose_src,"
                          "comm_split_fixture",
                          parametrizations,
                          indirect=["comm_split_fixture"])
@@ -82,7 +121,8 @@ def test_broadcast_adjoint(barrier_fence_fixture,
                            comm_split_fixture,
                            P_x_ranks, P_x_topo,
                            P_y_ranks, P_y_topo,
-                           global_tensor_size):
+                           global_tensor_size,
+                           transpose_src):
 
     import numpy as np
     import torch
@@ -109,7 +149,7 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     # we will have to get from `y` itself.
     tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = Broadcast(P_x, P_y)
+    layer = Broadcast(P_x, P_y, transpose_src=transpose_src)
 
     x = NoneTensor()
     if P_x.active:
