@@ -200,6 +200,8 @@ class DistributedTranspose(torch.nn.Module):
     def __init__(self, global_tensor_sizes, P_in, P_out):
         super(DistributedTranspose, self).__init__()
 
+        global_tensor_sizes = np.asarray(global_tensor_sizes)
+
         self.global_tensor_sizes = global_tensor_sizes
         self.P_in = P_in
         self.P_out = P_out
@@ -283,7 +285,7 @@ class DistributedTranspose(torch.nn.Module):
         self.P_union.comm.Allgather(local_indices, union_indices)
         union_indices.shape = (-1, 2)
 
-        tensor_dim = global_tensor_sizes.shape
+        tensor_dim = len(global_tensor_sizes)
 
         if in_dim != out_dim:
             raise ValueError("Input and output partition must be same dimension.")
