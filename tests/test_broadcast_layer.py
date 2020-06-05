@@ -1,345 +1,106 @@
-# Tests if root in P_in is also in P_out
-def test_broadcast_parallel_overlap_layer():
+import numpy as np
+import pytest
+from adjoint_test import check_adjoint_test_tight
+
+parametrizations = []
+
+overlap_3D = \
+    pytest.param(np.arange(4, 8), [2, 2, 1],  # P_x_ranks, P_x_topo
+                 np.arange(0, 12), [2, 2, 3],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 12,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-overlap-3D",
+                 marks=[pytest.mark.mpi(min_size=12)])
+parametrizations.append(overlap_3D)
+
+disjoint_3D = \
+    pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
+                 np.arange(4, 16), [2, 2, 3],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 16,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-disjoint-3D",
+                 marks=[pytest.mark.mpi(min_size=16)])
+parametrizations.append(disjoint_3D)
+
+disjoint_with_inactive_3D = \
+    pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
+                 np.arange(5, 17), [2, 2, 3],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 17,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-disjoint-inactive-3D",
+                 marks=[pytest.mark.mpi(min_size=17)])
+parametrizations.append(disjoint_with_inactive_3D)
+
+sequential_identity = \
+    pytest.param(np.arange(0, 1), [1],  # P_x_ranks, P_x_topo
+                 np.arange(0, 1), [1],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 1,  # passed to comm_split_fixture, required MPI ranks
+                 id="sequential-identity",
+                 marks=[pytest.mark.mpi(min_size=1)])
+parametrizations.append(sequential_identity)
+
+
+# For example of indirect, see https://stackoverflow.com/a/28570677
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "P_y_ranks, P_y_topo,"
+                         "global_tensor_size,"
+                         "comm_split_fixture",
+                         parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_broadcast_adjoint(barrier_fence_fixture,
+                           comm_split_fixture,
+                           P_x_ranks, P_x_topo,
+                           P_y_ranks, P_y_topo,
+                           global_tensor_size):
 
     import numpy as np
     import torch
-    from mpi4py import MPI
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.broadcast import Broadcast
     from distdl.utilities.torch import NoneTensor
 
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
-
-    P_in = P_world.create_partition_inclusive(np.arange(4, 8))
-    PC_in = P_in.create_cartesian_topology_partition([2, 2, 1])
-
-    P_out = P_world.create_partition_inclusive(np.arange(0, 12))
-    PC_out = P_out.create_cartesian_topology_partition([2, 2, 3])
-
-    layer = Broadcast(PC_in, PC_out)
-
-    tensor_sizes = np.array([7, 5])
-
-    x = NoneTensor()
-    if PC_in.active:
-        x = torch.Tensor(np.random.randn(*tensor_sizes))
-    x.requires_grad = True
-
-    y = NoneTensor()
-    if PC_out.active:
-        # Adjoint Input
-        y = torch.Tensor(np.random.randn(*tensor_sizes))
-
-    # Apply A
-    Ax = layer(x)
-
-    # Apply A*
-    Ax.backward(y)
-    Asy = x.grad
-
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    x = x.detach()
-    Asy = Asy.detach()
-    y = y.detach()
-    Ax = Ax.detach()
-
-    # Compute all of the local norms and inner products.
-    # We only perform the inner product calculation between
-    # x and Asy on the root rank, as the input space of the forward
-    # operator and the output space of the adjoint operator
-    # are only relevant to the root rank
-    if P_in.active:
-        # ||x||^2
-        local_results[0] = (torch.norm(x)**2).numpy()
-        # ||A*@y||^2
-        local_results[3] = (torch.norm(Asy)**2).numpy()
-        # <A*@y, x>
-        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
-
-    if P_out.active:
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
-
-# Tests if all ranks have work to do, but root of P_in is not in P_out
-def test_broadcast_parallel_barely_disjoint_layer():
-
-    import numpy as np
-    import torch
-    from mpi4py import MPI
-
-    from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.broadcast import Broadcast
-    from distdl.utilities.torch import NoneTensor
-
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
-
-    P_in = P_world.create_partition_inclusive(np.arange(0, 4))
-    PC_in = P_in.create_cartesian_topology_partition([2, 2, 1])
-
-    P_out = P_world.create_partition_inclusive(np.arange(4, 16))
-    PC_out = P_out.create_cartesian_topology_partition([2, 2, 3])
-
-    layer = Broadcast(PC_in, PC_out)
-
-    tensor_sizes = np.array([7, 5])
-
-    x = NoneTensor()
-    if PC_in.active:
-        x = torch.Tensor(np.random.randn(*tensor_sizes))
-    x.requires_grad = True
-
-    y = NoneTensor()
-    if PC_out.active:
-        # Adjoint Input
-        y = torch.Tensor(np.random.randn(*tensor_sizes))
-
-    # Apply A
-    Ax = layer(x)
-
-    # Apply A*
-    Ax.backward(y)
-    Asy = x.grad
-
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    x = x.detach()
-    Asy = Asy.detach()
-    y = y.detach()
-    Ax = Ax.detach()
-
-    # Compute all of the local norms and inner products.
-    # We only perform the inner product calculation between
-    # x and Asy on the root rank, as the input space of the forward
-    # operator and the output space of the adjoint operator
-    # are only relevant to the root rank
-    if P_in.active:
-        # ||x||^2
-        local_results[0] = (torch.norm(x)**2).numpy()
-        # ||A*@y||^2
-        local_results[3] = (torch.norm(Asy)**2).numpy()
-        # <A*@y, x>
-        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
-
-    if P_out.active:
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
-
-
-# Tests if there are ranks that do not have any work to do at all but still
-# go through the layer logic.
-def test_broadcast_parallel_completely_disjoint_layer():
-
-    import numpy as np
-    import torch
-    from mpi4py import MPI
-
-    from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.broadcast import Broadcast
-    from distdl.utilities.torch import NoneTensor
-
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
-
-    P_in = P_world.create_partition_inclusive(np.arange(0, 4))
-    PC_in = P_in.create_cartesian_topology_partition([2, 2, 1])
-
-    P_out = P_world.create_partition_inclusive(np.arange(5, 17))
-    PC_out = P_out.create_cartesian_topology_partition([2, 2, 3])
-
-    layer = Broadcast(PC_in, PC_out)
-
-    tensor_sizes = np.array([7, 5])
-
-    x = NoneTensor()
-    if PC_in.active:
-        x = torch.Tensor(np.random.randn(*tensor_sizes))
-    x.requires_grad = True
-
-    y = NoneTensor()
-    if PC_out.active:
-        # Adjoint Input
-        y = torch.Tensor(np.random.randn(*tensor_sizes))
-
-    # Apply A
-    Ax = layer(x)
-
-    # Apply A*
-    Ax.backward(y)
-    Asy = x.grad
-
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    x = x.detach()
-    Asy = Asy.detach()
-    y = y.detach()
-    Ax = Ax.detach()
-
-    # Compute all of the local norms and inner products.
-    # We only perform the inner product calculation between
-    # x and Asy on the root rank, as the input space of the forward
-    # operator and the output space of the adjoint operator
-    # are only relevant to the root rank
-    if P_in.active:
-        # ||x||^2
-        local_results[0] = (torch.norm(x)**2).numpy()
-        # ||A*@y||^2
-        local_results[3] = (torch.norm(Asy)**2).numpy()
-        # <A*@y, x>
-        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
-
-    if P_out.active:
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
-
-
-def test_broadcast_sequential():
-
-    import numpy as np
-    import torch
-    from mpi4py import MPI
-
-    from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.broadcast import Broadcast
-
-    MPI.COMM_WORLD.Barrier()
-
-    # Isolate a single processor to use for this test.
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        color = 0
-        comm = MPI.COMM_WORLD.Split(color)
-    else:
-        color = 1
-        comm = MPI.COMM_WORLD.Split(color)
-
-        MPI.COMM_WORLD.Barrier()
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
         return
+    P_world = MPIPartition(base_comm)
 
-    P_world = MPIPartition(comm)
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    layer = Broadcast(P_world, P_world)
+    P_y_base = P_world.create_partition_inclusive(P_y_ranks)
+    P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
 
-    tensor_sizes = np.array([7, 5])
+    # TODO #93: Change this to create a subtensor so we test when local tensors
+    # have different sizes.  Then, the output size will also be different, which
+    # we will have to get from `y` itself.
+    tensor_sizes = np.asarray(global_tensor_size)
 
-    # Forward Input
-    x = torch.Tensor(np.random.randn(*tensor_sizes))
+    layer = Broadcast(P_x, P_y)
+
+    x = NoneTensor()
+    if P_x.active:
+        x = torch.Tensor(np.random.randn(*tensor_sizes))
     x.requires_grad = True
 
-    # Adjoint Input
-    y = torch.Tensor(np.random.randn(*tensor_sizes))
+    dy = NoneTensor()
+    if P_y.active:
+        # Adjoint Input
+        dy = torch.Tensor(np.random.randn(*tensor_sizes))
 
-    # Apply A
-    Ax = layer.forward(x)
+    # y = F @ x
+    y = layer(x)
 
-    # Apply A*
-    Ax.backward(y)
-    Asy = x.grad
+    # dx = F* @ dy
+    y.backward(dy)
+    dx = x.grad
 
-    x_d = x.detach()
-    y_d = y.detach()
-    Ax_d = Ax.detach()
-    Asy_d = Asy.detach()
+    x = x.detach()
+    dx = dx.detach()
+    dy = dy.detach()
+    y = y.detach()
 
-    norm_x = np.sqrt((torch.norm(x_d)**2).numpy())
-    norm_y = np.sqrt((torch.norm(y_d)**2).numpy())
-    norm_Ax = np.sqrt((torch.norm(Ax_d)**2).numpy())
-    norm_Asy = np.sqrt((torch.norm(Asy_d)**2).numpy())
-
-    ip1 = np.array([torch.sum(torch.mul(y_d, Ax_d))])
-    ip2 = np.array([torch.sum(torch.mul(Asy_d, x_d))])
-
-    d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-    print(f"Adjoint test: {ip1/d} {ip2/d}")
-    assert(np.isclose(ip1/d, ip2/d))
-
-    MPI.COMM_WORLD.Barrier()
+    check_adjoint_test_tight(P_world, x, dx, y, dy)
