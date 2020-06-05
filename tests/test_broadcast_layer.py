@@ -4,6 +4,7 @@ from adjoint_test import check_adjoint_test_tight
 
 parametrizations = []
 
+# Main functionality
 overlap_3D = \
     pytest.param(np.arange(4, 8), [2, 2, 1],  # P_x_ranks, P_x_topo
                  np.arange(0, 12), [2, 2, 3],  # P_y_ranks, P_y_topo
@@ -31,6 +32,7 @@ disjoint_with_inactive_3D = \
                  marks=[pytest.mark.mpi(min_size=17)])
 parametrizations.append(disjoint_with_inactive_3D)
 
+# Sequential functionality
 sequential_identity = \
     pytest.param(np.arange(0, 1), [1],  # P_x_ranks, P_x_topo
                  np.arange(0, 1), [1],  # P_y_ranks, P_y_topo
@@ -39,6 +41,34 @@ sequential_identity = \
                  id="sequential-identity",
                  marks=[pytest.mark.mpi(min_size=1)])
 parametrizations.append(sequential_identity)
+
+# Main functionality, single source
+ss_overlap_3D = \
+    pytest.param(np.arange(2, 3), [1],  # P_x_ranks, P_x_topo
+                 np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 3,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-overlap-3D-single_source",
+                 marks=[pytest.mark.mpi(min_size=3)])
+parametrizations.append(ss_overlap_3D)
+
+ss_disjoint_3D = \
+    pytest.param(np.arange(3, 4), [1],  # P_x_ranks, P_x_topo
+                 np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 4,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-disjoint-3D-single_source",
+                 marks=[pytest.mark.mpi(min_size=4)])
+parametrizations.append(ss_disjoint_3D)
+
+ss_disjoint_with_inactive_3D = \
+    pytest.param(np.arange(4, 5), [1],  # P_x_ranks, P_x_topo
+                 np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
+                 [1, 7, 5],  # global_tensor_size
+                 5,  # passed to comm_split_fixture, required MPI ranks
+                 id="distributed-disjoint-inactive-3D-single_source",
+                 marks=[pytest.mark.mpi(min_size=5)])
+parametrizations.append(ss_disjoint_with_inactive_3D)
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
