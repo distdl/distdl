@@ -1,5 +1,12 @@
+torch
+numpy
+mpi4py
+
 # see NSLS-II Scientific Python Cookiecutter ()
 # to get more
 flake8
 pytest
 sphinx
+
+# https://stackoverflow.com/a/35998253
+git+https://github.com/aragilar/pytest-mpi.git@master#egg=pytest-mpi
