@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from adjoint_test import check_adjoint_test_tight
 
-parametrizations = []
+adjoint_parametrizations = []
 
 # Main functionality
 overlap_3D = \
@@ -13,7 +13,7 @@ overlap_3D = \
                  12,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-overlap-3D",
                  marks=[pytest.mark.mpi(min_size=12)])
-parametrizations.append(overlap_3D)
+adjoint_parametrizations.append(overlap_3D)
 
 disjoint_3D = \
     pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
@@ -23,7 +23,7 @@ disjoint_3D = \
                  16,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-3D",
                  marks=[pytest.mark.mpi(min_size=16)])
-parametrizations.append(disjoint_3D)
+adjoint_parametrizations.append(disjoint_3D)
 
 disjoint_with_inactive_3D = \
     pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
@@ -33,7 +33,7 @@ disjoint_with_inactive_3D = \
                  17,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-inactive-3D",
                  marks=[pytest.mark.mpi(min_size=17)])
-parametrizations.append(disjoint_with_inactive_3D)
+adjoint_parametrizations.append(disjoint_with_inactive_3D)
 
 # Sequential functionality
 sequential_identity = \
@@ -44,7 +44,7 @@ sequential_identity = \
                  1,  # passed to comm_split_fixture, required MPI ranks
                  id="sequential-identity",
                  marks=[pytest.mark.mpi(min_size=1)])
-parametrizations.append(sequential_identity)
+adjoint_parametrizations.append(sequential_identity)
 
 # Main functionality, single source
 ss_overlap_3D = \
@@ -55,7 +55,7 @@ ss_overlap_3D = \
                  3,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-overlap-3D-single_source",
                  marks=[pytest.mark.mpi(min_size=3)])
-parametrizations.append(ss_overlap_3D)
+adjoint_parametrizations.append(ss_overlap_3D)
 
 ss_disjoint_3D = \
     pytest.param(np.arange(3, 4), [1],  # P_x_ranks, P_x_topo
@@ -65,7 +65,7 @@ ss_disjoint_3D = \
                  4,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-3D-single_source",
                  marks=[pytest.mark.mpi(min_size=4)])
-parametrizations.append(ss_disjoint_3D)
+adjoint_parametrizations.append(ss_disjoint_3D)
 
 ss_disjoint_with_inactive_3D = \
     pytest.param(np.arange(4, 5), [1],  # P_x_ranks, P_x_topo
@@ -75,7 +75,7 @@ ss_disjoint_with_inactive_3D = \
                  5,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-inactive-3D-single_source",
                  marks=[pytest.mark.mpi(min_size=5)])
-parametrizations.append(ss_disjoint_with_inactive_3D)
+adjoint_parametrizations.append(ss_disjoint_with_inactive_3D)
 
 # Main functionality, transposed
 overlap_3D = \
@@ -86,7 +86,7 @@ overlap_3D = \
                  12,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-overlap-3D",
                  marks=[pytest.mark.mpi(min_size=12)])
-parametrizations.append(overlap_3D)
+adjoint_parametrizations.append(overlap_3D)
 
 disjoint_3D = \
     pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
@@ -96,7 +96,7 @@ disjoint_3D = \
                  16,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-3D",
                  marks=[pytest.mark.mpi(min_size=16)])
-parametrizations.append(disjoint_3D)
+adjoint_parametrizations.append(disjoint_3D)
 
 disjoint_with_inactive_3D = \
     pytest.param(np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
@@ -106,7 +106,7 @@ disjoint_with_inactive_3D = \
                  17,  # passed to comm_split_fixture, required MPI ranks
                  id="distributed-disjoint-inactive-3D",
                  marks=[pytest.mark.mpi(min_size=17)])
-parametrizations.append(disjoint_with_inactive_3D)
+adjoint_parametrizations.append(disjoint_with_inactive_3D)
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
@@ -115,7 +115,7 @@ parametrizations.append(disjoint_with_inactive_3D)
                          "global_tensor_size,"
                          "transpose_src,"
                          "comm_split_fixture",
-                         parametrizations,
+                         adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_broadcast_adjoint(barrier_fence_fixture,
                            comm_split_fixture,
@@ -174,3 +174,60 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     y = y.detach()
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
+
+
+deadlock_parametrizations = []
+
+# These cases test for a situation where mpi_comm_create_group deadlocked
+deadlock_2D = \
+    pytest.param(np.arange(1, 3), [1, 2],  # P_x_ranks, P_x_topo
+                 np.arange(0, 4), [2, 2],  # P_y_ranks, P_y_topo
+                 4,  # passed to comm_split_fixture, required MPI ranks
+                 id="deadlock-2D",
+                 marks=[pytest.mark.mpi(min_size=4)])
+deadlock_parametrizations.append(deadlock_2D)
+
+deadlock_3D = \
+    pytest.param(np.arange(2, 6), [1, 2, 2],  # P_x_ranks, P_x_topo
+                 np.arange(0, 8), [2, 2, 2],  # P_y_ranks, P_y_topo
+                 8,  # passed to comm_split_fixture, required MPI ranks
+                 id="deadlock-3D",
+                 marks=[pytest.mark.mpi(min_size=8)])
+deadlock_parametrizations.append(deadlock_3D)
+
+deadlock_4D = \
+    pytest.param(np.arange(4, 12), [1, 2, 2, 2],  # P_x_ranks, P_x_topo
+                 np.arange(0, 16), [2, 2, 2, 2],  # P_y_ranks, P_y_topo
+                 16,  # passed to comm_split_fixture, required MPI ranks
+                 id="deadlock-4D",
+                 marks=[pytest.mark.mpi(min_size=16)])
+deadlock_parametrizations.append(deadlock_4D)
+
+
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "P_w_ranks, P_w_topo,"
+                         "comm_split_fixture",
+                         deadlock_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_potentially_deadlocked_send_recv_pairs(barrier_fence_fixture,
+                                                comm_split_fixture,
+                                                P_x_ranks, P_x_topo,
+                                                P_w_ranks, P_w_topo):
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.broadcast import Broadcast
+
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
+
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+
+    P_w_base = P_world.create_partition_inclusive(P_w_ranks)
+    P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
+
+    layer = Broadcast(P_x, P_w)  # noqa F841
