@@ -18,4 +18,6 @@ include tox.ini .travis.yml .appveyor.yml .readthedocs.yml .pre-commit-config.ya
 
 include requirements.txt requirements-dev.txt
 
+include examples/*
+
 global-exclude *.py[cod] __pycache__/* *.so *.dylib
