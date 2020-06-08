@@ -10,11 +10,10 @@ Overview
     * - docs
       - |docs|
     * - tests
-      - | |travis| |appveyor| |requires|
-        | |codecov|
+      - | |travis| |codecov|
     * - package
-      - | |version| |wheel| |supported-versions| |supported-implementations|
-        | |commits-since|
+      - | |version| |supported-implementations|
+
 .. |docs| image:: https://readthedocs.org/projects/distdl/badge/?style=flat
     :target: https://readthedocs.org/projects/distdl
     :alt: Documentation Status
@@ -39,10 +38,6 @@ Overview
     :alt: PyPI Package latest release
     :target: https://pypi.org/project/distdl
 
-.. |wheel| image:: https://img.shields.io/pypi/wheel/distdl.svg
-    :alt: PyPI Wheel
-    :target: https://pypi.org/project/distdl
-
 .. |supported-versions| image:: https://img.shields.io/pypi/pyversions/distdl.svg
     :alt: Supported versions
     :target: https://pypi.org/project/distdl
@@ -50,10 +45,6 @@ Overview
 .. |supported-implementations| image:: https://img.shields.io/pypi/implementation/distdl.svg
     :alt: Supported implementations
     :target: https://pypi.org/project/distdl
-
-.. |commits-since| image:: https://img.shields.io/github/commits-since/distdl/distdl/v0.1.0.svg
-    :alt: Commits since latest release
-    :target: https://github.com/distdl/distdl/compare/v0.1.0...master
 
 
 
@@ -66,13 +57,11 @@ A Distributed Deep Learning package for PyTorch.
 Installation
 ============
 
-::
-
-    pip install distdl
-
-You can also install the in-development version with::
+You can install the in-development version with:
 
     pip install https://github.com/distdl/distdl/archive/master.zip
+
+DistDL will be available on pip shortly.
 
 
 Documentation
@@ -87,21 +76,23 @@ Development
 
 To run the all tests run::
 
-    tox
+    mpirun -np 20 python -m mpi4py -m pytest --with-mpi -rsa tests
 
-Note, to combine the coverage data from all the tox environments run:
+Substitute ``mpiexec`` or ``srun`` as correct for your system.
 
-.. list-table::
-    :widths: 10 90
-    :stub-columns: 1
+.. Note, to combine the coverage data from all the tox environments run:
 
-    - - Windows
-      - ::
+.. .. list-table::
+..     :widths: 10 90
+..     :stub-columns: 1
 
-            set PYTEST_ADDOPTS=--cov-append
-            tox
+..     - - Windows
+..       - ::
 
-    - - Other
-      - ::
+..             set PYTEST_ADDOPTS=--cov-append
+..             tox
 
-            PYTEST_ADDOPTS=--cov-append tox
+..     - - Other
+..       - ::
+
+..             PYTEST_ADDOPTS=--cov-append tox
