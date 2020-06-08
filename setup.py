@@ -34,7 +34,7 @@ if 'TOXENV' in os.environ and 'SETUPPY_CFLAGS' in os.environ:
 
 setup(
     name='distdl',
-    version='0.0.0',
+    version='0.1.0',
     license='BSD-2-Clause',
     description='A Distributed Deep Learning package for PyTorch.',
     long_description='%s\n%s' % (
