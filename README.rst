@@ -51,9 +51,9 @@ Overview
     :alt: Supported implementations
     :target: https://pypi.org/project/distdl
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/distdl/distdl/v0.0.0.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/distdl/distdl/v0.1.0.svg
     :alt: Commits since latest release
-    :target: https://github.com/distdl/distdl/compare/v0.0.0...master
+    :target: https://github.com/distdl/distdl/compare/v0.1.0...master
 
 
 
