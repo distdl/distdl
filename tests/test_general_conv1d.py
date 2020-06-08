@@ -142,6 +142,7 @@ def test_conv_1d_no_bias_co2_ci1_parallel():
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
 
+
 def test_conv_1d_no_bias_co1_ci2_parallel():
 
     import numpy as np
@@ -285,6 +286,7 @@ def test_conv_1d_no_bias_co1_ci2_parallel():
 
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
+
 
 def test_conv_1d_no_bias_co2_ci2_parallel():
 
@@ -430,6 +432,7 @@ def test_conv_1d_no_bias_co2_ci2_parallel():
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
 
+
 def test_conv_1d_bias_only_co2_ci1_parallel():
 
     import numpy as np
@@ -526,6 +529,7 @@ def test_conv_1d_bias_only_co2_ci1_parallel():
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
 
+
 def test_conv_1d_bias_only_co1_ci2_parallel():
 
     import numpy as np
@@ -621,6 +625,7 @@ def test_conv_1d_bias_only_co1_ci2_parallel():
 
     # Barrier fence to ensure all enclosed MPI calls resolve.
     P_world.comm.Barrier()
+
 
 def test_conv_1d_bias_only_co2_ci2_parallel():
 
