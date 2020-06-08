@@ -50,12 +50,12 @@ adjoint_parametrizations.append(
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_general_conv_adjoint_input(barrier_fence_fixture,
-                                    comm_split_fixture,
-                                    P_x_ranks, P_x_topo,
-                                    P_y_ranks, P_y_topo,
-                                    P_w_ranks, P_w_topo,
-                                    global_tensor_size):
+def test_general_conv2d_adjoint_input(barrier_fence_fixture,
+                                      comm_split_fixture,
+                                      P_x_ranks, P_x_topo,
+                                      P_y_ranks, P_y_topo,
+                                      P_w_ranks, P_w_topo,
+                                      global_tensor_size):
 
     import numpy as np
     import torch
@@ -122,12 +122,12 @@ def test_general_conv_adjoint_input(barrier_fence_fixture,
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_general_conv_adjoint_weight(barrier_fence_fixture,
-                                     comm_split_fixture,
-                                     P_x_ranks, P_x_topo,
-                                     P_y_ranks, P_y_topo,
-                                     P_w_ranks, P_w_topo,
-                                     global_tensor_size):
+def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
+                                       comm_split_fixture,
+                                       P_x_ranks, P_x_topo,
+                                       P_y_ranks, P_y_topo,
+                                       P_w_ranks, P_w_topo,
+                                       global_tensor_size):
 
     import numpy as np
     import torch
@@ -197,12 +197,12 @@ def test_general_conv_adjoint_weight(barrier_fence_fixture,
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_general_conv_adjoint_bias(barrier_fence_fixture,
-                                   comm_split_fixture,
-                                   P_x_ranks, P_x_topo,
-                                   P_y_ranks, P_y_topo,
-                                   P_w_ranks, P_w_topo,
-                                   global_tensor_size):
+def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
+                                     comm_split_fixture,
+                                     P_x_ranks, P_x_topo,
+                                     P_y_ranks, P_y_topo,
+                                     P_w_ranks, P_w_topo,
+                                     global_tensor_size):
 
     import numpy as np
     import torch
