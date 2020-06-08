@@ -35,7 +35,7 @@ class DistributedPoolBase(torch.nn.Module, HaloMixin, PoolingMixin):
 
     def __init__(self, x_in_sizes, P_cart, *args, **kwargs):
 
-        super(TorchPoolType, self).__init__()
+        super(DistributedPoolBase, self).__init__()
 
         self.x_in_sizes = x_in_sizes
         self.P_cart = P_cart
@@ -43,7 +43,7 @@ class DistributedPoolBase(torch.nn.Module, HaloMixin, PoolingMixin):
         if not self.P_cart.active:
             return
 
-        self.pool_layer = torch.nn.TorchPoolType(*args, **kwargs)
+        self.pool_layer = self.TorchPoolType(*args, **kwargs)
 
         self.halo_sizes, self.recv_buffer_sizes, self.send_buffer_sizes, self.needed_ranges = \
             self._compute_exchange_info(self.x_in_sizes,
