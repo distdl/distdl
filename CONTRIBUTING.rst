@@ -59,6 +59,8 @@ To set up `distdl` for local development:
     git commit -m "Your detailed description of your changes."
     git push origin name-of-your-bugfix-or-feature
 
+All commits should lead with ``feat(#xx)``, ``refactor(#xx)``, ``bug(#xx)``, or ``chore(#xx)``, where ``#xx`` is the relevant issue number.  No commit should address more than one issue.
+
 6. Submit a pull request through the GitHub website.
 
 Pull Request Guidelines
