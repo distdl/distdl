@@ -1,291 +1,286 @@
-def test_conv_2d_no_bias_parallel():
+import numpy as np
+import pytest
+from adjoint_test import check_adjoint_test_tight
+
+adjoint_parametrizations = []
+
+# Main functionality
+adjoint_parametrizations.append(
+    pytest.param(
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
+        [1, 5, 10, 10],  # global_tensor_size
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+
+
+# For example of indirect, see https://stackoverflow.com/a/28570677
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "global_tensor_size,"
+                         "comm_split_fixture",
+                         adjoint_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_simple_conv2d_adjoint_input(barrier_fence_fixture,
+                                     comm_split_fixture,
+                                     P_x_ranks, P_x_topo,
+                                     global_tensor_size):
 
     import numpy as np
     import torch
-    from mpi4py import MPI
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
 
-    P = P_world.create_partition_inclusive(np.arange(4))
-    P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.array([1, 5, 10, 10])
+    global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+    layer = DistributedConv2d(global_tensor_sizes, P_x,
                               in_channels=global_tensor_sizes[1],
                               out_channels=10,
                               kernel_size=[3, 3], bias=False)
 
     x = NoneTensor()
-    if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims,
-                                              P_cart.coords,
+    if P_x.active:
+        input_tensor_sizes = compute_subsizes(P_x.dims,
+                                              P_x.coords,
                                               global_tensor_sizes)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
-    Ax = layer(x)
+    y = layer(x)
 
-    y = NoneTensor()
-    if P_cart.active:
-        y = torch.Tensor(np.random.randn(*Ax.shape))
-    y.requires_grad = True
+    dy = NoneTensor()
+    if P_x.active:
+        dy = torch.Tensor(np.random.randn(*y.shape))
 
-    Ax.backward(y)
-    Asy = x.grad
+    y.backward(dy)
+    dx = x.grad
 
     x = x.detach()
-    Ax = Ax.detach()
+    dx = dx.detach()
+    dy = dy.detach()
     y = y.detach()
-    Asy = Asy.detach()
 
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    # Compute all of the local norms and inner products.
-    # We only perform the inner product calculation between
-    # x and Asy on the root rank, as the input space of the forward
-    # operator and the output space of the adjoint operator
-    # are only relevant to the root rank
-    if P_cart.active:
-        # ||x||^2
-        local_results[0] = (torch.norm(x)**2).numpy()
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # ||A*@y||^2
-        local_results[3] = (torch.norm(Asy)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-        # <A*@y, x>
-        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    if P_cart.active:
-
-        W = layer.weight.detach()
-        dW = layer.weight.grad.detach()
-
-        # ||W||^2
-        local_results[0] = (torch.norm(W)**2).numpy()
-        # ||A*@y = dW||^2
-        local_results[3] = (torch.norm(dW)**2).numpy()
-        # <W, dW>
-        local_results[5] = np.array([torch.sum(torch.mul(dW, W))])
-
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_W, norm_y, norm_dW, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_dW*norm_y, norm_Asy*norm_W])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
+    check_adjoint_test_tight(P_world, x, dx, y, dy)
 
 
-def test_conv_2d_bias_only_parallel():
+# For example of indirect, see https://stackoverflow.com/a/28570677
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "global_tensor_size,"
+                         "comm_split_fixture",
+                         adjoint_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_simple_conv2d_adjoint_weight(barrier_fence_fixture,
+                                      comm_split_fixture,
+                                      P_x_ranks, P_x_topo,
+                                      global_tensor_size):
 
     import numpy as np
     import torch
-    from mpi4py import MPI
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
 
-    P = P_world.create_partition_inclusive(np.arange(4))
-    P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.array([1, 5, 10, 10])
+    global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+    layer = DistributedConv2d(global_tensor_sizes, P_x,
+                              in_channels=global_tensor_sizes[1],
+                              out_channels=10,
+                              kernel_size=[3, 3], bias=False)
+
+    x = NoneTensor()
+    if P_x.active:
+        input_tensor_sizes = compute_subsizes(P_x.dims,
+                                              P_x.coords,
+                                              global_tensor_sizes)
+        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+    x.requires_grad = True
+
+    y = layer(x)
+
+    dy = NoneTensor()
+    if P_x.active:
+        dy = torch.Tensor(np.random.randn(*y.shape))
+
+    y.backward(dy)
+
+    W = NoneTensor()
+    dW = NoneTensor()
+    if P_x.active:
+        W = layer.weight.detach()
+        dW = layer.weight.grad.detach()
+
+    dy = dy.detach()
+    y = y.detach()
+
+    check_adjoint_test_tight(P_world, W, dW, y, dy)
+
+
+# For example of indirect, see https://stackoverflow.com/a/28570677
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "global_tensor_size,"
+                         "comm_split_fixture",
+                         adjoint_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_simple_conv2d_adjoint_bias(barrier_fence_fixture,
+                                    comm_split_fixture,
+                                    P_x_ranks, P_x_topo,
+                                    global_tensor_size):
+
+    import numpy as np
+    import torch
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.conv import DistributedConv2d
+    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
+
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
+
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+
+    global_tensor_sizes = np.asarray(global_tensor_size)
+
+    layer = DistributedConv2d(global_tensor_sizes, P_x,
                               in_channels=global_tensor_sizes[1],
                               out_channels=10,
                               kernel_size=[3, 3], bias=True)
 
     x = NoneTensor()
-    if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims,
-                                              P_cart.coords,
+    if P_x.active:
+        input_tensor_sizes = compute_subsizes(P_x.dims,
+                                              P_x.coords,
                                               global_tensor_sizes)
         x = torch.zeros(*input_tensor_sizes)
     x.requires_grad = True
 
-    Ax = layer(x)
+    y = layer(x)
 
-    y = NoneTensor()
-    if P_cart.active:
-        y = torch.Tensor(np.random.randn(*Ax.shape))
-    y.requires_grad = True
+    dy = NoneTensor()
+    if P_x.active:
+        dy = torch.Tensor(np.random.randn(*y.shape))
 
-    Ax.backward(y)
+    y.backward(dy)
 
-    y = y.detach()
-    Ax = Ax.detach()
-
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    if P_cart.active:
-
+    b = NoneTensor()
+    db = NoneTensor()
+    if P_x.active:
         b = layer.bias.detach()
         db = layer.bias.grad.detach()
 
-        # ||b||^2
-        local_results[0] = (torch.norm(b)**2).numpy()
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # ||A*@y = db||^2
-        local_results[3] = (torch.norm(db)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-        # <b, db>
-        local_results[5] = np.array([torch.sum(torch.mul(db, b))])
+    dy = dy.detach()
+    y = y.detach()
 
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_b, norm_y, norm_db, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_db*norm_y, norm_Asy*norm_b])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
+    check_adjoint_test_tight(P_world, b, db, y, dy)
 
 
-def test_conv_2d_sizes():
+size_parametrizations = []
+
+size_parametrizations.append(
+    pytest.param(
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
+        [1, 5, 10, 10],  # global_tensor_size
+        [1, 10, 5, 5],  # local_output_tensor_size
+        [1, 1],  # padding
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+size_parametrizations.append(
+    pytest.param(
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
+        [1, 5, 10, 10],  # global_tensor_size
+        [1, 10, 4, 4],  # local_output_tensor_size
+        [0, 0],  # padding
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+
+
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "global_tensor_size,"
+                         "local_output_tensor_size,"
+                         "padding,"
+                         "comm_split_fixture",
+                         size_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_simple_conv2d_sizes(barrier_fence_fixture,
+                             comm_split_fixture,
+                             P_x_ranks, P_x_topo,
+                             global_tensor_size,
+                             local_output_tensor_size,
+                             padding):
 
     import numpy as np
     import torch
-    from mpi4py import MPI
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
 
-    P = P_world.create_partition_inclusive(np.arange(4))
-    P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.array([1, 5, 10, 10])
+    global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedConv2d(global_tensor_sizes, P_cart,
+    layer = DistributedConv2d(global_tensor_sizes, P_x,
                               in_channels=global_tensor_sizes[1],
                               out_channels=10,
                               kernel_size=[3, 3],
-                              padding=(1, 1),
+                              padding=padding,
                               bias=False)
 
     x = NoneTensor()
-    if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims,
-                                              P_cart.coords,
+    if P_x.active:
+        input_tensor_sizes = compute_subsizes(P_x.dims,
+                                              P_x.coords,
                                               global_tensor_sizes)
-        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+        x = torch.zeros(*input_tensor_sizes)
     x.requires_grad = True
 
-    Ax = layer(x)
+    y = layer(x)
 
-    if P_cart.active:
-        assert(np.array_equal(np.array(Ax.shape), np.array([1, 10, 5, 5])))
-    else:
-        assert(True)
-
-    global_tensor_sizes = np.array([1, 5, 10, 10])
-
-    layer = DistributedConv2d(global_tensor_sizes, P_cart,
-                              in_channels=global_tensor_sizes[1],
-                              out_channels=10,
-                              kernel_size=[3, 3],
-                              padding=(0, 0),
-                              bias=False)
-
-    x = NoneTensor()
-    if P_cart.active:
-        input_tensor_sizes = compute_subsizes(P_cart.dims,
-                                              P_cart.coords,
-                                              global_tensor_sizes)
-        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
-    x.requires_grad = True
-
-    Ax = layer(x)
-
-    if P_cart.active:
-        assert(np.array_equal(np.array(Ax.shape), np.array([1, 10, 4, 4])))
-    else:
-        assert(True)
+    if P_x.active:
+        assert(np.array_equal(np.array(y.shape), np.asarray(local_output_tensor_size)))
