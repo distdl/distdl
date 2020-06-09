@@ -5,7 +5,6 @@ from mpi4py import MPI
 import distdl.utilities.slicing as slicing
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.transpose import DistributedTranspose
-from distdl.nn.transpose import DistributedTransposeFunction
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.torch import NoneTensor
 
@@ -19,51 +18,39 @@ out_dims = (1, 1)
 in_size = np.prod(in_dims)
 out_size = np.prod(out_dims)
 
-P_in = P_world.create_partition_inclusive(np.arange(0, in_size))
-PC_in = P_in.create_cartesian_topology_partition(in_dims)
+P_x_base = P_world.create_partition_inclusive(np.arange(0, in_size))
+P_x = P_x_base.create_cartesian_topology_partition(in_dims)
 
-P_out = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
-PC_out = P_out.create_cartesian_topology_partition(out_dims)
+P_y_base = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
+P_y = P_y_base.create_cartesian_topology_partition(out_dims)
 
 tensor_sizes = np.array([7, 5])
 
-layer = DistributedTranspose(tensor_sizes, PC_in, PC_out)
+layer = DistributedTranspose(tensor_sizes, P_x, P_y)
 
-if PC_in.active:
-    in_subsizes = slicing.compute_subsizes(PC_in.comm.dims,
-                                           PC_in.comm.Get_coords(P_in.rank),
+x = NoneTensor()
+if P_x.active:
+    in_subsizes = slicing.compute_subsizes(P_x.comm.dims,
+                                           P_x.comm.Get_coords(P_x.rank),
                                            tensor_sizes)
-    x = np.zeros(in_subsizes) + P_in.rank + 1
+    x = np.zeros(in_subsizes) + P_x.rank + 1
     x = torch.from_numpy(x)
-else:
-    x = NoneTensor()
-
+x.requires_grad = True
 print_sequential(P_world.comm, f"x_{P_world.rank}: {x}")
 
-ctx = DistributedTransposeFunction()
-
-y = DistributedTransposeFunction.forward(ctx, x,
-                                         layer.P_union,
-                                         layer.global_tensor_sizes,
-                                         layer.P_in,
-                                         layer.in_data,
-                                         layer.in_buffers,
-                                         layer.P_out,
-                                         layer.out_data,
-                                         layer.out_buffers,
-                                         layer.dtype)
+y = layer(x)
 print_sequential(P_world.comm, f"y_{P_world.rank}: {y}")
 
-if PC_out.active:
-    out_subsizes = slicing.compute_subsizes(PC_out.comm.dims,
-                                            PC_out.comm.Get_coords(P_out.rank),
+dy = NoneTensor()
+if P_y.active:
+    out_subsizes = slicing.compute_subsizes(P_y.comm.dims,
+                                            P_y.comm.Get_coords(P_y.rank),
                                             tensor_sizes)
-    gy = np.zeros(out_subsizes) + P_out.rank + 1
-    gy = torch.from_numpy(gy)
-else:
-    gy = NoneTensor()
+    dy = np.zeros(out_subsizes) + P_y.rank + 1
+    dy = torch.from_numpy(dy)
 
-print_sequential(P_world.comm, f"gy_{P_world.rank}: {gy}")
+print_sequential(P_world.comm, f"dy_{P_world.rank}: {dy}")
 
-gx = DistributedTransposeFunction.backward(ctx, gy)
-print_sequential(P_world.comm, f"gx_{P_world.rank}: {gx}")
+y.backward(dy)
+dx = x.grad
+print_sequential(P_world.comm, f"dx_{P_world.rank}: {dx}")
