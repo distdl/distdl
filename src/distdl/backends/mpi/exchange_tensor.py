@@ -79,3 +79,26 @@ def exchange_tensor_structure(tensor, P_send, P_recv):
     # Finally, everyone should have valid data.  Any sending rank created it
     # from input data.  Any receving _only_ rank used what it was given.
     return tensor_requires_grad, tensor_dim, tensor_sizes
+
+
+def compute_global_tensor_sizes(tensor, P_in, P_out=None):
+
+    global_tensor_sizes = None
+    if P_in.active:
+        global_tensor_sizes = np.zeros(P_in.dim, dtype=np.int)
+        for i in range(P_in.dim):
+
+            keep = [False] * P_in.dim
+            keep[i] = True
+
+            P_sub = P_in.create_cartesian_subtopology_partition(keep)
+
+            v0 = np.atleast_1d(int(tensor.shape[i]))
+            v1 = np.zeros(1, dtype=np.int)
+            P_sub.comm.Allreduce(v0, v1, op=MPI.SUM)
+            global_tensor_sizes[i] = v1[0]
+
+    if P_out is not None and P_out.active:
+        global_tensor_sizes = P_out.broadcast_data(global_tensor_sizes, P_data=P_in)
+
+    return global_tensor_sizes
