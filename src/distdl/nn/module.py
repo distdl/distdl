@@ -20,16 +20,16 @@ class Module(torch.nn.Module):
         if self._distdl_module_requires_reset():
 
             if self._distdl_is_setup:
-                self._distdl_module_teardown()
+                self._distdl_module_teardown(input)
 
-            self._distdl_module_setup()
+            self._distdl_module_setup(input)
 
         return
 
-    def _distdl_module_setup(self):
+    def _distdl_module_setup(self, input):
         pass
 
-    def _distdl_module_teardown(self):
+    def _distdl_module_teardown(self, input):
         pass
 
     def _distdl_module_requires_reset(self):
