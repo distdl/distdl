@@ -28,6 +28,11 @@ class DistributedTranspose(Module):
 
         self.identity = False
 
+        # Variables for tracking input changes and buffer construction
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
         if P_in == P_out:
             self.identity = True
             return
@@ -137,6 +142,34 @@ class DistributedTranspose(Module):
         buffs = self._allocate_buffers(self.dtype)
         self.in_buffers = buffs[0]
         self.out_buffers = buffs[1]
+
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
+    def _distdl_module_teardown(self, input):
+
+        # Reset all of the buffers and communication objects
+        self.in_data = []
+        self.out_data = []
+
+        self.in_buffers = None
+        self.out_buffers = None
+
+        # Reset any info about the input
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_input_changed(self, input):
+
+        if input[0].requires_grad != self._input_requires_grad:
+            return True
+
+        if input[0].shape != self._input_shape:
+            return True
+
+        return False
 
     def _allocate_buffers(self, dtype):
 
