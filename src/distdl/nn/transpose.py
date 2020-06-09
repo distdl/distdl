@@ -38,76 +38,45 @@ class DistributedTranspose(Module):
             P_union = P_in.create_partition_union(P_out)
         self.P_union = P_union
 
+        self.P_in_dims = None
+        self.P_out_dims = None
+        self.union_indices = None
+
         if not P_union.active:
-            # This is where the early exit stuff will go
             return
 
-        # Find the rank in P_union with rank 0 of P_in
-        rank_map_data = np.array([-1], dtype=np.int)
-        if P_in.active:
-            rank_map_data[0] = P_in.rank
-        rank_map = -1*np.ones(P_union.size, dtype=np.int)
-        P_union.comm.Allgather(rank_map_data, rank_map)
-        in_root = np.where(rank_map == 0)[0][0]
+        data = None
+        if self.P_in.active:
+            data = self.P_in.dims
+        self.P_in_dims = self.P_union.broadcast_data(data, P_data=self.P_in)
 
-        # Find the rank in P_union with rank 0 of P_dest
-        rank_map_data = np.array([-1], dtype=np.int)
-        if P_out.active:
-            rank_map_data[0] = P_out.rank
-        rank_map = -1*np.ones(P_union.size, dtype=np.int)
-        P_union.comm.Allgather(rank_map_data, rank_map)
-        out_root = np.where(rank_map == 0)[0][0]
+        data = None
+        if self.P_out.active:
+            data = self.P_out.dims
+        self.P_out_dims = self.P_union.broadcast_data(data, P_data=self.P_out)
 
-        # Share the in cartesian dimension with everyone
-        in_dim = np.zeros(1, dtype=np.int)
-        if P_in.active and P_in.rank == 0:
-            in_dim[0] = P_in.dim
-        P_union.comm.Bcast(in_dim, root=in_root)
-
-        # Share the out cartesian dimension with everyone
-        out_dim = np.zeros(1, dtype=np.int)
-        if P_out.active and P_out.rank == 0:
-            out_dim[0] = P_out.dim
-        P_union.comm.Bcast(out_dim, root=out_root)
-
-        in_dims = np.ones(in_dim, dtype=np.int)
-        if P_in.active and P_in.rank == 0:
-            in_dims = P_in.dims
-        P_union.comm.Bcast(in_dims, root=in_root)
-
-        # Share the out partition dimensions with everyone
-        out_dims = np.zeros(out_dim, dtype=np.int)
-        if P_out.active and P_out.rank == 0:
-            out_dims = P_out.dims
-        P_union.comm.Bcast(out_dims, root=out_root)
-
-        in_index = -1
-        if P_in.active:
-            in_index = P_in.rank
-        out_index = -1
-        if P_out.active:
-            out_index = P_out.rank
+        if len(self.P_in_dims) != len(self.P_out_dims):
+            raise ValueError("Input and output partition must be same dimension.")
 
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source index and the second contains
         # the destination index.
-        union_indices = -1*np.ones(2*self.P_union.size, dtype=np.int)
-        local_indices = np.array([in_index, out_index], dtype=np.int)
-        self.P_union.comm.Allgather(local_indices, union_indices)
-        union_indices.shape = (-1, 2)
+        local_indices = np.zeros(2, dtype=np.int)
+        local_indices[0] = P_in.rank if P_in.active else -1
+        local_indices[1] = P_out.rank if P_out.active else -1
+
+        self.union_indices = self.P_union.allgather_data(local_indices)
+
 
         tensor_dim = len(global_tensor_sizes)
 
-        if in_dim != out_dim:
-            raise ValueError("Input and output partition must be same dimension.")
-
-        if in_dim != tensor_dim:
+        if len(in_dims) != tensor_dim:
             raise ValueError(f"Input partition mush have same dimension "
-                             f"({in_dim}) as input tensor rank ({tensor_dim}).")
+                             f"({len(in_dims)}) as input tensor rank ({tensor_dim}).")
 
-        if out_dim != tensor_dim:
+        if len(out_dims) != tensor_dim:
             raise ValueError(f"Output partition mush have same dimension "
-                             f"({out_dim}) as input tensor rank ({tensor_dim}).")
+                             f"({len(out_dims)}) as input tensor rank ({tensor_dim}).")
 
         if 1 in global_tensor_sizes[global_tensor_sizes != out_dims]:
             raise ValueError(f"Input tensor must not be size 1 "
@@ -129,7 +98,7 @@ class DistributedTranspose(Module):
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the output partner's rank in
                     # the common partition.
-                    partner = np.where(union_indices[:, 1] == rank)[0][0]
+                    partner = np.where(self.union_indices[:, 1] == rank)[0][0]
                     self.in_data.append((sl, sz, partner))
                 else:
                     self.in_data.append((None, None, None))
@@ -148,7 +117,7 @@ class DistributedTranspose(Module):
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the input partner's rank in
                     # the common partition.
-                    partner = np.where(union_indices[:, 0] == rank)[0][0]
+                    partner = np.where(self.union_indices[:, 0] == rank)[0][0]
                     self.out_data.append((sl, sz, partner))
                 else:
                     self.out_data.append((None, None, None))
