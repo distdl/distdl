@@ -534,6 +534,55 @@ class MPIPartition:
 
         return P_send, P_recv
 
+    def broadcast_data(self, data, root=0, P_data=None):
+
+        # If the data is coming from a different partition
+        if not self.active:
+            return None
+
+        if P_data is None:
+            P_data = self
+            data_root = root
+        else:
+            # Find the root rank (on P_data) in the self communicator
+            rank_map = -1*np.ones(self.size, dtype=np.int)
+            rank_map_data = np.array([-1], dtype=np.int)
+            if P_data.active:
+                rank_map_data[0] = P_data.rank
+            self.comm.Allgather(rank_map_data, rank_map)
+
+            if root in rank_map:
+                data_root = np.where(rank_map == root)[0][0]
+            else:
+                raise ValueError("Requested root rank is not in P_data.")
+
+        # Give everyone the size of the data
+        data_dim = np.zeros(1, dtype=np.int)
+        if P_data.active and self.rank == data_root:
+            # Ensure that data is a numpy array
+            data = np.atleast_1d(data)
+            data_dim[0] = len(data)
+        self.comm.Bcast(data_dim, root=data_root)
+
+        out_data = np.ones(data_dim, dtype=np.int)
+        if P_data.active and P_data.rank == root:
+            out_data = data
+
+        self.comm.Bcast(out_data, root=data_root)
+
+        return out_data
+
+    def allgather_data(self, data):
+
+        data = np.atleast_1d(data)
+        sz = len(data)
+
+        out_data = -1*np.ones(sz*self.size, dtype=np.int)
+        self.comm.Allgather(data, out_data)
+        out_data.shape = -1, sz
+
+        return out_data
+
 
 class MPICartesianPartition(MPIPartition):
 
