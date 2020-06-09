@@ -3,6 +3,7 @@ import torch
 from mpi4py import MPI
 
 from distdl.backends.mpi.partition import MPIPartition
+from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
 from distdl.utilities.slicing import compute_partition_intersection
 from distdl.utilities.slicing import compute_subsizes
@@ -195,7 +196,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         return grad_input, None, None, None, None, None, None, None, None, None
 
 
-class DistributedTranspose(torch.nn.Module):
+class DistributedTranspose(Module):
 
     def __init__(self, global_tensor_sizes, P_in, P_out):
         super(DistributedTranspose, self).__init__()
