@@ -17,7 +17,7 @@ class Module(torch.nn.Module):
     @staticmethod
     def _distdl_forward_pre_hook(self, input):
 
-        if self._distdl_module_requires_reset():
+        if self._distdl_module_requires_reset(input):
 
             if self._distdl_is_setup:
                 self._distdl_module_teardown(input)
@@ -32,5 +32,8 @@ class Module(torch.nn.Module):
     def _distdl_module_teardown(self, input):
         pass
 
-    def _distdl_module_requires_reset(self):
-        return (not self._distdl_is_setup) or True
+    def _distdl_input_changed(self, input):
+        pass
+
+    def _distdl_module_requires_reset(self, input):
+        return not self._distdl_is_setup or self._distdl_input_changed(input)
