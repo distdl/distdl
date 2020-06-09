@@ -1,3 +1,7 @@
+import numpy as np
+import pytest
+from adjoint_test import check_adjoint_test_tight
+
 from distdl.nn.halo_mixin import HaloMixin
 
 
@@ -59,241 +63,125 @@ class MockupPoolingLayer(HaloMixin):
         return strides * idx + kernel_sizes - 1
 
 
-# Tests the halo exchange layer where each rank has the same padding
-# (i.e. a convolutional layer)
-def test_halo_exchange_layer_same_padding():
+adjoint_parametrizations = []
 
+# Main functionality
+adjoint_parametrizations.append(
+    pytest.param(
+        np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_topo
+        [1, 1, 10, 7],  # local_tensor_sizes
+        [1, 1, 3, 3],  # kernel_sizes
+        [1, 1, 1, 1],  # strides
+        [0, 0, 0, 0],  # pads
+        [1, 1, 1, 1],  # dilations
+        MockupConvLayer,  # MockupKernelStyle
+        9,  # passed to comm_split_fixture, required MPI ranks
+        id="conv-same_padding",
+        marks=[pytest.mark.mpi(min_size=9)]
+        )
+    )
+
+adjoint_parametrizations.append(
+    pytest.param(
+        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
+        [1, 1, 10],  # local_tensor_sizes
+        [2],  # kernel_sizes
+        [2],  # strides
+        [0],  # pads
+        [1],  # dilations
+        MockupConvLayer,  # MockupKernelStyle
+        3,  # passed to comm_split_fixture, required MPI ranks
+        id="conv-same_padding",
+        marks=[pytest.mark.mpi(min_size=3)]
+        )
+    )
+
+
+@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+                         "local_tensor_sizes,"
+                         "kernel_sizes,"
+                         "strides,"
+                         "pads,"
+                         "dilations,"
+                         "MockupKernelStyle,"
+                         "comm_split_fixture",
+                         adjoint_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_halo_exchange_adjoint(barrier_fence_fixture,
+                               comm_split_fixture,
+                               P_x_ranks, P_x_topo,
+                               local_tensor_sizes,
+                               kernel_sizes, strides, pads, dilations,
+                               MockupKernelStyle):
     import numpy as np
     import torch
-    from mpi4py import MPI
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.halo_exchange import HaloExchange
     from distdl.nn.padnd import PadNd
     from distdl.utilities.torch import NoneTensor
 
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    P = P_world.create_partition_inclusive(np.arange(9))
-    P_cart = P.create_cartesian_topology_partition([1, 1, 3, 3])
+    local_tensor_sizes = np.asarray(local_tensor_sizes)
+    kernel_sizes = np.asarray(kernel_sizes)
+    strides = np.asarray(strides)
+    pads = np.asarray(pads)
+    dilations = np.asarray(dilations)
 
-    tensor_sizes = np.array([1, 1, 10, 7])
-    kernel_sizes = np.array([1, 1, 3, 3])
-    strides = np.array([1, 1, 1, 1])
-    pads = np.array([0, 0, 0, 0])
-    dilations = np.array([1, 1, 1, 1])
-
-    if P_cart.active:
-        mockup_conv_layer = MockupConvLayer()
+    halo_sizes = None
+    recv_buffer_sizes = None
+    send_buffer_sizes = None
+    if P_x.active:
+        mockup_layer = MockupKernelStyle()
         halo_sizes, recv_buffer_sizes, send_buffer_sizes, _ = \
-            mockup_conv_layer._compute_exchange_info(tensor_sizes,
-                                                     kernel_sizes,
-                                                     strides,
-                                                     pads,
-                                                     dilations,
-                                                     P_cart.active,
-                                                     P_cart.dims,
-                                                     P_cart.coords)
+            mockup_layer._compute_exchange_info(local_tensor_sizes,
+                                                kernel_sizes,
+                                                strides,
+                                                pads,
+                                                dilations,
+                                                P_x.active,
+                                                P_x.dims,
+                                                P_x.coords)
         halo_sizes = halo_sizes.astype(int)
 
-    else:
-        halo_sizes = None
-        recv_buffer_sizes = None
-        send_buffer_sizes = None
-
-    pad_layer = PadNd(halo_sizes, value=0, partition=P_cart)
+    pad_layer = PadNd(halo_sizes, value=0, partition=P_x)
 
     x = NoneTensor()
-    if P_cart.active:
-        x = torch.tensor(np.random.randn(*tensor_sizes))
+    if P_x.active:
+        x = torch.tensor(np.random.randn(*local_tensor_sizes))
     x.requires_grad = True
-
     x = pad_layer.forward(x)
 
-    y = NoneTensor()
-    if P_cart.active:
-        y = torch.tensor(np.random.randn(*x.shape))
-    y.requires_grad = True
+    dy = NoneTensor()
+    if P_x.active:
+        dy = torch.tensor(np.random.randn(*x.shape))
 
-    halo_layer = HaloExchange(x.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
-
-    x_clone = x.clone()
-    y_clone = y.clone()
-
-    Ax = halo_layer(x_clone)
-
-    Ax.backward(y_clone)
-    Asy = y_clone
-
-    x = x.detach()
-    Ax = Ax.detach()
-    y = y.detach()
-    Asy = Asy.detach()
-
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    # Compute all of the local norms and inner products.
-    # We only perform the inner product calculation between
-    # x and Asy on the root rank, as the input space of the forward
-    # operator and the output space of the adjoint operator
-    # are only relevant to the root rank
-    if P_cart.active:
-        # ||x||^2
-        local_results[0] = (torch.norm(x)**2).numpy()
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # ||A*@y||^2
-        local_results[3] = (torch.norm(Asy)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-        # <A*@y, x>
-        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
-
-
-# Tests the halo exchange layer where each rank has different padding
-# (i.e. a pooling layer)
-def test_halo_exchange_layer_different_padding():
-
-    import numpy as np
-    import torch
-    from mpi4py import MPI
-
-    from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.halo_exchange import HaloExchange
-    from distdl.nn.padnd import PadNd
-    from distdl.utilities.slicing import compute_subsizes
-    from distdl.utilities.torch import NoneTensor
-
-    P_world = MPIPartition(MPI.COMM_WORLD)
-    P_world.comm.Barrier()
-
-    P = P_world.create_partition_inclusive(np.arange(3))
-    P_cart = P.create_cartesian_topology_partition([1, 1, 3])
-
-    tensor_sizes = np.array([1, 1, 10])
-    kernel_sizes = np.array([2])
-    strides = np.array([2])
-    pads = np.array([0])
-    dilations = np.array([1])
-
-    if P_cart.active:
-        mockup_conv_layer = MockupConvLayer()
-        halo_sizes, recv_buffer_sizes, send_buffer_sizes, _ = \
-            mockup_conv_layer._compute_exchange_info(tensor_sizes,
-                                                     kernel_sizes,
-                                                     strides,
-                                                     pads,
-                                                     dilations,
-                                                     P_cart.active,
-                                                     P_cart.dims,
-                                                     P_cart.coords)
-        halo_sizes = halo_sizes.astype(int)
-        subsizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), tensor_sizes)
-
-    else:
-        halo_sizes = None
-        recv_buffer_sizes = None
-        send_buffer_sizes = None
-
-    pad_layer = PadNd(halo_sizes, value=0, partition=P_cart)
-
-    x = NoneTensor()
-    if P_cart.active:
-        x = torch.tensor(np.random.randn(*subsizes))
-    x.requires_grad = True
-
-    x = pad_layer.forward(x)
-
-    y = NoneTensor()
-    if P_cart.active:
-        y = torch.tensor(np.random.randn(*x.shape))
-    y.requires_grad = True
-
-    halo_layer = HaloExchange(x.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
+    halo_layer = HaloExchange(x.shape,
+                              halo_sizes, recv_buffer_sizes, send_buffer_sizes,
+                              P_x)
 
     x_clone = x.clone()
-    y_clone = y.clone()
+    dy_clone = dy.clone()
 
-    Ax = halo_layer(x_clone)
+    # x_clone is be modified in place by halo_layer, but we assign y to
+    # reference it for clarity
+    y = halo_layer(x_clone)
 
-    Ax.backward(y_clone)
-    Asy = y_clone
+    # dy_clone is modified in place by halo_layer-adjoint, but we assign dx to
+    # reference it for clarity
+    y.backward(dy_clone)
+    dx = dy_clone
 
     x = x.detach()
-    Ax = Ax.detach()
+    dx = dx.detach()
+    dy = dy.detach()
     y = y.detach()
-    Asy = Asy.detach()
 
-    local_results = np.zeros(6, dtype=np.float64)
-    global_results = np.zeros(6, dtype=np.float64)
-
-    # Compute all of the local norms and inner products.
-    # We only perform the inner product calculation between
-    # x and Asy on the root rank, as the input space of the forward
-    # operator and the output space of the adjoint operator
-    # are only relevant to the root rank
-    if P_cart.active:
-        # ||x||^2
-        local_results[0] = (torch.norm(x)**2).numpy()
-        # ||y||^2
-        local_results[1] = (torch.norm(y)**2).numpy()
-        # ||A@x||^2
-        local_results[2] = (torch.norm(Ax)**2).numpy()
-        # ||A*@y||^2
-        local_results[3] = (torch.norm(Asy)**2).numpy()
-        # <A@x, y>
-        local_results[4] = np.array([torch.sum(torch.mul(Ax, y))])
-        # <A*@y, x>
-        local_results[5] = np.array([torch.sum(torch.mul(Asy, x))])
-
-    # Reduce the norms and inner products
-    P_world.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
-
-    # Because this is being computed in parallel, we risk that these norms
-    # and inner products are not exactly equal, because the floating point
-    # arithmetic is not commutative.  The only way to fix this is to collect
-    # the results to a single rank to do the test.
-    if(P_world.rank == 0):
-        # Correct the norms from distributed calculation
-        global_results[:4] = np.sqrt(global_results[:4])
-
-        # Unpack the values
-        norm_x, norm_y, norm_Ax, norm_Asy, ip1, ip2 = global_results
-
-        d = np.max([norm_Ax*norm_y, norm_Asy*norm_x])
-        print(f"Adjoint test: {ip1/d} {ip2/d}")
-        assert(np.isclose(ip1/d, ip2/d))
-    else:
-        # All other ranks pass the adjoint test
-        assert(True)
-
-    # Barrier fence to ensure all enclosed MPI calls resolve.
-    P_world.comm.Barrier()
+    check_adjoint_test_tight(P_world, x, dx, y, dy)
