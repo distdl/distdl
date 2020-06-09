@@ -44,7 +44,7 @@ ctx = DistributedTransposeFunction()
 
 y = DistributedTransposeFunction.forward(ctx, x,
                                          layer.P_union,
-                                         layer.sizes,
+                                         layer.global_tensor_sizes,
                                          layer.P_in,
                                          layer.in_data,
                                          layer.in_buffers,
