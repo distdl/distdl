@@ -1,5 +1,4 @@
 import numpy as np
-from mpi4py import MPI
 
 from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
@@ -34,7 +33,7 @@ class DistributedTranspose(Module):
             self.identity = True
             return
 
-        P_union = self._distdl_backend.Partition(MPI.COMM_NULL)
+        P_union = self._distdl_backend.Partition()
         if P_in.active or P_out.active:
             P_union = P_in.create_partition_union(P_out)
         self.P_union = P_union

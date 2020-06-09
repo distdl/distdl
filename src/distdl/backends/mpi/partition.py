@@ -13,7 +13,7 @@ from distdl.utilities.index_tricks import cartesian_index_f
 
 class MPIPartition:
 
-    def __init__(self, comm, group=MPI.GROUP_NULL, root=None):
+    def __init__(self, comm=MPI.COMM_NULL, group=MPI.GROUP_NULL, root=None):
 
         self.comm = comm
 
