@@ -1,7 +1,11 @@
 import torch
 
+from distdl.backend import backend
+
 
 class Module(torch.nn.Module):
+
+    _distdl_backend = backend
 
     def __init__(self):
 
@@ -10,6 +14,7 @@ class Module(torch.nn.Module):
         self._distdl_is_setup = False
         self.register_forward_pre_hook(self._distdl_forward_pre_hook)
 
+    @staticmethod
     def _distdl_forward_pre_hook(self, input):
 
         if self._distdl_module_requires_reset():
