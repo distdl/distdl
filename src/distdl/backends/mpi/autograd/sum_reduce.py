@@ -2,35 +2,24 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
-from distdl.backends.mpi.exchange_tensor import exchange_tensor_structure
 from distdl.utilities.torch import NoneTensor
 
 
 class SumReduceFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, P_send, P_recv, dtype):
+    def forward(ctx, input, P_send, P_recv,
+                input_tensor_structure, output_tensor_structure, dtype):
 
         ctx.P_send = P_send
         ctx.P_recv = P_recv
+        ctx.input_tensor_structure = input_tensor_structure
+        ctx.output_tensor_structure = output_tensor_structure
         ctx.dtype = dtype
 
-        input_requires_grad = input.requires_grad
-        in_tensor_dim = len(input.shape)
-        in_tensor_sizes = np.array(input.shape, dtype=np.int)
-        # Share the input tensor structure so the output can create space for
-        # the data.
-        out_tensor_structure = exchange_tensor_structure(input, P_send, P_recv)
-        output_requires_grad = out_tensor_structure[0]
-        out_tensor_dim = out_tensor_structure[1]
-        out_tensor_sizes = out_tensor_structure[2]
-
-        ctx.input_requires_grad = input_requires_grad
-        ctx.in_tensor_dim = in_tensor_dim
-        ctx.in_tensor_sizes = in_tensor_sizes
-        ctx.output_requires_grad = output_requires_grad
-        ctx.out_tensor_dim = out_tensor_dim
-        ctx.out_tensor_sizes = out_tensor_sizes
+        in_tensor_sizes = input_tensor_structure[2]
+        output_requires_grad = output_tensor_structure[0]
+        out_tensor_sizes = output_tensor_structure[2]
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -73,9 +62,11 @@ class SumReduceFunction(torch.autograd.Function):
 
         P_send = ctx.P_send
         P_recv = ctx.P_recv
+        input_tensor_structure = ctx.input_tensor_structure
         dtype = ctx.dtype
-        input_requires_grad = ctx.input_requires_grad
-        in_tensor_sizes = ctx.in_tensor_sizes
+
+        input_requires_grad = input_tensor_structure[0]
+        in_tensor_sizes = input_tensor_structure[2]
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -104,4 +95,4 @@ class SumReduceFunction(torch.autograd.Function):
 
         MPI.Request.Waitall(requests)
 
-        return grad_input, None, None, None
+        return grad_input, None, None, None, None, None

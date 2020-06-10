@@ -1,5 +1,6 @@
 import numpy as np
 
+from distdl.backends.mpi.exchange_tensor import compute_output_tensor_structure
 from distdl.nn.module import Module
 
 
@@ -22,6 +23,10 @@ class Broadcast(Module):
         # Blank partitions
         self.P_send = self._distdl_backend.Partition()
         self.P_recv = self._distdl_backend.Partition()
+
+        # Other info needed by the functions
+        self.input_tensor_structure = None
+        self.output_tensor_structure = None
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
@@ -48,6 +53,13 @@ class Broadcast(Module):
             self.P_send = bcast_partitions[0]
             self.P_recv = bcast_partitions[1]
 
+            self.input_tensor_structure = (input[0].requires_grad,
+                                           len(input[0].shape),
+                                           np.array(input[0].shape, dtype=np.int))
+            self.output_tensor_structure = compute_output_tensor_structure(input[0],
+                                                                           self.P_send,
+                                                                           self.P_recv)
+
         self._distdl_is_setup = True
         self._input_shape = input[0].shape
         self._input_requires_grad = input[0].requires_grad
@@ -57,6 +69,10 @@ class Broadcast(Module):
         # Reset all of the buffers and communication objects
         self.P_send = self._distdl_backend.Partition()
         self.P_recv = self._distdl_backend.Partition()
+
+        # Reset any data stored about the tensor
+        self.input_tensor_structure = None
+        self.output_tensor_structure = None
 
         # Reset any info about the input
         self._distdl_is_setup = False
@@ -80,4 +96,9 @@ class Broadcast(Module):
         if self.identity:
             return input.clone()
 
-        return Function.apply(input, self.P_send, self.P_recv, self.dtype)
+        return Function.apply(input,
+                              self.P_send,
+                              self.P_recv,
+                              self.input_tensor_structure,
+                              self.output_tensor_structure,
+                              self.dtype)
