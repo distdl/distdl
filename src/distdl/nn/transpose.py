@@ -8,12 +8,11 @@ from distdl.utilities.slicing import range_coords
 
 class DistributedTranspose(Module):
 
-    def __init__(self, global_tensor_sizes, P_in, P_out):
+    def __init__(self, P_in, P_out):
         super(DistributedTranspose, self).__init__()
 
-        global_tensor_sizes = np.asarray(global_tensor_sizes)
+        self.global_tensor_sizes = None
 
-        self.global_tensor_sizes = global_tensor_sizes
         self.P_in = P_in
         self.P_out = P_out
 
@@ -67,6 +66,19 @@ class DistributedTranspose(Module):
 
         self.union_indices = self.P_union.allgather_data(local_indices)
 
+    def _distdl_module_setup(self, input):
+
+        # If we are not a worker, do nothing.
+        if not self.P_union.active:
+            return
+
+        in_dims = self.P_in_dims
+        out_dims = self.P_out_dims
+
+        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+                                                                               self.P_in,
+                                                                               self.P_union)
+        self.global_tensor_sizes = global_tensor_sizes
 
         tensor_dim = len(global_tensor_sizes)
 
@@ -86,8 +98,8 @@ class DistributedTranspose(Module):
         # We only need to move data to the output partition if we actually
         # have input data.  It is possible to have both input and output data,
         # either input or output data, or neither.  Hence the active guard.
-        if P_in.active:
-            in_coords = P_in.cartesian_coordinates(P_in.rank)
+        if self.P_in.active:
+            in_coords = self.P_in.cartesian_coordinates(self.P_in.rank)
 
             # Compute our overlaps for each output subpartition.
             for rank, out_coords in enumerate(range_coords(out_dims)):
@@ -105,8 +117,8 @@ class DistributedTranspose(Module):
 
         # We only need to obtain data from the input partition if we actually
         # have output data.
-        if P_out.active:
-            out_coords = P_out.cartesian_coordinates(P_out.rank)
+        if self.P_out.active:
+            out_coords = self.P_out.cartesian_coordinates(self.P_out.rank)
 
             # Compute our overlaps for each input subpartition.
             for rank, in_coords in enumerate(range_coords(in_dims)):
