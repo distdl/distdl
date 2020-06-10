@@ -154,7 +154,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
 
     # The global tensor size is the same for x and y
-    layer = DistributedTranspose(global_tensor_size, P_x, P_y)
+    layer = DistributedTranspose(P_x, P_y)
 
     # Forward Input
     x = NoneTensor()
@@ -205,7 +205,6 @@ def test_excepts_mismatched_partitions(barrier_fence_fixture,
 
     in_dims = (1, 4, 1, 1)
     out_dims = (1, 2)
-    global_tensor_sizes = np.array([1, 16, 5, 5])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -218,7 +217,7 @@ def test_excepts_mismatched_partitions(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_dims)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(global_tensor_sizes, P_x, P_y)  # noqa: F841
+        DistributedTranspose(P_x, P_y)
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
@@ -226,9 +225,12 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
                                                    comm_split_fixture):
 
     import numpy as np
+    import torch
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
+    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -239,7 +241,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     # Input partition rank must match tensor rank
     in_dims = (1, 4, 1, 1)
     out_dims = (1, 1, 1, 2)
-    global_tensor_sizes = np.array([16, 5, 5])
+    global_tensor_size = np.array([16, 5, 5])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -252,7 +254,18 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_dims)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(global_tensor_sizes, P_x, P_y)  # noqa: F841
+        layer = DistributedTranspose(P_x, P_y)
+
+        # Forward Input
+        x = NoneTensor()
+        if P_x.active:
+            in_subsizes = compute_subsizes(P_x.comm.dims,
+                                           P_x.comm.Get_coords(P_x.rank),
+                                           global_tensor_size)
+            x = torch.Tensor(np.random.randn(*in_subsizes))
+        x.requires_grad = True
+
+        layer(x)
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
@@ -260,9 +273,12 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
                                                     comm_split_fixture):
 
     import numpy as np
+    import torch
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
+    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -273,7 +289,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     # Output partition rank must match tensor rank
     in_dims = (4, 1, 1)
     out_dims = (1, 1, 1, 2)
-    global_tensor_sizes = np.array([16, 5, 5])
+    global_tensor_size = np.array([16, 5, 5])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -286,7 +302,18 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_dims)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(global_tensor_sizes, P_x, P_y)  # noqa: F841
+        layer = DistributedTranspose(P_x, P_y)
+
+        # Forward Input
+        x = NoneTensor()
+        if P_x.active:
+            in_subsizes = compute_subsizes(P_x.comm.dims,
+                                           P_x.comm.Get_coords(P_x.rank),
+                                           global_tensor_size)
+            x = torch.Tensor(np.random.randn(*in_subsizes))
+        x.requires_grad = True
+
+        layer(x)
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
@@ -294,9 +321,12 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
                                                 comm_split_fixture):
 
     import numpy as np
+    import torch
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
+    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -308,7 +338,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
     # dimension.  (See last dimension of output and tensor.)
     in_dims = (1, 4, 1, 1)
     out_dims = (1, 1, 1, 2)
-    global_tensor_sizes = np.array([1, 16, 5, 1])
+    global_tensor_size = np.array([1, 16, 5, 1])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -321,4 +351,15 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_dims)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(global_tensor_sizes, P_x, P_y)  # noqa: F841
+        layer = DistributedTranspose(P_x, P_y)
+
+        # Forward Input
+        x = NoneTensor()
+        if P_x.active:
+            in_subsizes = compute_subsizes(P_x.comm.dims,
+                                           P_x.comm.Get_coords(P_x.rank),
+                                           global_tensor_size)
+            x = torch.Tensor(np.random.randn(*in_subsizes))
+        x.requires_grad = True
+
+        layer(x)
