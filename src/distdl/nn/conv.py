@@ -102,7 +102,10 @@ class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
             del self.conv_layer.bias
             self.conv_layer.bias = new_bias
 
-        self.broadcast_layer = Broadcast(self.P_wb_cart, self.P_cart)
+        self.w_broadcast = Broadcast(self.P_wb_cart, self.P_cart)
+
+        if self.conv_layer.bias is not None:
+            self.b_broadcast = Broadcast(self.P_wb_cart, self.P_cart)
 
         self.halo_sizes, self.recv_buffer_sizes, self.send_buffer_sizes, self.needed_ranges = \
             self._compute_exchange_info(self.x_in_sizes,
@@ -149,11 +152,11 @@ class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
         if self.serial:
             return self.conv_layer(input)
 
-        w = self.broadcast_layer(self.weight)
+        w = self.w_broadcast(self.weight)
         self.conv_layer.weight = w
 
         if self.conv_layer.bias is not None:
-            b = self.broadcast_layer(self.bias)
+            b = self.b_broadcast(self.bias)
             self.conv_layer.bias = b
 
         input_padded = self.pad_layer(input)
