@@ -115,22 +115,25 @@ class MPIPartition:
 
         root_rank = MPI.PROC_NULL
         if P.active:
-            # The ranks in the union that I will send data to or
-            # the ranks in the union that will also receive data with me.
+            # The ranks in the union that I will send data to (broadcast) or
+            # receive data from (reduction), if this is the "send" group.
+            # The ranks ranks in the union that will receive data from the
+            # same place as me (broadcast) or send data to the same place as
+            # me (reduction).
             dest_ranks = np.where(dest_indices == root_index)[0]
-            # My rank in the union or
-            # the rank in the union I will receive data from.
+            # My rank in the union (send group for broadcast or receive group
+            # for reduction) or the rank in the union I will receive data from
+            # (recv group for broadcast) or send data to (send group for
+            # reduction).
             root_rank = np.where(src_indices == root_index)[0][0]
 
         # Create the MPI group
         ranks = []
         group = MPI.GROUP_NULL
         if root_rank != MPI.PROC_NULL:
-            # Ensure that ranks are not repeated in the union
-            ranks = [rank for rank in dest_ranks if rank != root_rank]
             # Ensure that the root rank is first, so it will be rank 0 in the
-            # new communicator
-            ranks = [root_rank] + ranks
+            # new communicator and that ranks are not repeated in the union
+            ranks = [root_rank] + [rank for rank in dest_ranks if rank != root_rank]
             ranks = np.array(ranks)
             group = P_union.group.Incl(ranks)
 
@@ -275,6 +278,9 @@ class MPIPartition:
         data = np.array([dest_index], dtype=np.int)
         dest_indices = P_union.allgather_data(data)
 
+        # Build partitions to communicate single broadcasts across subsets
+        # of the union partition.
+
         # Send ranks are P_union ranks in the send group, the first entry
         # is the root of the group.
         send_ranks, group_send = self._build_cross_partition_groups(P_src,
@@ -300,10 +306,10 @@ class MPIPartition:
 
         P_src = self
 
-        P_send = MPIPartition(MPI.COMM_NULL)
-        P_recv = MPIPartition(MPI.COMM_NULL)
+        P_send = MPIPartition()
+        P_recv = MPIPartition()
 
-        P_union = MPIPartition(MPI.COMM_NULL)
+        P_union = MPIPartition()
         if P_src.active or P_dest.active:
             P_union = P_src.create_partition_union(P_dest)
 
@@ -312,61 +318,27 @@ class MPIPartition:
         if not P_union.active:
             return P_send, P_recv
 
-        # Find the rank in P_union with rank 0 of P_src
-        rank_map_data = np.array([-1], dtype=np.int)
+        # Get the rank and shape of the two partitions
+        data = None
         if P_src.active:
-            rank_map_data[0] = P_src.rank
-        rank_map = -1*np.ones(P_union.size, dtype=np.int)
-        P_union.comm.Allgather(rank_map_data, rank_map)
-        src_root = np.where(rank_map == 0)[0][0]
+            data = P_src.dims
+        P_src_dims = P_union.broadcast_data(data, P_data=P_src)
+        src_dim = len(P_src_dims)
 
-        # Find the rank in P_union with rank 0 of P_dest
-        rank_map_data = np.array([-1], dtype=np.int)
+        data = None
         if P_dest.active:
-            rank_map_data[0] = P_dest.rank
-        rank_map = -1*np.ones(P_union.size, dtype=np.int)
-        P_union.comm.Allgather(rank_map_data, rank_map)
-        dest_root = np.where(rank_map == 0)[0][0]
-
-        # Share the src cartesian dimension with everyone
-        src_dim = np.zeros(1, dtype=np.int)
-        if P_src.active and P_src.rank == 0:
-            src_dim[0] = P_src.dim
-        P_union.comm.Bcast(src_dim, root=src_root)
-
-        # Share the dest cartesian dimension with everyone
-        dest_dim = np.zeros(1, dtype=np.int)
-        if P_dest.active and P_dest.rank == 0:
-            dest_dim[0] = P_dest.dim
-        P_union.comm.Bcast(dest_dim, root=dest_root)
+            data = P_dest.dims
+        P_dest_dims = P_union.broadcast_data(data, P_data=P_dest)
+        dest_dim = len(P_dest_dims)
 
         # The source must be smaller (or equal) in size to the destination.
         if dest_dim > src_dim:
             raise Exception("No reduction: Source partition smaller than "
                             "destination partition.")
 
-        # Share the src partition dimensions with everyone
-        src_dims = np.zeros(src_dim, dtype=np.int)
-        if P_src.active and P_src.rank == 0:
-            src_dims = P_src.dims
-        P_union.comm.Bcast(src_dims, root=src_root)
-
-        # Share the dest partition dimensions with everyone.  We will compare
-        # this with the source dimensions, so we pad it to the left with
-        # ones to make a valid comparison.
+        src_dims = P_src_dims[::-1] if transpose_src else P_src_dims
         dest_dims = np.ones(src_dim, dtype=np.int)
-        if P_dest.active and P_dest.rank == 0:
-            if transpose_dest:
-                dest_dims[:dest_dim[0]] = P_dest.dims
-            else:
-                dest_dims[-dest_dim[0]:] = P_dest.dims
-        P_union.comm.Bcast(dest_dims, root=dest_root)
-
-        if transpose_src:
-            src_dims = src_dims[::-1]
-
-        if transpose_dest:
-            dest_dims = dest_dims[::-1]
+        dest_dims[-dest_dim:] = P_dest_dims[::-1] if transpose_dest else P_dest_dims
 
         # Find any location that the dimensions differ and where the dest
         # dimension is not 1 where they differ.  If there are any such
@@ -393,6 +365,8 @@ class MPIPartition:
             else:
                 src_index = cartesian_index_c(src_dims[match_loc],
                                               coords_src[match_loc])
+        data = np.array([src_index], dtype=np.int)
+        src_indices = P_union.allgather_data(data)
 
         # Compute the Cartesian index of the destination rank, in the matching
         # dimensions only.  This index will match the index in the source we
@@ -402,14 +376,16 @@ class MPIPartition:
             coords_dest = np.zeros_like(dest_dims)
             c = P_dest.cartesian_coordinates(P_dest.rank)
             if transpose_dest:
-                coords_dest[:dest_dim[0]] = c
+                coords_dest[:dest_dim] = c
                 coords_dest = coords_dest[::-1]
                 dest_index = cartesian_index_f(dest_dims[match_loc],
                                                coords_dest[match_loc])
             else:
-                coords_dest[-dest_dim[0]:] = c
+                coords_dest[-dest_dim:] = c
                 dest_index = cartesian_index_c(dest_dims[match_loc],
                                                coords_dest[match_loc])
+        data = np.array([dest_index], dtype=np.int)
+        dest_indices = P_union.allgather_data(data)
 
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source "index" and the second contains
@@ -422,94 +398,24 @@ class MPIPartition:
         # Build partitions to communicate single reductions across subsets
         # of the union partition.
 
-        # For the sending partition, the destination ranks are the ones that
-        # have matching Cartesian indices in the matching dimensions.
-        send_root = MPI.PROC_NULL
-        send_sources = None
-        if P_src.active:
-            # The ranks in the union that sending data to the same place as me
-            send_sources = np.where(union_indices[:, 0] == src_index)[0]
-            # The rank in the union I send data to
-            send_root = np.where(union_indices[:, 1] == src_index)[0][0]
+        # Send ranks are P_union ranks in the send group, the first entry
+        # is the root of the group.
+        send_ranks, group_send = self._build_cross_partition_groups(P_src,
+                                                                    P_union,
+                                                                    src_index,
+                                                                    dest_indices,
+                                                                    src_indices)
+        # Recv ranks are P_union ranks in the recv group, the first entry
+        # is the root of the group.
+        recv_ranks, group_recv = self._build_cross_partition_groups(P_dest,
+                                                                    P_union,
+                                                                    dest_index,
+                                                                    dest_indices,
+                                                                    src_indices)
 
-        # For the receiving partition, if I am a destination, the other
-        # destinations are the ones with the same Cartesian index as me.
-        recv_root = MPI.PROC_NULL
-        recv_sources = None
-        if P_dest.active:
-            # The ranks in the union that send data to me
-            recv_sources = np.where(union_indices[:, 0] == dest_index)[0]
-            # My rank in the union
-            recv_root = P_union.rank
-
-        # Create the MPI group for the reduction, if any, for which I send
-        # data.
-        send_ranks = []
-        group_send = MPI.GROUP_NULL
-        if send_root != MPI.PROC_NULL:
-            # Ensure that ranks are not repeated in the union
-            send_ranks = [rank for rank in send_sources if rank != send_root]
-            # Ensure that the root rank is first, so it will be rank 0 in the
-            # new communicator
-            send_ranks = [send_root] + send_ranks
-            send_ranks = np.array(send_ranks)
-            group_send = P_union.group.Incl(send_ranks)
-
-        # Create the MPI group for the reduction, if any, for which I am root.
-        recv_ranks = []
-        group_recv = MPI.GROUP_NULL
-        if recv_root != MPI.PROC_NULL:
-            # Ensure that ranks are not repeated in the union
-            recv_ranks = [rank for rank in recv_sources if rank != recv_root]
-            # Ensure that the root rank is first, so it will be rank 0 in the
-            # new communicator
-            recv_ranks = [recv_root] + recv_ranks
-            recv_ranks = np.array(recv_ranks)
-            group_recv = P_union.group.Incl(recv_ranks)
-
-        # We will only do certain work if certain groups were created.
-        has_send_group = not check_null_group(group_send)
-        has_recv_group = not check_null_group(group_recv)
-        same_send_recv_group = check_identical_group(group_send, group_recv)
-
-        # Brute force the four cases, don't try to be elegant...
-        if has_send_group and has_recv_group and not same_send_recv_group:
-
-            # If we have to both send and receive, it is possible to deadlock
-            # if we try to create all send groups first.  Instead, we have to
-            # create them starting from whichever has the smallest root rank,
-            # first.  This way, we should be able to guarantee that deadlock
-            # cannot happen.  It may be linear time, but this is part of the
-            # setup phase anyway.
-            if recv_ranks[0] < send_ranks[0]:
-                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
-                P_recv = MPIPartition(comm_recv, group_recv,
-                                      root=P_union.root)
-                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
-                P_send = MPIPartition(comm_send, group_send,
-                                      root=P_union.root)
-            else:
-                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
-                P_send = MPIPartition(comm_send, group_send,
-                                      root=P_union.root)
-                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
-                P_recv = MPIPartition(comm_recv, group_recv,
-                                      root=P_union.root)
-        elif has_send_group and not has_recv_group and not same_send_recv_group:
-            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
-            P_send = MPIPartition(comm_send, group_send,
-                                  root=P_union.root)
-        elif not has_send_group and has_recv_group and not same_send_recv_group:
-            comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
-            P_recv = MPIPartition(comm_recv, group_recv,
-                                  root=P_union.root)
-        else:  # if has_send_group and has_recv_group and same_send_recv_group
-            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
-            P_send = MPIPartition(comm_send, group_send,
-                                  root=P_union.root)
-            P_recv = P_send
-
-        return P_send, P_recv
+        return self._create_send_recv_partitions(P_union,
+                                                 send_ranks, group_send,
+                                                 recv_ranks, group_recv)
 
     def broadcast_data(self, data, root=0, P_data=None):
 
