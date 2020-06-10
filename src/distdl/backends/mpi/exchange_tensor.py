@@ -3,7 +3,7 @@ from mpi4py import MPI
 
 
 # Holy cow this is a touchy function, be very careful if modifying it...
-def exchange_tensor_structure(tensor, P_send, P_recv):
+def compute_output_tensor_structure(tensor, P_send, P_recv):
 
     if not P_send.active and not P_recv.active:
         return None, None, None
@@ -79,6 +79,9 @@ def exchange_tensor_structure(tensor, P_send, P_recv):
     # Finally, everyone should have valid data.  Any sending rank created it
     # from input data.  Any receving _only_ rank used what it was given.
     return tensor_requires_grad, tensor_dim, tensor_sizes
+
+
+exchange_tensor_structure = compute_output_tensor_structure
 
 
 def compute_global_tensor_sizes(tensor, P_in, P_out=None):
