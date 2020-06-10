@@ -3,6 +3,7 @@ import torch
 from mpi4py import MPI
 
 from distdl.backends.mpi.exchange_tensor import exchange_tensor_structure
+from distdl.nn.module import Module
 from distdl.utilities.torch import NoneTensor
 
 
@@ -108,7 +109,7 @@ class BroadcastFunction(torch.autograd.Function):
         return grad_input, None, None, None
 
 
-class Broadcast(torch.nn.Module):
+class Broadcast(Module):
 
     def __init__(self, P_in, P_out, transpose_src=False, transpose_dest=False):
         super(Broadcast, self).__init__()
