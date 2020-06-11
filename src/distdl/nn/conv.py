@@ -49,11 +49,10 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
 
     TorchConvType = None
 
-    def __init__(self, x_in_sizes, P_cart, *args, **kwargs):
+    def __init__(self, P_cart, *args, **kwargs):
 
         super(DistributedConvBase, self).__init__()
 
-        self.x_in_sizes = x_in_sizes
         self.P_cart = P_cart
 
         if not self.P_cart.active:
@@ -108,39 +107,102 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         if self.conv_layer.bias is not None:
             self.b_broadcast = Broadcast(self.P_wb_cart, self.P_cart)
 
-        self.halo_sizes, self.recv_buffer_sizes, self.send_buffer_sizes, self.needed_ranges = \
-            self._compute_exchange_info(self.x_in_sizes,
-                                        self.conv_layer.kernel_size,
-                                        self.conv_layer.stride,
-                                        self.conv_layer.padding,
-                                        self.conv_layer.dilation,
-                                        self.P_cart.active,
-                                        self.P_cart.dims,
-                                        self.P_cart.coords)
+        # We need the halo sizes, and other info, to fully populate the pad,
+        # halo exchange, and unpad layers.  For pad and unpad, we defer their
+        # construction to the pre-forward hook.
 
-        # Unpad sizes are padding in the dimensions where we have a halo,
-        # otherwise 0
-        self.pads = np.concatenate(([0, 0], self.conv_layer.padding))
-        self.unpad_sizes = []
-        for pad, halo_size in zip(self.pads, self.halo_sizes):
-            self.unpad_sizes.append(np.where(halo_size > 0, pad, 0))
-        self.unpad_sizes = np.asarray(self.unpad_sizes)
+        self.pad_layer = None
+        self.unpad_layer = None
 
-        self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
+        # We need to be able to remove some data from the input to the conv
+        # layer.
+        self.needed_slices = None
 
-        self.pad_layer = PadNd(self.halo_sizes, value=0, partition=self.P_cart)
-        self.unpad_layer = UnPadNd(self.unpad_sizes, value=0, partition=self.P_cart)
+        # For the halo layer we also defer construction, so that we can have
+        # the halo sizes for the input.  The halo will allocate its own
+        # buffers, but it needs this information at construction to be able
+        # to do this in the pre-forward hook.
 
-        self.local_x_in_sizes_padded = self._compute_local_x_in_sizes_padded(self.x_in_sizes,
-                                                                             self.P_cart.dims,
-                                                                             self.P_cart.coords,
-                                                                             self.halo_sizes)
+        self.halo_layer = None
 
-        self.halo_layer = HaloExchange(self.local_x_in_sizes_padded,
-                                       self.halo_sizes,
-                                       self.recv_buffer_sizes,
-                                       self.send_buffer_sizes,
+        # Variables for tracking input changes and buffer construction
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_module_setup(self, input):
+
+        if not self.P_cart.active:
+            return
+
+        if self.serial:
+            return
+
+        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+                                                                               self.P_cart)
+        exchange_info = self._compute_exchange_info(global_tensor_sizes,
+                                                    self.conv_layer.kernel_size,
+                                                    self.conv_layer.stride,
+                                                    self.conv_layer.padding,
+                                                    self.conv_layer.dilation,
+                                                    self.P_cart.active,
+                                                    self.P_cart.dims,
+                                                    self.P_cart.coords)
+        halo_sizes = exchange_info[0]
+        recv_buffer_sizes = exchange_info[1]
+        send_buffer_sizes = exchange_info[2]
+        needed_ranges = exchange_info[3]
+
+        # Now we have enough information to instantiate the padding shim
+        self.pad_layer = PadNd(halo_sizes, value=0, partition=self.P_cart)
+
+        # We can also set up part of the halo layer.
+        self.halo_layer = HaloExchange(halo_sizes,
+                                       recv_buffer_sizes,
+                                       send_buffer_sizes,
                                        self.P_cart)
+
+        # We have to select out the "unused" entries.
+        self.needed_slices = assemble_slices(needed_ranges[:, 0],
+                                             needed_ranges[:, 1])
+
+        # Unpad sizes are conv layer's padding in the dimensions where we have
+        # a halo, otherwise 0.  There is no halo in the batch and channel
+        # dimensions.
+        conv_padding = np.concatenate(([0, 0], self.conv_layer.padding))
+        unpad_sizes = []
+        for pad, halo_size in zip(conv_padding, halo_sizes):
+            unpad_sizes.append(np.where(halo_size > 0, pad, 0))
+        unpad_sizes = np.asarray(unpad_sizes)
+
+        self.unpad_layer = UnPadNd(unpad_sizes, value=0, partition=self.P_cart)
+
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
+    def _distdl_module_teardown(self, input):
+
+        # Reset all sub_layers
+        self.pad_layer = None
+        self.unpad_layer = None
+        self.needed_slices = None
+        self.halo_layer = None
+
+        # Reset any info about the input
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_input_changed(self, input):
+
+        if input[0].requires_grad != self._input_requires_grad:
+            return True
+
+        if input[0].shape != self._input_shape:
+            return True
+
+        return False
 
     def forward(self, input):
 
