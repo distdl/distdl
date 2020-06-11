@@ -66,7 +66,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
 
     global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedAvgPool1d(global_tensor_sizes, P_x,
+    layer = DistributedAvgPool1d(P_x,
                                  kernel_size=[2],
                                  stride=[2])
 
