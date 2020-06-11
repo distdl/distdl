@@ -69,7 +69,7 @@ adjoint_parametrizations = []
 adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_topo
-        [1, 1, 10, 7],  # local_tensor_sizes
+        [1, 1, 10, 7],  # global_tensor_sizes
         [1, 1, 3, 3],  # kernel_sizes
         [1, 1, 1, 1],  # strides
         [0, 0, 0, 0],  # pads
@@ -84,7 +84,7 @@ adjoint_parametrizations.append(
 adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
-        [1, 1, 10],  # local_tensor_sizes
+        [1, 1, 10],  # global_tensor_sizes
         [2],  # kernel_sizes
         [2],  # strides
         [0],  # pads
@@ -98,7 +98,7 @@ adjoint_parametrizations.append(
 
 
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "local_tensor_sizes,"
+                         "global_tensor_sizes,"
                          "kernel_sizes,"
                          "strides,"
                          "pads,"
@@ -110,7 +110,7 @@ adjoint_parametrizations.append(
 def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_topo,
-                               local_tensor_sizes,
+                               global_tensor_sizes,
                                kernel_sizes, strides, pads, dilations,
                                MockupKernelStyle):
     import numpy as np
@@ -119,6 +119,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.halo_exchange import HaloExchange
     from distdl.nn.padnd import PadNd
+    from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -129,7 +130,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
     P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    local_tensor_sizes = np.asarray(local_tensor_sizes)
+    global_tensor_sizes = np.asarray(global_tensor_sizes)
     kernel_sizes = np.asarray(kernel_sizes)
     strides = np.asarray(strides)
     pads = np.asarray(pads)
@@ -140,32 +141,34 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     send_buffer_sizes = None
     if P_x.active:
         mockup_layer = MockupKernelStyle()
-        halo_sizes, recv_buffer_sizes, send_buffer_sizes, _ = \
-            mockup_layer._compute_exchange_info(local_tensor_sizes,
-                                                kernel_sizes,
-                                                strides,
-                                                pads,
-                                                dilations,
-                                                P_x.active,
-                                                P_x.dims,
-                                                P_x.coords)
-        halo_sizes = halo_sizes.astype(int)
+        exchange_info = mockup_layer._compute_exchange_info(global_tensor_sizes,
+                                                            kernel_sizes,
+                                                            strides,
+                                                            pads,
+                                                            dilations,
+                                                            P_x.active,
+                                                            P_x.dims,
+                                                            P_x.coords)
+        halo_sizes = exchange_info[0]
+        recv_buffer_sizes = exchange_info[1]
+        send_buffer_sizes = exchange_info[2]
 
     pad_layer = PadNd(halo_sizes, value=0, partition=P_x)
+    halo_layer = HaloExchange(halo_sizes, recv_buffer_sizes, send_buffer_sizes,
+                              P_x)
 
     x = NoneTensor()
     if P_x.active:
-        x = torch.tensor(np.random.randn(*local_tensor_sizes))
+        in_subsizes = compute_subsizes(P_x.comm.dims,
+                                       P_x.comm.Get_coords(P_x.rank),
+                                       global_tensor_sizes)
+        x = torch.tensor(np.random.randn(*in_subsizes))
     x.requires_grad = True
     x = pad_layer.forward(x)
 
     dy = NoneTensor()
     if P_x.active:
         dy = torch.tensor(np.random.randn(*x.shape))
-
-    halo_layer = HaloExchange(x.shape,
-                              halo_sizes, recv_buffer_sizes, send_buffer_sizes,
-                              P_x)
 
     x_clone = x.clone()
     dy_clone = dy.clone()

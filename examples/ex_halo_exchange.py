@@ -4,11 +4,11 @@ from mpi4py import MPI
 
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.halo_exchange import HaloExchange
-from distdl.nn.halo_exchange import HaloExchangeFunction
 from distdl.nn.halo_mixin import HaloMixin
 from distdl.nn.padnd import PadNd
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.misc import DummyContext
+from distdl.utilities.slicing import compute_subsizes
 
 
 class MockupConvLayer(HaloMixin):
@@ -55,54 +55,56 @@ dims = [1, 1, 2, 2]
 P_size = np.prod(dims)
 use_ranks = ranks[:P_size]
 
-P = P_world.create_subpartition(use_ranks)
-P_cart = P.create_cartesian_subpartition(dims)
-rank = P_cart.rank
-cart_comm = P_cart.comm
+P_x_base = P_world.create_partition_inclusive(use_ranks)
+P_x = P_x_base.create_cartesian_topology_partition(dims)
+rank = P_x.rank
+cart_comm = P_x.comm
 
-if P_cart.active:
+global_tensor_sizes = np.array([1, 1, 10, 12])
+
+if P_x.active:
     mockup_conv_layer = MockupConvLayer()
-    x_in_sizes = [1, 1, 5, 6]
     kernel_sizes = [1, 1, 3, 3]
     strides = [1, 1, 1, 1]
     pads = [0, 0, 0, 0]
     dilations = [1, 1, 1, 1]
 
-    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-        mockup_conv_layer._compute_exchange_info(x_in_sizes,
-                                                 kernel_sizes,
-                                                 strides,
-                                                 pads,
-                                                 dilations,
-                                                 P_cart.active,
-                                                 P_cart.dims,
-                                                 P_cart.coords)
+    exchange_info = mockup_conv_layer._compute_exchange_info(global_tensor_sizes,
+                                                             kernel_sizes,
+                                                             strides,
+                                                             pads,
+                                                             dilations,
+                                                             P_x.active,
+                                                             P_x.dims,
+                                                             P_x.coords)
+    halo_sizes = exchange_info[0]
+    recv_buffer_sizes = exchange_info[1]
+    send_buffer_sizes = exchange_info[2]
+
+    in_subsizes = compute_subsizes(P_x.comm.dims,
+                                   P_x.comm.Get_coords(P_x.rank),
+                                   global_tensor_sizes)
 
     value = (1 + rank) * (10 ** rank)
-    a = np.full(shape=x_in_sizes, fill_value=value, dtype=float)
+    a = np.full(shape=in_subsizes, fill_value=value, dtype=float)
 
-    forward_input_padnd_layer = PadNd(halo_sizes.astype(int), value=0)
-    adjoint_input_padnd_layer = PadNd(halo_sizes.astype(int), value=value)
+    forward_input_padnd_layer = PadNd(halo_sizes.astype(int), value=0, partition=P_x)
+    adjoint_input_padnd_layer = PadNd(halo_sizes.astype(int), value=value, partition=P_x)
     t = torch.tensor(a, requires_grad=True)
     t_forward_input = forward_input_padnd_layer.forward(t)
     t_adjoint_input = adjoint_input_padnd_layer.forward(t)
 
-    halo_layer = HaloExchange(t_forward_input.shape, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_cart)
+    halo_layer = HaloExchange(halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_x)
 
     print_sequential(cart_comm, f'rank = {rank}, t_forward_input =\n{t_forward_input.int()}')
 
     ctx = DummyContext()
-    t_forward_exchanged = HaloExchangeFunction.forward(ctx,
-                                                       t_forward_input,
-                                                       halo_layer.slices,
-                                                       halo_layer.buffers,
-                                                       halo_layer.neighbor_ranks,
-                                                       halo_layer.cartesian_partition)
+    t_forward_exchanged = halo_layer(t_forward_input)
 
-    print_sequential(cart_comm, f'rank = {rank}, t_forward_exchanged =\n{t_forward_exchanged.int()}')
+    print_sequential(cart_comm, f'rank = {rank}, t_forward_exchanged =\n{t_forward_input.int()}')
 
     print_sequential(cart_comm, f'rank = {rank}, t_adjoint_input =\n{t_adjoint_input.int()}')
 
-    t_adjoint_exchanged = HaloExchangeFunction.backward(ctx, t_adjoint_input)[0]
+    t_forward_exchanged.backward(t_adjoint_input)
 
-    print_sequential(cart_comm, f'rank = {rank}, t_adjoint_exchanged =\n{t_adjoint_exchanged.int()}')
+    print_sequential(cart_comm, f'rank = {rank}, t_adjoint_exchanged =\n{t_adjoint_input.int()}')
