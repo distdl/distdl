@@ -16,7 +16,7 @@ P_cart = P.create_cartesian_topology_partition([1, 1, 3])
 
 global_tensor_sizes = np.array([1, 1, 10])
 
-layer = DistributedConv1d(global_tensor_sizes, P_cart, in_channels=1, out_channels=1, kernel_size=[3])
+layer = DistributedConv1d(P_cart, in_channels=1, out_channels=1, kernel_size=[3])
 
 x = NoneTensor()
 if P_cart.active:
