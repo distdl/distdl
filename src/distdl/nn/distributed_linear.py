@@ -1,11 +1,12 @@
 import torch
 
 from distdl.nn.broadcast import Broadcast
+from distdl.nn.module import Module
 from distdl.nn.sum_reduce import SumReduce
 from distdl.utilities.slicing import compute_subsizes
 
 
-class DistributedLinear(torch.nn.Module):
+class DistributedLinear(Module):
 
     def __init__(self, P_x, x_sizes, P_y, y_sizes, P_mul, bias=True):
 
