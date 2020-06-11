@@ -59,8 +59,11 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         super(DistributedGeneralConvBase, self).__init__()
 
+        # P_x is 1    x P_ci x P_d-1 x ... x P_0
         self.P_x = P_x
+        # P_y is 1    x P_co x P_d-1 x ... x P_0
         self.P_y = P_y
+        # P_w is P_co x P_ci x P_d-1 x ... x P_0
         self.P_w = P_w
 
         self.P_union = self._distdl_backend.Partition()
@@ -75,20 +78,10 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         P_union = P_union.create_partition_union(P_y)
         self.P_union = P_union
 
-        # P_w is P_co x P_ci x P_d-1 x ... x P_0
-        # P_x is 1    x P_ci x P_d-1 x ... x P_0
-        # P_y is 1    x P_co x P_d-1 x ... x P_0
+        P_w_dims = None
         if P_union.rank == 0:
             P_w_dims = np.array(P_w.dims, dtype=np.int)
-        else:
-            if self.P_x.active:
-                P_w_dim = P_x.dim
-            elif self.P_y.active:
-                P_w_dim = P_y.dim
-            else:  # P_w.active
-                P_w_dim = P_w.dim
-            P_w_dims = np.zeros(P_w_dim, dtype=np.int)
-        P_union.comm.Bcast(P_w_dims, root=0)
+        P_w_dims = P_union.broadcast_data(P_w_dims, root=0)
 
         P_co = P_w_dims[0]
         P_ci = P_w_dims[1]
@@ -233,20 +226,19 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         # Now we need to share the kernel structure.  The size of the kernel
         # is always the spatial dimensions.
+        self.conv_kernel_size = None
+        self.conv_stride = None
+        self.conv_padding = None
+        self.conv_dilation = None
         if P_union.rank == 0:
             self.conv_kernel_size = np.array(self.conv_layer.kernel_size, dtype=np.int)
             self.conv_stride = np.array(self.conv_layer.stride, dtype=np.int)
             self.conv_padding = np.array(self.conv_layer.padding, dtype=np.int)
             self.conv_dilation = np.array(self.conv_layer.dilation, dtype=np.int)
-        else:
-            self.conv_kernel_size = np.zeros(len(P_spatial), dtype=np.int)
-            self.conv_stride = np.zeros(len(P_spatial), dtype=np.int)
-            self.conv_padding = np.zeros(len(P_spatial), dtype=np.int)
-            self.conv_dilation = np.zeros(len(P_spatial), dtype=np.int)
-        P_union.comm.Bcast(self.conv_kernel_size, root=0)
-        P_union.comm.Bcast(self.conv_stride, root=0)
-        P_union.comm.Bcast(self.conv_padding, root=0)
-        P_union.comm.Bcast(self.conv_dilation, root=0)
+        self.conv_kernel_size = P_union.broadcast_data(self.conv_kernel_size, root=0)
+        self.conv_stride = P_union.broadcast_data(self.conv_stride, root=0)
+        self.conv_padding = P_union.broadcast_data(self.conv_padding, root=0)
+        self.conv_dilation = P_union.broadcast_data(self.conv_dilation, root=0)
 
         # We need the halo sizes, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their
