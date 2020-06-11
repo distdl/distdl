@@ -59,7 +59,6 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     x.requires_grad = True
 
     y = layer(x)
-    print(x, y)
 
     dy = NoneTensor()
     if P.active:
