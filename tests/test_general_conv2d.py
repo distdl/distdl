@@ -83,8 +83,7 @@ def test_general_conv2d_adjoint_input(barrier_fence_fixture,
 
     global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedGeneralConv2d(global_tensor_sizes,
-                                     P_x, P_y, P_w,
+    layer = DistributedGeneralConv2d(P_x, P_y, P_w,
                                      in_channels=global_tensor_sizes[1],
                                      out_channels=10,
                                      kernel_size=[3, 3], bias=False)
@@ -155,8 +154,7 @@ def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
 
     global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedGeneralConv2d(global_tensor_sizes,
-                                     P_x, P_y, P_w,
+    layer = DistributedGeneralConv2d(P_x, P_y, P_w,
                                      in_channels=global_tensor_sizes[1],
                                      out_channels=10,
                                      kernel_size=[3, 3], bias=False)
@@ -230,8 +228,7 @@ def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
 
     global_tensor_sizes = np.asarray(global_tensor_size)
 
-    layer = DistributedGeneralConv2d(global_tensor_sizes,
-                                     P_x, P_y, P_w,
+    layer = DistributedGeneralConv2d(P_x, P_y, P_w,
                                      in_channels=global_tensor_sizes[1],
                                      out_channels=10,
                                      kernel_size=[3, 3], bias=True)
