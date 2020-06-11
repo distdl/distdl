@@ -77,9 +77,10 @@ def test_distributed_linear_adjoint_input(barrier_fence_fixture,
     x_global_tensor_size = np.asarray(x_global_tensor_size)
     y_global_tensor_size = np.asarray(y_global_tensor_size)
 
-    layer = DistributedLinear(P_x, x_global_tensor_size,
-                              P_y, y_global_tensor_size,
-                              P_w, bias=False)
+    layer = DistributedLinear(P_x, P_y, P_w,
+                              x_global_tensor_size[1],
+                              y_global_tensor_size[1],
+                              bias=False)
 
     x = NoneTensor()
     if P_x.active:
@@ -150,9 +151,10 @@ def test_distributed_linear_adjoint_weight(barrier_fence_fixture,
     x_global_tensor_size = np.asarray(x_global_tensor_size)
     y_global_tensor_size = np.asarray(y_global_tensor_size)
 
-    layer = DistributedLinear(P_x, x_global_tensor_size,
-                              P_y, y_global_tensor_size,
-                              P_w, bias=False)
+    layer = DistributedLinear(P_x, P_y, P_w,
+                              x_global_tensor_size[1],
+                              y_global_tensor_size[1],
+                              bias=False)
 
     x = NoneTensor()
     if P_x.active:
@@ -225,9 +227,10 @@ def test_distributed_linear_adjoint_bias(barrier_fence_fixture,
     x_global_tensor_size = np.asarray(x_global_tensor_size)
     y_global_tensor_size = np.asarray(y_global_tensor_size)
 
-    layer = DistributedLinear(P_x, x_global_tensor_size,
-                              P_y, y_global_tensor_size,
-                              P_w, bias=True)
+    layer = DistributedLinear(P_x, P_y, P_w,
+                              x_global_tensor_size[1],
+                              y_global_tensor_size[1],
+                              bias=True)
 
     x = NoneTensor()
     if P_x.active:
