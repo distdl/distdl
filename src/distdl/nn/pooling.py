@@ -34,11 +34,10 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
     TorchPoolType = None  # noqa F821
 
-    def __init__(self, x_in_sizes, P_cart, *args, **kwargs):
+    def __init__(self, P_cart, *args, **kwargs):
 
         super(DistributedPoolBase, self).__init__()
 
-        self.x_in_sizes = x_in_sizes
         self.P_cart = P_cart
 
         if not self.P_cart.active:
@@ -46,30 +45,89 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
         self.pool_layer = self.TorchPoolType(*args, **kwargs)
 
-        self.halo_sizes, self.recv_buffer_sizes, self.send_buffer_sizes, self.needed_ranges = \
-            self._compute_exchange_info(self.x_in_sizes,
-                                        self.pool_layer.kernel_size,
-                                        self.pool_layer.stride,
-                                        self.pool_layer.padding,
-                                        [1],  # torch pooling layers have no dilation
-                                        self.P_cart.active,
-                                        self.P_cart.dims,
-                                        self.P_cart.coords)
+        # We need the halo sizes, and other info, to fully populate the pad,
+        # and halo exchange layers.
 
-        self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
+        self.pad_layer = None
 
-        self.pad_layer = PadNd(self.halo_sizes, value=0, partition=self.P_cart)
+        # We need to be able to remove some data from the input to the conv
+        # layer.
+        self.needed_slices = None
 
-        self.local_x_in_sizes_padded = self._compute_local_x_in_sizes_padded(self.x_in_sizes,
-                                                                             self.P_cart.dims,
-                                                                             self.P_cart.coords,
-                                                                             self.halo_sizes)
+        # For the halo layer we also defer construction, so that we can have
+        # the halo sizes for the input.  The halo will allocate its own
+        # buffers, but it needs this information at construction to be able
+        # to do this in the pre-forward hook.
 
-        self.halo_layer = HaloExchange(self.local_x_in_sizes_padded,
-                                       self.halo_sizes,
-                                       self.recv_buffer_sizes,
-                                       self.send_buffer_sizes,
+        self.halo_layer = None
+
+        # Variables for tracking input changes and buffer construction
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_module_setup(self, input):
+
+        if not self.P_cart.active:
+            return
+
+        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+                                                                               self.P_cart)
+        self.global_tensor_sizes = global_tensor_sizes
+
+        exchange_info = self._compute_exchange_info(global_tensor_sizes,
+                                                    self.pool_layer.kernel_size,
+                                                    self.pool_layer.stride,
+                                                    self.pool_layer.padding,
+                                                    [1],  # torch pooling layers have no dilation
+                                                    self.P_cart.active,
+                                                    self.P_cart.dims,
+                                                    self.P_cart.coords)
+        halo_sizes = exchange_info[0]
+        recv_buffer_sizes = exchange_info[1]
+        send_buffer_sizes = exchange_info[2]
+        needed_ranges = exchange_info[3]
+
+        # Now we have enough information to instantiate the padding shim
+        self.pad_layer = PadNd(halo_sizes, value=0, partition=self.P_cart)
+
+        # We can also set up part of the halo layer.
+        self.halo_layer = HaloExchange(halo_sizes,
+                                       recv_buffer_sizes,
+                                       send_buffer_sizes,
                                        self.P_cart)
+
+        # We have to select out the "unused" entries.
+        self.needed_slices = assemble_slices(needed_ranges[:, 0],
+                                             needed_ranges[:, 1])
+
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
+    def _distdl_module_teardown(self, input):
+
+        # Reset all sub_layers
+        self.pad_layer = None
+        self.needed_slices = None
+        self.halo_layer = None
+
+        self.global_tensor_sizes = None
+
+        # Reset any info about the input
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_input_changed(self, input):
+
+        if input[0].requires_grad != self._input_requires_grad:
+            return True
+
+        if input[0].shape != self._input_shape:
+            return True
+
+        return False
 
     def forward(self, input):
 
