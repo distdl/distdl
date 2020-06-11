@@ -39,30 +39,24 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.unpadnd import UnPadNd
-    from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
         return
     P_world = MPIPartition(base_comm)
-    P = P_world.create_partition_inclusive([0])
 
     tensor_sizes = np.asarray(tensor_sizes)
     pads = np.asarray(pads)
 
-    layer = UnPadNd(pads, value=0, partition=P)
+    layer = UnPadNd(pads, value=0)
 
-    x = NoneTensor()
-    if P.active:
-        x = torch.tensor(np.random.randn(*tensor_sizes))
+    x = torch.tensor(np.random.randn(*tensor_sizes))
     x.requires_grad = True
 
     y = layer(x)
 
-    dy = NoneTensor()
-    if P.active:
-        dy = torch.tensor(np.random.randn(*y.shape))
+    dy = torch.tensor(np.random.randn(*y.shape))
 
     y.backward(dy)
     dx = x.grad
