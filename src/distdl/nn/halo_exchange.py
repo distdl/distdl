@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
 from distdl.utilities.torch import NoneTensor
 
@@ -123,7 +124,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         return grad_output, None, None, None, None
 
 
-class HaloExchange(torch.nn.Module):
+class HaloExchange(Module):
 
     def __init__(self, x_in_sizes, halo_sizes, recv_buffer_sizes, send_buffer_sizes, cartesian_partition):
 
