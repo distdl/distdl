@@ -6,29 +6,30 @@ from distdl.utilities.slicing import compute_nd_slice_volume
 
 class HaloExchange(Module):
 
-    def __init__(self, x_in_sizes, halo_sizes, recv_buffer_sizes, send_buffer_sizes, cartesian_partition):
+    def __init__(self, halo_sizes, recv_buffer_sizes, send_buffer_sizes, cartesian_partition):
 
         super(HaloExchange, self).__init__()
 
-        self.x_in_sizes = x_in_sizes
         self.halo_sizes = halo_sizes
         self.recv_buffer_sizes = recv_buffer_sizes
         self.send_buffer_sizes = send_buffer_sizes
         self.cartesian_partition = cartesian_partition
 
-        if cartesian_partition.active:
+        self.neighbor_ranks = None
+        if self.cartesian_partition.active:
             self.neighbor_ranks = self.cartesian_partition.neighbor_ranks(self.cartesian_partition.rank)
 
-            self.slices = self._assemble_slices(self.x_in_sizes, self.recv_buffer_sizes, self.send_buffer_sizes)
-            self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_sizes, self.send_buffer_sizes)
-        else:
-            self.neighbor_ranks = None
-            self.slices = None
-            self.buffers = None
+        self.slices = None
+        self.buffers = None
 
-    def _assemble_slices(self, x_in_sizes, recv_buffer_sizes, send_buffer_sizes):
+        # Variables for tracking input changes and buffer construction
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
 
-        dim = len(x_in_sizes)
+    def _assemble_slices(self, local_tensor_sizes, recv_buffer_sizes, send_buffer_sizes):
+
+        dim = len(local_tensor_sizes)
 
         slices = []
 
@@ -36,7 +37,7 @@ class HaloExchange(Module):
             slices_i = [[], [], [], []]
 
             for j in range(dim):
-                s = x_in_sizes[j]
+                s = local_tensor_sizes[j]
 
                 lrecv_size = int(recv_buffer_sizes[j, 0])
                 lsend_size = int(send_buffer_sizes[j, 0])
@@ -106,6 +107,38 @@ class HaloExchange(Module):
             buffers.append(buffers_i)
 
         return buffers
+
+    def _distdl_module_setup(self, input):
+
+        self.local_tensor_sizes = input[0].shape
+        if self.cartesian_partition.active:
+            self.slices = self._assemble_slices(self.local_tensor_sizes, self.recv_buffer_sizes, self.send_buffer_sizes)
+            self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_sizes, self.send_buffer_sizes)
+
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
+    def _distdl_module_teardown(self, input):
+
+        # Reset all of the buffers and communication objects
+        self.slices = None
+        self.buffers = None
+
+        # Reset any info about the input
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_input_changed(self, input):
+
+        if input[0].requires_grad != self._input_requires_grad:
+            return True
+
+        if input[0].shape != self._input_shape:
+            return True
+
+        return False
 
     def forward(self, input):
 
