@@ -2,6 +2,7 @@ import torch
 
 from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.halo_mixin import HaloMixin
+from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.utilities.slicing import assemble_slices
 
@@ -29,7 +30,7 @@ class PoolingMixin:
         return strides * idx + kernel_sizes - 1
 
 
-class DistributedPoolBase(torch.nn.Module, HaloMixin, PoolingMixin):
+class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
     TorchPoolType = None  # noqa F821
 
