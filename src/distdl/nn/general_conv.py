@@ -52,18 +52,18 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
     TorchConvType = None
 
-    def __init__(self, x_in_sizes, P_x, P_y, P_w,
+    def __init__(self, P_x, P_y, P_w,
                  in_channels=1, out_channels=1,
                  bias=True,
                  *args, **kwargs):
 
         super(DistributedGeneralConvBase, self).__init__()
 
-        self.x_in_sizes = x_in_sizes
         self.P_x = P_x
         self.P_y = P_y
         self.P_w = P_w
 
+        self.P_union = self._distdl_backend.Partition()
         if not (self.P_x.active or
                 self.P_y.active or
                 self.P_w.active):
@@ -73,6 +73,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         # padding, and dilation factors
         P_union = P_w.create_partition_union(P_x)
         P_union = P_union.create_partition_union(P_y)
+        self.P_union = P_union
 
         # P_w is P_co x P_ci x P_d-1 x ... x P_0
         # P_x is 1    x P_ci x P_d-1 x ... x P_0
@@ -247,61 +248,28 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         P_union.comm.Bcast(self.conv_padding, root=0)
         P_union.comm.Bcast(self.conv_dilation, root=0)
 
-        if self.P_x.active:
-            self.halo_sizes, self.recv_buffer_sizes, self.send_buffer_sizes, self.needed_ranges = \
-                self._compute_exchange_info(self.x_in_sizes,
-                                            self.conv_kernel_size,
-                                            self.conv_stride,
-                                            self.conv_padding,
-                                            self.conv_dilation,
-                                            self.P_x.active,
-                                            self.P_x.dims,
-                                            self.P_x.coords)
+        # We need the halo sizes, and other info, to fully populate the pad,
+        # halo exchange, and unpad layers.  For pad and unpad, we defer their
+        # construction to the pre-forward hook.
 
-            self.halo_sizes = self.halo_sizes.astype(int)
-            self.needed_ranges = self.needed_ranges.astype(int)
+        self.pad_layer = None
+        self.unpad_layer = None
 
-            self.pad_layer = PadNd(self.halo_sizes, value=0, partition=self.P_x)
+        # We need to be able to remove some data from the input to the conv
+        # layer.
+        self.needed_slices = None
 
-            self.local_x_in_sizes_padded = self._compute_local_x_in_sizes_padded(self.x_in_sizes,
-                                                                                 self.P_x.dims,
-                                                                                 self.P_x.coords,
-                                                                                 self.halo_sizes)
-            self.halo_layer = HaloExchange(self.local_x_in_sizes_padded,
-                                           self.halo_sizes,
-                                           self.recv_buffer_sizes,
-                                           self.send_buffer_sizes,
-                                           self.P_x)
-            self.needed_slices = assemble_slices(self.needed_ranges[:, 0], self.needed_ranges[:, 1])
+        # For the halo layer we also defer construction, so that we can have
+        # the halo sizes for the input.  The halo will allocate its own
+        # buffers, but it needs this information at construction to be able
+        # to do this in the pre-forward hook.
 
-        # The output has to do some unpadding
-        if self.P_y.active:
+        self.halo_layer = None
 
-            # This is safe because there are never halos on the channel or batch
-            # dimensions.  Therefore, because we assume that the spatial partition
-            # of P_x and P_y is the same, then the halo sizes this will
-            # compute will also be the same.  Note, we will not overwrite
-            # any variables if we are also P_x.
-            y_halo_sizes, ignore1, ignore2, y_needed_ranges = \
-                self._compute_exchange_info(self.x_in_sizes,
-                                            self.conv_kernel_size,
-                                            self.conv_stride,
-                                            self.conv_padding,
-                                            self.conv_dilation,
-                                            self.P_y.active,
-                                            self.P_y.dims,
-                                            self.P_y.coords)
-
-            # Unpad sizes are padding in the dimensions where we have a halo,
-            # otherwise 0
-            self.pads = np.concatenate(([0, 0], self.conv_padding))
-            self.unpad_sizes = []
-
-            for pad, halo_size in zip(self.pads, y_halo_sizes):
-                self.unpad_sizes.append(np.where(halo_size > 0, pad, 0))
-            self.unpad_sizes = np.asarray(self.unpad_sizes)
-
-            self.unpad_layer = UnPadNd(self.unpad_sizes, value=0, partition=self.P_y)
+        # Variables for tracking input changes and buffer construction
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
 
         if P_w.active:
             self.w_broadcast = Broadcast(self.P_wr, self.P_w)
@@ -311,6 +279,102 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         self.x_broadcast = Broadcast(self.P_x, self.P_w)
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y)
+
+    def _distdl_module_setup(self, input):
+
+        if not (self.P_x.active or
+                self.P_y.active or
+                self.P_w.active):
+            return
+
+        if self.serial:
+            return
+
+        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+                                                                               self.P_x,
+                                                                               self.P_union)
+        if self.P_x.active:
+            exchange_info = self._compute_exchange_info(global_tensor_sizes,
+                                                        self.conv_kernel_size,
+                                                        self.conv_stride,
+                                                        self.conv_padding,
+                                                        self.conv_dilation,
+                                                        self.P_x.active,
+                                                        self.P_x.dims,
+                                                        self.P_x.coords)
+            halo_sizes = exchange_info[0]
+            recv_buffer_sizes = exchange_info[1]
+            send_buffer_sizes = exchange_info[2]
+            needed_ranges = exchange_info[3]
+
+            # Now we have enough information to instantiate the padding shim
+            self.pad_layer = PadNd(halo_sizes, value=0, partition=self.P_x)
+
+            # We can also set up part of the halo layer.
+            self.halo_layer = HaloExchange(halo_sizes,
+                                           recv_buffer_sizes,
+                                           send_buffer_sizes,
+                                           self.P_x)
+
+            # We have to select out the "unused" entries.
+            self.needed_slices = assemble_slices(needed_ranges[:, 0],
+                                                 needed_ranges[:, 1])
+
+        # The output has to do some unpadding
+        if self.P_y.active:
+
+            # This is safe because there are never halos on the channel or batch
+            # dimensions.  Therefore, because we assume that the spatial partition
+            # of P_x and P_y is the same, then the halo sizes this will
+            # compute will also be the same.
+            exchange_info = self._compute_exchange_info(global_tensor_sizes,
+                                                        self.conv_kernel_size,
+                                                        self.conv_stride,
+                                                        self.conv_padding,
+                                                        self.conv_dilation,
+                                                        self.P_y.active,
+                                                        self.P_y.dims,
+                                                        self.P_y.coords)
+            y_halo_sizes = exchange_info[0]
+
+            # Unpad sizes are padding in the dimensions where we have a halo,
+            # otherwise 0
+            conv_padding = np.concatenate(([0, 0], self.conv_padding))
+            unpad_sizes = []
+            for pad, halo_size in zip(conv_padding, y_halo_sizes):
+                unpad_sizes.append(np.where(halo_size > 0, pad, 0))
+            unpad_sizes = np.asarray(unpad_sizes)
+
+            self.unpad_layer = UnPadNd(unpad_sizes, value=0, partition=self.P_y)
+
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
+    def _distdl_module_teardown(self, input):
+
+        # Reset all sub_layers
+        self.pad_layer = None
+        self.unpad_layer = None
+        self.needed_slices = None
+        self.halo_layer = None
+
+        self.global_tensor_sizes = None
+
+        # Reset any info about the input
+        self._distdl_is_setup = False
+        self._input_shape = None
+        self._input_requires_grad = None
+
+    def _distdl_input_changed(self, input):
+
+        if input[0].requires_grad != self._input_requires_grad:
+            return True
+
+        if input[0].shape != self._input_shape:
+            return True
+
+        return False
 
     def forward(self, input):
 
