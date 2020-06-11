@@ -1,19 +1,13 @@
 import numpy as np
 import torch
 
-from distdl.utilities.torch import NoneTensor
-
 
 class PadNdFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, pad_width, value, partition):
+    def forward(ctx, input, pad_width, value):
 
         ctx.pad_width = pad_width
-        ctx.partition = partition
-
-        if not partition.active:
-            return NoneTensor()
 
         input_numpy = input.detach().numpy()
 
@@ -25,10 +19,6 @@ class PadNdFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
 
         pad_width = ctx.pad_width
-        partition = ctx.partition
-
-        if not partition.active:
-            return NoneTensor(), None, None, None
 
         slices = []
         for (lpad, rpad) in pad_width:
@@ -45,13 +35,12 @@ class PadNdFunction(torch.autograd.Function):
 
 class PadNd(torch.nn.Module):
 
-    def __init__(self, pad_width, value, partition):
+    def __init__(self, pad_width, value):
 
         super(PadNd, self).__init__()
 
         self.pad_width = pad_width
         self.value = value
-        self.partition = partition
 
     def forward(self, input):
-        return PadNdFunction.apply(input, self.pad_width, self.value, self.partition)
+        return PadNdFunction.apply(input, self.pad_width, self.value)

@@ -153,7 +153,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         recv_buffer_sizes = exchange_info[1]
         send_buffer_sizes = exchange_info[2]
 
-    pad_layer = PadNd(halo_sizes, value=0, partition=P_x)
+    pad_layer = PadNd(halo_sizes, value=0)
     halo_layer = HaloExchange(halo_sizes, recv_buffer_sizes, send_buffer_sizes,
                               P_x)
 
@@ -163,8 +163,8 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                        P_x.comm.Get_coords(P_x.rank),
                                        global_tensor_sizes)
         x = torch.tensor(np.random.randn(*in_subsizes))
+        x = pad_layer.forward(x)
     x.requires_grad = True
-    x = pad_layer.forward(x)
 
     dy = NoneTensor()
     if P_x.active:

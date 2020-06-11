@@ -308,7 +308,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             needed_ranges = exchange_info[3]
 
             # Now we have enough information to instantiate the padding shim
-            self.pad_layer = PadNd(halo_sizes, value=0, partition=self.P_x)
+            self.pad_layer = PadNd(halo_sizes, value=0)
 
             # We can also set up part of the halo layer.
             self.halo_layer = HaloExchange(halo_sizes,
@@ -345,7 +345,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                 unpad_sizes.append(np.where(halo_size > 0, pad, 0))
             unpad_sizes = np.asarray(unpad_sizes)
 
-            self.unpad_layer = UnPadNd(unpad_sizes, value=0, partition=self.P_y)
+            self.unpad_layer = UnPadNd(unpad_sizes, value=0)
 
         self._distdl_is_setup = True
         self._input_shape = input[0].shape

@@ -89,7 +89,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         needed_ranges = exchange_info[3]
 
         # Now we have enough information to instantiate the padding shim
-        self.pad_layer = PadNd(halo_sizes, value=0, partition=self.P_cart)
+        self.pad_layer = PadNd(halo_sizes, value=0)
 
         # We can also set up part of the halo layer.
         self.halo_layer = HaloExchange(halo_sizes,
