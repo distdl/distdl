@@ -118,9 +118,6 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
                                         self.P_cart.dims,
                                         self.P_cart.coords)
 
-        self.halo_sizes = self.halo_sizes.astype(int)
-        self.needed_ranges = self.needed_ranges.astype(int)
-
         # Unpad sizes are padding in the dimensions where we have a halo,
         # otherwise 0
         self.pads = np.concatenate(([0, 0], self.conv_layer.padding))

@@ -97,6 +97,9 @@ class HaloMixin:
                                                              require_nonnegative=False)
         needed_ranges = self._compute_needed_ranges(x_in_subsizes, halo_sizes_with_negatives)
 
+        halo_sizes = halo_sizes.astype(int)
+        needed_ranges = needed_ranges.astype(int)
+
         return halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges
 
     def _compute_needed_ranges(self, subsizes, halo_sizes):
