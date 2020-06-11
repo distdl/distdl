@@ -4,6 +4,7 @@ import torch
 from distdl.nn.broadcast import Broadcast
 from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.halo_mixin import HaloMixin
+from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.nn.unpadnd import UnPadNd
 from distdl.utilities.slicing import assemble_slices
@@ -44,7 +45,7 @@ class ConvMixin:
         return bases + kernel_offsets
 
 
-class DistributedConvBase(torch.nn.Module, HaloMixin, ConvMixin):
+class DistributedConvBase(Module, HaloMixin, ConvMixin):
 
     TorchConvType = None
 
