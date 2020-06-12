@@ -13,13 +13,13 @@ class HaloMixin:
                                padding,
                                dilation,
                                partition_active,
-                               partition_dims,
+                               partition_shape,
                                partition_coords):
 
         if not partition_active:
             return None, None, None, None
 
-        dim = len(partition_dims)
+        dim = len(partition_shape)
 
         x_global_shape = np.atleast_1d(x_global_shape)
         kernel_size = np.atleast_1d(kernel_size)
@@ -47,7 +47,7 @@ class HaloMixin:
                           mode='constant',
                           constant_values=1)
 
-        halo_shape = self._compute_halo_shape(partition_dims,
+        halo_shape = self._compute_halo_shape(partition_shape,
                                               partition_coords,
                                               x_global_shape,
                                               kernel_size,
@@ -61,7 +61,7 @@ class HaloMixin:
 
         for i in range(dim):
             lcoords = [x - 1 if j == i else x for j, x in enumerate(partition_coords)]
-            nhalo = self._compute_halo_shape(partition_dims,
+            nhalo = self._compute_halo_shape(partition_shape,
                                              lcoords,
                                              x_global_shape,
                                              kernel_size,
@@ -74,7 +74,7 @@ class HaloMixin:
                 send_buffer_shape[i, 0] = nhalo[i, 1]
 
             rcoords = [x + 1 if j == i else x for j, x in enumerate(partition_coords)]
-            nhalo = self._compute_halo_shape(partition_dims,
+            nhalo = self._compute_halo_shape(partition_shape,
                                              rcoords,
                                              x_global_shape,
                                              kernel_size,
@@ -83,11 +83,11 @@ class HaloMixin:
                                              dilation)
             # If I have a right neighbor, my right send buffer size is my right
             # neighbor's left halo size
-            if(rcoords[i] < partition_dims[i]):
+            if(rcoords[i] < partition_shape[i]):
                 send_buffer_shape[i, 1] = nhalo[i, 0]
 
-        x_local_shape = compute_subshape(partition_dims, partition_coords, x_global_shape)
-        halo_shape_with_negatives = self._compute_halo_shape(partition_dims,
+        x_local_shape = compute_subshape(partition_shape, partition_coords, x_global_shape)
+        halo_shape_with_negatives = self._compute_halo_shape(partition_shape,
                                                              partition_coords,
                                                              x_global_shape,
                                                              kernel_size,
@@ -124,7 +124,7 @@ class HaloMixin:
                          - dilation*(kernel_size-1) - 1)/stride + 1).astype(in_shape.dtype)
 
     def _compute_halo_shape(self,
-                            dims,
+                            shape,
                             coords,
                             x_global_shape,
                             kernel_size,
@@ -135,15 +135,15 @@ class HaloMixin:
 
         x_global_shape = np.asarray(x_global_shape)
 
-        x_local_shape = compute_subshape(dims, coords, x_global_shape)
-        x_local_start_index = compute_start_index(dims, coords, x_global_shape)
+        x_local_shape = compute_subshape(shape, coords, x_global_shape)
+        x_local_start_index = compute_start_index(shape, coords, x_global_shape)
 
         # formula from pytorch docs for maxpool
         y_global_shape = self._compute_out_shape(x_global_shape, kernel_size,
                                                  stride, padding, dilation)
 
-        y_local_shape = compute_subshape(dims, coords, y_global_shape)
-        y_local_start_index = compute_start_index(dims, coords, y_global_shape)
+        y_local_shape = compute_subshape(shape, coords, y_global_shape)
+        y_local_start_index = compute_start_index(shape, coords, y_global_shape)
 
         y_local_left_global_index = y_local_start_index
         x_local_left_global_index_needed = self._compute_min_input_range(y_local_left_global_index,

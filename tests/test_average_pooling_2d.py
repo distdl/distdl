@@ -72,7 +72,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subshape(P_x.dims,
+        x_local_shape = compute_subshape(P_x.shape,
                                          P_x.coords,
                                          x_global_shape)
         x = torch.tensor(np.random.randn(*x_local_shape))

@@ -5,32 +5,32 @@ MAX_INT = np.iinfo(INDEX_DTYPE).max
 MIN_INT = np.iinfo(INDEX_DTYPE).min
 
 
-def compute_subshape(dims, coords, shape):
+def compute_subshape(P_shape, coords, shape):
 
-    dims = np.atleast_1d(dims)
+    P_shape = np.atleast_1d(P_shape)
     coords = np.atleast_1d(coords)
     shape = np.atleast_1d(shape)
-    subshape = shape // dims
-    subshape[coords < shape % dims] += 1
+    subshape = shape // P_shape
+    subshape[coords < shape % P_shape] += 1
 
     return subshape
 
 
-def compute_start_index(dims, coords, shape):
+def compute_start_index(P_shape, coords, shape):
 
-    dims = np.atleast_1d(dims)
+    P_shape = np.atleast_1d(P_shape)
     coords = np.atleast_1d(coords)
     shape = np.atleast_1d(shape)
-    start_index = (shape // dims)*coords
-    start_index += np.minimum(coords, shape % dims)
+    start_index = (shape // P_shape)*coords
+    start_index += np.minimum(coords, shape % P_shape)
 
     return start_index
 
 
-def compute_stop_index(dims, coords, shape):
+def compute_stop_index(P_shape, coords, shape):
 
-    start_index = compute_start_index(dims, coords, shape)
-    subshape = compute_subshape(dims, coords, shape)
+    start_index = compute_start_index(P_shape, coords, shape)
+    subshape = compute_subshape(P_shape, coords, shape)
     stop_index = start_index + subshape
 
     return stop_index
@@ -57,19 +57,19 @@ def assemble_slices(start_index, stop_index):
     return slices
 
 
-def compute_partition_intersection(x_r_dims,
-                                   x_r_coords,
-                                   x_s_dims,
-                                   x_s_coords,
+def compute_partition_intersection(P_x_r_shape,
+                                   P_x_r_coords,
+                                   P_x_s_shape,
+                                   P_x_s_coords,
                                    x_shape):
 
     # Extract the first subtensor description
-    x_r_start_index = compute_start_index(x_r_dims, x_r_coords, x_shape)
-    x_r_stop_index = compute_stop_index(x_r_dims, x_r_coords, x_shape)
+    x_r_start_index = compute_start_index(P_x_r_shape, P_x_r_coords, x_shape)
+    x_r_stop_index = compute_stop_index(P_x_r_shape, P_x_r_coords, x_shape)
 
     # Extract the second subtensor description
-    x_s_start_index = compute_start_index(x_s_dims, x_s_coords, x_shape)
-    x_s_stop_index = compute_stop_index(x_s_dims, x_s_coords, x_shape)
+    x_s_start_index = compute_start_index(P_x_s_shape, P_x_s_coords, x_shape)
+    x_s_stop_index = compute_stop_index(P_x_s_shape, P_x_s_coords, x_shape)
 
     # Compute the overlap between the subtensors and its volume
     x_i_start_index, x_i_stop_index, x_i_subshape = compute_intersection(x_r_start_index,
@@ -95,11 +95,11 @@ def compute_nd_slice_volume(slices):
     return np.prod([s.stop-s.start for s in slices])
 
 
-def range_coords(dims):
+def range_coords(shape):
 
     import itertools
 
     # An iterator that generates all cartesian coordinates over a set of
     # dimensions
-    for x in itertools.product(*[range(y) for y in dims]):
+    for x in itertools.product(*[range(y) for y in shape]):
         yield x

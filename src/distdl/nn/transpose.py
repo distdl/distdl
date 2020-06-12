@@ -42,8 +42,8 @@ class DistributedTranspose(Module):
             P_union = P_x.create_partition_union(P_y)
         self.P_union = P_union
 
-        self.P_x_dims = None
-        self.P_y_dims = None
+        self.P_x_shape = None
+        self.P_y_shape = None
         self.union_indices = None
 
         if not P_union.active:
@@ -51,15 +51,15 @@ class DistributedTranspose(Module):
 
         data = None
         if self.P_x.active:
-            data = self.P_x.dims
-        self.P_x_dims = self.P_union.broadcast_data(data, P_data=self.P_x)
+            data = self.P_x.shape
+        self.P_x_shape = self.P_union.broadcast_data(data, P_data=self.P_x)
 
         data = None
         if self.P_y.active:
-            data = self.P_y.dims
-        self.P_y_dims = self.P_union.broadcast_data(data, P_data=self.P_y)
+            data = self.P_y.shape
+        self.P_y_shape = self.P_union.broadcast_data(data, P_data=self.P_y)
 
-        if len(self.P_x_dims) != len(self.P_y_dims):
+        if len(self.P_x_shape) != len(self.P_y_shape):
             raise ValueError("Input and output partition must be same dimension.")
 
         # Share the two indices with every worker in the union.  The first
@@ -77,8 +77,8 @@ class DistributedTranspose(Module):
         if not self.P_union.active:
             return
 
-        in_dims = self.P_x_dims
-        out_dims = self.P_y_dims
+        in_shape = self.P_x_shape
+        out_shape = self.P_y_shape
 
         x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
                                                                           self.P_x,
@@ -87,18 +87,18 @@ class DistributedTranspose(Module):
 
         tensor_dim = len(x_global_shape)
 
-        if len(in_dims) != tensor_dim:
+        if len(in_shape) != tensor_dim:
             raise ValueError(f"Input partition mush have same dimension "
-                             f"({len(in_dims)}) as input tensor rank ({tensor_dim}).")
+                             f"({len(in_shape)}) as input tensor rank ({tensor_dim}).")
 
-        if len(out_dims) != tensor_dim:
+        if len(out_shape) != tensor_dim:
             raise ValueError(f"Output partition mush have same dimension "
-                             f"({len(out_dims)}) as input tensor rank ({tensor_dim}).")
+                             f"({len(out_shape)}) as input tensor rank ({tensor_dim}).")
 
-        if 1 in x_global_shape[x_global_shape != out_dims]:
+        if 1 in x_global_shape[x_global_shape != out_shape]:
             raise ValueError(f"Input tensor must not be size 1 "
                              f"({x_global_shape}) in a dimension where "
-                             f"output partition is other than 1 ({out_dims}).")
+                             f"output partition is other than 1 ({out_shape}).")
 
         # We only need to move data to the output partition if we actually
         # have input data.  It is possible to have both input and output data,
@@ -107,9 +107,9 @@ class DistributedTranspose(Module):
             in_coords = self.P_x.coords
 
             # Compute our overlaps for each output subpartition.
-            for rank, out_coords in enumerate(range_coords(out_dims)):
-                sl = compute_partition_intersection(in_dims, in_coords,
-                                                    out_dims, out_coords,
+            for rank, out_coords in enumerate(range_coords(out_shape)):
+                sl = compute_partition_intersection(in_shape, in_coords,
+                                                    out_shape, out_coords,
                                                     x_global_shape)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
@@ -126,9 +126,9 @@ class DistributedTranspose(Module):
             out_coords = self.P_y.coords
 
             # Compute our overlaps for each input subpartition.
-            for rank, in_coords in enumerate(range_coords(in_dims)):
-                sl = compute_partition_intersection(out_dims, out_coords,
-                                                    in_dims, in_coords,
+            for rank, in_coords in enumerate(range_coords(in_shape)):
+                sl = compute_partition_intersection(out_shape, out_coords,
+                                                    in_shape, in_coords,
                                                     x_global_shape)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)

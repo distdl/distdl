@@ -81,7 +81,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
                                                     self.pool_layer.padding,
                                                     [1],  # torch pooling layers have no dilation
                                                     self.P_x.active,
-                                                    self.P_x.dims,
+                                                    self.P_x.shape,
                                                     self.P_x.coords)
         halo_shape = exchange_info[0]
         recv_buffer_shape = exchange_info[1]
