@@ -158,8 +158,8 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subshape(P_x.comm.dims,
-                                         P_x.comm.Get_coords(P_x.rank),
+        x_local_shape = compute_subshape(P_x.dims,
+                                         P_x.coords,
                                          x_global_shape)
         x = torch.tensor(np.random.randn(*x_local_shape))
         x = pad_layer.forward(x)

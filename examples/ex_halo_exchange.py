@@ -81,8 +81,8 @@ if P_x.active:
     recv_buffer_shape = exchange_info[1]
     send_buffer_shape = exchange_info[2]
 
-    x_local_shape = compute_subshape(P_x.comm.dims,
-                                     P_x.comm.Get_coords(P_x.rank),
+    x_local_shape = compute_subshape(P_x.dims,
+                                     P_x.coords,
                                      x_global_shape)
 
     value = (1 + rank) * (10 ** rank)
