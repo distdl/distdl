@@ -1,33 +1,11 @@
 import torch
 
 from distdl.nn.halo_exchange import HaloExchange
-from distdl.nn.halo_mixin import HaloMixin
+from distdl.nn.mixins.halo_mixin import HaloMixin
+from distdl.nn.mixins.pooling_mixin import PoolingMixin
 from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.utilities.slicing import assemble_slices
-
-
-class PoolingMixin:
-
-    def _compute_min_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + 0
-
-    def _compute_max_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_size - 1
 
 
 class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
