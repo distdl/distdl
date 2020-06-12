@@ -13,7 +13,7 @@ class MockupConvLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
@@ -30,7 +30,7 @@ class MockupConvLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
@@ -47,7 +47,7 @@ class MockupPoolingLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take dilation and padding into account
         return stride * idx + 0
@@ -57,7 +57,7 @@ class MockupPoolingLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take dilation and padding into account
         return stride * idx + kernel_sizes - 1
@@ -73,7 +73,7 @@ adjoint_parametrizations.append(
         [1, 1, 3, 3],  # kernel_sizes
         [1, 1, 1, 1],  # stride
         [0, 0, 0, 0],  # pads
-        [1, 1, 1, 1],  # dilations
+        [1, 1, 1, 1],  # dilation
         MockupConvLayer,  # MockupKernelStyle
         9,  # passed to comm_split_fixture, required MPI ranks
         id="conv-same_padding",
@@ -88,7 +88,7 @@ adjoint_parametrizations.append(
         [2],  # kernel_sizes
         [2],  # stride
         [0],  # pads
-        [1],  # dilations
+        [1],  # dilation
         MockupConvLayer,  # MockupKernelStyle
         3,  # passed to comm_split_fixture, required MPI ranks
         id="conv-same_padding",
@@ -102,7 +102,7 @@ adjoint_parametrizations.append(
                          "kernel_sizes,"
                          "stride,"
                          "pads,"
-                         "dilations,"
+                         "dilation,"
                          "MockupKernelStyle,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
@@ -111,7 +111,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_topo,
                                global_tensor_sizes,
-                               kernel_sizes, stride, pads, dilations,
+                               kernel_sizes, stride, pads, dilation,
                                MockupKernelStyle):
     import numpy as np
     import torch
@@ -134,7 +134,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     kernel_sizes = np.asarray(kernel_sizes)
     stride = np.asarray(stride)
     pads = np.asarray(pads)
-    dilations = np.asarray(dilations)
+    dilation = np.asarray(dilation)
 
     halo_sizes = None
     recv_buffer_sizes = None
@@ -145,7 +145,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                                             kernel_sizes,
                                                             stride,
                                                             pads,
-                                                            dilations,
+                                                            dilation,
                                                             P_x.active,
                                                             P_x.dims,
                                                             P_x.coords)

@@ -14,7 +14,7 @@ class MockupMaxPoolLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take dilation and padding into account
         return stride * idx + 0
@@ -24,7 +24,7 @@ class MockupMaxPoolLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take dilation and padding into account
         return stride * idx + kernel_sizes - 1
@@ -49,14 +49,14 @@ def test_mixin():
     kernel_sizes = np.array([2])
     stride = np.array([2])
     pads = np.array([0])
-    dilations = np.array([1])
+    dilation = np.array([1])
 
     halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
         layer._compute_exchange_info(x_in_sizes,
                                      kernel_sizes,
                                      stride,
                                      pads,
-                                     dilations,
+                                     dilation,
                                      P_cart.active,
                                      P_cart.dims,
                                      P_cart.coords)
