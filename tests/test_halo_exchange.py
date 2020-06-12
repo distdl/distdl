@@ -68,7 +68,7 @@ adjoint_parametrizations = []
 # Main functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_topo
+        np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_shape
         [1, 1, 10, 7],  # x_global_shape
         [1, 1, 3, 3],  # kernel_size
         [1, 1, 1, 1],  # stride
@@ -83,7 +83,7 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
+        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_shape
         [1, 1, 10],  # x_global_shape
         [2],  # kernel_size
         [2],  # stride
@@ -97,7 +97,7 @@ adjoint_parametrizations.append(
     )
 
 
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
                          "kernel_size,"
                          "stride,"
@@ -109,7 +109,7 @@ adjoint_parametrizations.append(
                          indirect=["comm_split_fixture"])
 def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
-                               P_x_ranks, P_x_topo,
+                               P_x_ranks, P_x_shape,
                                x_global_shape,
                                kernel_size, stride, padding, dilation,
                                MockupKernelStyle):
@@ -128,7 +128,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         return
     P_world = MPIPartition(base_comm)
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     x_global_shape = np.asarray(x_global_shape)
     kernel_size = np.asarray(kernel_size)
