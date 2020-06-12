@@ -10,31 +10,31 @@ class MockupConvLayer(HaloMixin):
     # These mappings come from basic knowledge of convolutions
     def _compute_min_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_sizes - 1) / 2
+        kernel_offsets = (kernel_size - 1) / 2
 
         # for even sized kernels, always shortchange the left side
-        kernel_offsets[kernel_sizes % 2 == 0] -= 1
+        kernel_offsets[kernel_size % 2 == 0] -= 1
 
         bases = idx + kernel_offsets - pads
         return bases - kernel_offsets
 
     def _compute_max_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_sizes - 1) / 2
+        kernel_offsets = (kernel_size - 1) / 2
 
         bases = idx + kernel_offsets - pads
         return bases + kernel_offsets
@@ -44,7 +44,7 @@ class MockupPoolingLayer(HaloMixin):
 
     def _compute_min_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
@@ -54,13 +54,13 @@ class MockupPoolingLayer(HaloMixin):
 
     def _compute_max_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_sizes - 1
+        return stride * idx + kernel_size - 1
 
 
 adjoint_parametrizations = []
@@ -70,7 +70,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_topo
         [1, 1, 10, 7],  # global_tensor_sizes
-        [1, 1, 3, 3],  # kernel_sizes
+        [1, 1, 3, 3],  # kernel_size
         [1, 1, 1, 1],  # stride
         [0, 0, 0, 0],  # pads
         [1, 1, 1, 1],  # dilation
@@ -85,7 +85,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
         [1, 1, 10],  # global_tensor_sizes
-        [2],  # kernel_sizes
+        [2],  # kernel_size
         [2],  # stride
         [0],  # pads
         [1],  # dilation
@@ -99,7 +99,7 @@ adjoint_parametrizations.append(
 
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "global_tensor_sizes,"
-                         "kernel_sizes,"
+                         "kernel_size,"
                          "stride,"
                          "pads,"
                          "dilation,"
@@ -111,7 +111,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_topo,
                                global_tensor_sizes,
-                               kernel_sizes, stride, pads, dilation,
+                               kernel_size, stride, pads, dilation,
                                MockupKernelStyle):
     import numpy as np
     import torch
@@ -131,7 +131,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
     global_tensor_sizes = np.asarray(global_tensor_sizes)
-    kernel_sizes = np.asarray(kernel_sizes)
+    kernel_size = np.asarray(kernel_size)
     stride = np.asarray(stride)
     pads = np.asarray(pads)
     dilation = np.asarray(dilation)
@@ -142,7 +142,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     if P_x.active:
         mockup_layer = MockupKernelStyle()
         exchange_info = mockup_layer._compute_exchange_info(global_tensor_sizes,
-                                                            kernel_sizes,
+                                                            kernel_size,
                                                             stride,
                                                             pads,
                                                             dilation,

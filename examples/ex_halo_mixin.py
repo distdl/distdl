@@ -12,7 +12,7 @@ class MockupMaxPoolLayer(HaloMixin):
 
     def _compute_min_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
@@ -22,13 +22,13 @@ class MockupMaxPoolLayer(HaloMixin):
 
     def _compute_max_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_sizes - 1
+        return stride * idx + kernel_size - 1
 
 
 P_world = MPIPartition(MPI.COMM_WORLD)
@@ -47,14 +47,14 @@ layer = MockupMaxPoolLayer()
 
 if P_cart.active:
     x_in_sizes = np.array([1, 1, 10])
-    kernel_sizes = np.array([2])
+    kernel_size = np.array([2])
     stride = np.array([2])
     pads = np.array([0])
     dilation = np.array([1])
 
     halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
         layer._compute_exchange_info(x_in_sizes,
-                                     kernel_sizes,
+                                     kernel_size,
                                      stride,
                                      pads,
                                      dilation,
