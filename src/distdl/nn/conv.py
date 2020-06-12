@@ -171,12 +171,12 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         # a halo, otherwise 0.  There is no halo in the batch and channel
         # dimensions.
         conv_padding = np.concatenate(([0, 0], self.conv_layer.padding))
-        unpad_sizes = []
-        for pad, halo_size in zip(conv_padding, halo_shape):
-            unpad_sizes.append(np.where(halo_size > 0, pad, 0))
-        unpad_sizes = np.asarray(unpad_sizes)
+        unpad_shape = []
+        for pad, halo in zip(conv_padding, halo_shape):
+            unpad_shape.append(np.where(halo > 0, pad, 0))
+        unpad_shape = np.asarray(unpad_shape)
 
-        self.unpad_layer = UnpadNd(unpad_sizes, value=0)
+        self.unpad_layer = UnpadNd(unpad_shape, value=0)
 
         self._distdl_is_setup = True
         self._input_shape = input[0].shape

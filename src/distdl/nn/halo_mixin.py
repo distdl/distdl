@@ -118,10 +118,10 @@ class HaloMixin:
 
         return ranges
 
-    def _compute_out_sizes(self, in_sizes, kernel_size, stride, padding, dilation):
-        return np.floor((in_sizes
+    def _compute_out_shape(self, in_shape, kernel_size, stride, padding, dilation):
+        return np.floor((in_shape
                          + 2*padding
-                         - dilation*(kernel_size-1) - 1)/stride + 1).astype(in_sizes.dtype)
+                         - dilation*(kernel_size-1) - 1)/stride + 1).astype(in_shape.dtype)
 
     def _compute_halo_shape(self,
                             dims,
@@ -139,7 +139,7 @@ class HaloMixin:
         x_local_start_index = compute_starts(dims, coords, x_global_shape)
 
         # formula from pytorch docs for maxpool
-        y_global_shape = self._compute_out_sizes(x_global_shape, kernel_size,
+        y_global_shape = self._compute_out_shape(x_global_shape, kernel_size,
                                                  stride, padding, dilation)
 
         y_local_shape = compute_subsizes(dims, coords, y_global_shape)

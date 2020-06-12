@@ -27,9 +27,9 @@ class HaloExchange(Module):
         self._input_shape = None
         self._input_requires_grad = None
 
-    def _assemble_slices(self, local_tensor_sizes, recv_buffer_shape, send_buffer_shape):
+    def _assemble_slices(self, x_local_shape, recv_buffer_shape, send_buffer_shape):
 
-        dim = len(local_tensor_sizes)
+        dim = len(x_local_shape)
 
         slices = []
 
@@ -37,7 +37,7 @@ class HaloExchange(Module):
             slices_i = [[], [], [], []]
 
             for j in range(dim):
-                s = local_tensor_sizes[j]
+                s = x_local_shape[j]
 
                 lrecv_size = int(recv_buffer_shape[j, 0])
                 lsend_size = int(send_buffer_shape[j, 0])
@@ -110,9 +110,9 @@ class HaloExchange(Module):
 
     def _distdl_module_setup(self, input):
 
-        self.local_tensor_sizes = input[0].shape
+        self.x_local_shape = input[0].shape
         if self.P_x.active:
-            self.slices = self._assemble_slices(self.local_tensor_sizes, self.recv_buffer_shape, self.send_buffer_shape)
+            self.slices = self._assemble_slices(self.x_local_shape, self.recv_buffer_shape, self.send_buffer_shape)
             self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_shape, self.send_buffer_shape)
 
         self._distdl_is_setup = True
