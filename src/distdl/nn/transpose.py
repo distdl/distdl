@@ -73,6 +73,10 @@ class DistributedTranspose(Module):
 
     def _distdl_module_setup(self, input):
 
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
         # If we are not a worker, do nothing.
         if not self.P_union.active:
             return
@@ -142,10 +146,6 @@ class DistributedTranspose(Module):
         buffs = self._allocate_buffers(self.dtype)
         self.in_buffers = buffs[0]
         self.out_buffers = buffs[1]
-
-        self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
 
     def _distdl_module_teardown(self, input):
 
