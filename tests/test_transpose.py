@@ -9,7 +9,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(4, 8), [4, 1],  # P_x_ranks, P_x_topo
         np.arange(0, 12), [3, 4],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-overlap-3D",
         marks=[pytest.mark.mpi(min_size=12)]
@@ -20,7 +20,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_topo
         np.arange(4, 16), [3, 4],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         16,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-3D",
         marks=[pytest.mark.mpi(min_size=16)]
@@ -31,7 +31,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_topo
         np.arange(5, 17), [3, 4],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         17,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-inactive-3D",
         marks=[pytest.mark.mpi(min_size=17)]
@@ -43,7 +43,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
         np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         1,  # passed to comm_split_fixture, required MPI ranks
         id="sequential-identity",
         marks=[pytest.mark.mpi(min_size=1)]
@@ -55,7 +55,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(4, 5), [1, 1],  # P_x_ranks, P_x_topo
         np.arange(0, 12), [3, 4],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_scatter-overlap-3D",
         marks=[pytest.mark.mpi(min_size=12)]
@@ -66,7 +66,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
         np.arange(1, 13), [3, 4],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         13,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_scatter-disjoint-3D",
         marks=[pytest.mark.mpi(min_size=13)]
@@ -77,7 +77,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
         np.arange(2, 14), [3, 4],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         14,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_scatter-disjoint-inactive-3D",
         marks=[pytest.mark.mpi(min_size=14)]
@@ -89,7 +89,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 12), [3, 4],  # P_x_ranks, P_x_topo
         np.arange(4, 5), [1, 1],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_gather-overlap-3D",
         marks=[pytest.mark.mpi(min_size=12)]
@@ -100,7 +100,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(1, 13), [3, 4],  # P_x_ranks, P_x_topo
         np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         13,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_gather-disjoint-3D",
         marks=[pytest.mark.mpi(min_size=13)]
@@ -111,7 +111,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(2, 14), [3, 4],  # P_x_ranks, P_x_topo
         np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
-        [77, 55],  # global_tensor_size
+        [77, 55],  # global_tensor_shape
         14,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_gather-disjoint-inactive-3D",
         marks=[pytest.mark.mpi(min_size=14)]
@@ -122,7 +122,7 @@ adjoint_parametrizations.append(
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -130,7 +130,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
                            comm_split_fixture,
                            P_x_ranks, P_x_topo,
                            P_y_ranks, P_y_topo,
-                           global_tensor_size):
+                           global_tensor_shape):
 
     import numpy as np
     import torch
@@ -161,7 +161,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     if P_x.active:
         in_subsizes = compute_subsizes(P_x.comm.dims,
                                        P_x.comm.Get_coords(P_x.rank),
-                                       global_tensor_size)
+                                       global_tensor_shape)
         x = torch.Tensor(np.random.randn(*in_subsizes))
     x.requires_grad = True
 
@@ -170,7 +170,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     if P_y.active:
         out_subsizes = compute_subsizes(P_y.comm.dims,
                                         P_y.comm.Get_coords(P_y.rank),
-                                        global_tensor_size)
+                                        global_tensor_shape)
         dy = torch.Tensor(np.random.randn(*out_subsizes))
 
     # y = F @ x
@@ -241,7 +241,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     # Input partition rank must match tensor rank
     in_dims = (1, 4, 1, 1)
     out_dims = (1, 1, 1, 2)
-    global_tensor_size = np.array([16, 5, 5])
+    global_tensor_shape = np.array([16, 5, 5])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -261,7 +261,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         if P_x.active:
             in_subsizes = compute_subsizes(P_x.comm.dims,
                                            P_x.comm.Get_coords(P_x.rank),
-                                           global_tensor_size)
+                                           global_tensor_shape)
             x = torch.Tensor(np.random.randn(*in_subsizes))
         x.requires_grad = True
 
@@ -289,7 +289,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     # Output partition rank must match tensor rank
     in_dims = (4, 1, 1)
     out_dims = (1, 1, 1, 2)
-    global_tensor_size = np.array([16, 5, 5])
+    global_tensor_shape = np.array([16, 5, 5])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -309,7 +309,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         if P_x.active:
             in_subsizes = compute_subsizes(P_x.comm.dims,
                                            P_x.comm.Get_coords(P_x.rank),
-                                           global_tensor_size)
+                                           global_tensor_shape)
             x = torch.Tensor(np.random.randn(*in_subsizes))
         x.requires_grad = True
 
@@ -338,7 +338,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
     # dimension.  (See last dimension of output and tensor.)
     in_dims = (1, 4, 1, 1)
     out_dims = (1, 1, 1, 2)
-    global_tensor_size = np.array([1, 16, 5, 1])
+    global_tensor_shape = np.array([1, 16, 5, 1])
 
     in_size = np.prod(in_dims)
     out_size = np.prod(out_dims)
@@ -358,7 +358,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         if P_x.active:
             in_subsizes = compute_subsizes(P_x.comm.dims,
                                            P_x.comm.Get_coords(P_x.rank),
-                                           global_tensor_size)
+                                           global_tensor_shape)
             x = torch.Tensor(np.random.randn(*in_subsizes))
         x.requires_grad = True
 

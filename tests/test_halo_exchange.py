@@ -69,7 +69,7 @@ adjoint_parametrizations = []
 adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_topo
-        [1, 1, 10, 7],  # global_tensor_sizes
+        [1, 1, 10, 7],  # global_tensor_shape
         [1, 1, 3, 3],  # kernel_size
         [1, 1, 1, 1],  # stride
         [0, 0, 0, 0],  # padding
@@ -84,7 +84,7 @@ adjoint_parametrizations.append(
 adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
-        [1, 1, 10],  # global_tensor_sizes
+        [1, 1, 10],  # global_tensor_shape
         [2],  # kernel_size
         [2],  # stride
         [0],  # padding
@@ -98,7 +98,7 @@ adjoint_parametrizations.append(
 
 
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "global_tensor_sizes,"
+                         "global_tensor_shape,"
                          "kernel_size,"
                          "stride,"
                          "padding,"
@@ -110,7 +110,7 @@ adjoint_parametrizations.append(
 def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_topo,
-                               global_tensor_sizes,
+                               global_tensor_shape,
                                kernel_size, stride, padding, dilation,
                                MockupKernelStyle):
     import numpy as np
@@ -130,7 +130,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
     P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_sizes)
+    global_tensor_shape = np.asarray(global_tensor_shape)
     kernel_size = np.asarray(kernel_size)
     stride = np.asarray(stride)
     padding = np.asarray(padding)
@@ -141,7 +141,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     send_buffer_sizes = None
     if P_x.active:
         mockup_layer = MockupKernelStyle()
-        exchange_info = mockup_layer._compute_exchange_info(global_tensor_sizes,
+        exchange_info = mockup_layer._compute_exchange_info(global_tensor_shape,
                                                             kernel_size,
                                                             stride,
                                                             padding,
@@ -160,7 +160,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     if P_x.active:
         in_subsizes = compute_subsizes(P_x.comm.dims,
                                        P_x.comm.Get_coords(P_x.rank),
-                                       global_tensor_sizes)
+                                       global_tensor_shape)
         x = torch.tensor(np.random.randn(*in_subsizes))
         x = pad_layer.forward(x)
     x.requires_grad = True

@@ -138,9 +138,9 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         if self.serial:
             return
 
-        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+        global_tensor_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
                                                                                self.P_x)
-        exchange_info = self._compute_exchange_info(global_tensor_sizes,
+        exchange_info = self._compute_exchange_info(global_tensor_shape,
                                                     self.conv_layer.kernel_size,
                                                     self.conv_layer.stride,
                                                     self.conv_layer.padding,

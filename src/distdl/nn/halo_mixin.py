@@ -7,7 +7,7 @@ from distdl.utilities.slicing import compute_subsizes
 class HaloMixin:
 
     def _compute_exchange_info(self,
-                               x_in_sizes,
+                               global_tensor_shape,
                                kernel_size,
                                stride,
                                padding,
@@ -21,14 +21,14 @@ class HaloMixin:
 
         dim = len(partition_dims)
 
-        x_in_sizes = np.atleast_1d(x_in_sizes)
+        global_tensor_shape = np.atleast_1d(global_tensor_shape)
         kernel_size = np.atleast_1d(kernel_size)
         stride = np.atleast_1d(stride)
         padding = np.atleast_1d(padding)
         dilation = np.atleast_1d(dilation)
 
         def compute_lpad_length(array):
-            return len(x_in_sizes) - len(array)
+            return len(global_tensor_shape) - len(array)
 
         kernel_size = np.pad(kernel_size,
                              pad_width=(compute_lpad_length(kernel_size), 0),
@@ -49,7 +49,7 @@ class HaloMixin:
 
         halo_sizes = self._compute_halo_sizes(partition_dims,
                                               partition_coords,
-                                              x_in_sizes,
+                                              global_tensor_shape,
                                               kernel_size,
                                               stride,
                                               padding,
@@ -63,7 +63,7 @@ class HaloMixin:
             lcoords = [x - 1 if j == i else x for j, x in enumerate(partition_coords)]
             nhalo = self._compute_halo_sizes(partition_dims,
                                              lcoords,
-                                             x_in_sizes,
+                                             global_tensor_shape,
                                              kernel_size,
                                              stride,
                                              padding,
@@ -76,7 +76,7 @@ class HaloMixin:
             rcoords = [x + 1 if j == i else x for j, x in enumerate(partition_coords)]
             nhalo = self._compute_halo_sizes(partition_dims,
                                              rcoords,
-                                             x_in_sizes,
+                                             global_tensor_shape,
                                              kernel_size,
                                              stride,
                                              padding,
@@ -86,10 +86,10 @@ class HaloMixin:
             if(rcoords[i] < partition_dims[i]):
                 send_buffer_sizes[i, 1] = nhalo[i, 0]
 
-        x_in_subsizes = compute_subsizes(partition_dims, partition_coords, x_in_sizes)
+        x_in_subsizes = compute_subsizes(partition_dims, partition_coords, global_tensor_shape)
         halo_sizes_with_negatives = self._compute_halo_sizes(partition_dims,
                                                              partition_coords,
-                                                             x_in_sizes,
+                                                             global_tensor_shape,
                                                              kernel_size,
                                                              stride,
                                                              padding,
@@ -126,20 +126,20 @@ class HaloMixin:
     def _compute_halo_sizes(self,
                             dims,
                             coords,
-                            x_in_sizes,
+                            global_tensor_shape,
                             kernel_size,
                             stride,
                             padding,
                             dilation,
                             require_nonnegative=True):
 
-        x_in_sizes = np.asarray(x_in_sizes)
+        global_tensor_shape = np.asarray(global_tensor_shape)
 
-        x_in_subsizes = compute_subsizes(dims, coords, x_in_sizes)
-        x_in_starts = compute_starts(dims, coords, x_in_sizes)
+        x_in_subsizes = compute_subsizes(dims, coords, global_tensor_shape)
+        x_in_starts = compute_starts(dims, coords, global_tensor_shape)
 
         # formula from pytorch docs for maxpool
-        x_out_sizes = self._compute_out_sizes(x_in_sizes, kernel_size,
+        x_out_sizes = self._compute_out_sizes(global_tensor_shape, kernel_size,
                                               stride, padding, dilation)
 
         x_out_subsizes = compute_subsizes(dims, coords, x_out_sizes)
@@ -152,7 +152,7 @@ class HaloMixin:
                                                          padding,
                                                          dilation)
         # Clamp to the boundary
-        x_in_left_needed = np.maximum(np.zeros_like(x_in_sizes), x_in_left_needed)
+        x_in_left_needed = np.maximum(np.zeros_like(global_tensor_shape), x_in_left_needed)
 
         local_right_indices = x_out_starts + x_out_subsizes - 1
         x_in_right_needed = self._compute_max_input_range(local_right_indices,
@@ -161,7 +161,7 @@ class HaloMixin:
                                                           padding,
                                                           dilation)
         # Clamp to the boundary
-        x_in_right_needed = np.minimum(x_in_sizes - 1, x_in_right_needed)
+        x_in_right_needed = np.minimum(global_tensor_shape - 1, x_in_right_needed)
 
         # Compute the actual ghost values
         x_in_left_ghost = x_in_starts - x_in_left_needed

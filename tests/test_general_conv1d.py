@@ -10,7 +10,7 @@ adjoint_parametrizations.append(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
         np.arange(0, 6), [1, 2, 3],  # P_y_ranks, P_y_topo
         np.arange(0, 6), [2, 1, 3],  # P_w_ranks, P_w_topo
-        [1, 5, 10],  # global_tensor_size
+        [1, 5, 10],  # global_tensor_shape
         6,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-co2_ci1",
         marks=[pytest.mark.mpi(min_size=6)]
@@ -22,7 +22,7 @@ adjoint_parametrizations.append(
         np.arange(0, 6), [1, 2, 3],  # P_x_ranks, P_x_topo
         np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
         np.arange(0, 6), [1, 2, 3],  # P_w_ranks, P_w_topo
-        [1, 5, 10],  # global_tensor_size
+        [1, 5, 10],  # global_tensor_shape
         6,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-co1_ci2",
         marks=[pytest.mark.mpi(min_size=6)]
@@ -34,7 +34,7 @@ adjoint_parametrizations.append(
         np.arange(0, 4), [1, 2, 2],  # P_x_ranks, P_x_topo
         np.arange(0, 4), [1, 2, 2],  # P_y_ranks, P_y_topo
         np.arange(0, 8), [2, 2, 2],  # P_w_ranks, P_w_topo
-        [1, 5, 10],  # global_tensor_size
+        [1, 5, 10],  # global_tensor_shape
         8,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-co2_ci2",
         marks=[pytest.mark.mpi(min_size=8)]
@@ -46,7 +46,7 @@ adjoint_parametrizations.append(
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "P_w_ranks, P_w_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -55,7 +55,7 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
                                       P_x_ranks, P_x_topo,
                                       P_y_ranks, P_y_topo,
                                       P_w_ranks, P_w_topo,
-                                      global_tensor_size):
+                                      global_tensor_shape):
 
     import numpy as np
     import torch
@@ -81,10 +81,10 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
     P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_size)
+    global_tensor_shape = np.asarray(global_tensor_shape)
 
     layer = DistributedGeneralConv1d(P_x, P_y, P_w,
-                                     in_channels=global_tensor_sizes[1],
+                                     in_channels=global_tensor_shape[1],
                                      out_channels=10,
                                      kernel_size=[3], bias=False)
 
@@ -92,7 +92,7 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              global_tensor_sizes)
+                                              global_tensor_shape)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -117,7 +117,7 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "P_w_ranks, P_w_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -126,7 +126,7 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
                                        P_x_ranks, P_x_topo,
                                        P_y_ranks, P_y_topo,
                                        P_w_ranks, P_w_topo,
-                                       global_tensor_size):
+                                       global_tensor_shape):
 
     import numpy as np
     import torch
@@ -152,10 +152,10 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
     P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_size)
+    global_tensor_shape = np.asarray(global_tensor_shape)
 
     layer = DistributedGeneralConv1d(P_x, P_y, P_w,
-                                     in_channels=global_tensor_sizes[1],
+                                     in_channels=global_tensor_shape[1],
                                      out_channels=10,
                                      kernel_size=[3], bias=False)
 
@@ -163,7 +163,7 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              global_tensor_sizes)
+                                              global_tensor_shape)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -191,7 +191,7 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "P_w_ranks, P_w_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -200,7 +200,7 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
                                      P_x_ranks, P_x_topo,
                                      P_y_ranks, P_y_topo,
                                      P_w_ranks, P_w_topo,
-                                     global_tensor_size):
+                                     global_tensor_shape):
 
     import numpy as np
     import torch
@@ -226,10 +226,10 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
     P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_size)
+    global_tensor_shape = np.asarray(global_tensor_shape)
 
     layer = DistributedGeneralConv1d(P_x, P_y, P_w,
-                                     in_channels=global_tensor_sizes[1],
+                                     in_channels=global_tensor_shape[1],
                                      out_channels=10,
                                      kernel_size=[3], bias=True)
 
@@ -237,7 +237,7 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              global_tensor_sizes)
+                                              global_tensor_shape)
         x = torch.zeros(*input_tensor_sizes)
     x.requires_grad = True
 

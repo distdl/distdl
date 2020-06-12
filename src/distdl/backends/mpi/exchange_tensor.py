@@ -84,11 +84,11 @@ def compute_output_tensor_structure(tensor, P_send, P_recv):
 exchange_tensor_structure = compute_output_tensor_structure
 
 
-def compute_global_tensor_sizes(tensor, P_in, P_out=None):
+def compute_global_tensor_shape(tensor, P_in, P_out=None):
 
-    global_tensor_sizes = None
+    global_tensor_shape = None
     if P_in.active:
-        global_tensor_sizes = np.zeros(P_in.dim, dtype=np.int)
+        global_tensor_shape = np.zeros(P_in.dim, dtype=np.int)
         for i in range(P_in.dim):
 
             keep = [False] * P_in.dim
@@ -99,9 +99,9 @@ def compute_global_tensor_sizes(tensor, P_in, P_out=None):
             v0 = np.atleast_1d(int(tensor.shape[i]))
             v1 = np.zeros(1, dtype=np.int)
             P_sub.comm.Allreduce(v0, v1, op=MPI.SUM)
-            global_tensor_sizes[i] = v1[0]
+            global_tensor_shape[i] = v1[0]
 
     if P_out is not None and P_out.active:
-        global_tensor_sizes = P_out.broadcast_data(global_tensor_sizes, P_data=P_in)
+        global_tensor_shape = P_out.broadcast_data(global_tensor_shape, P_data=P_in)
 
-    return global_tensor_sizes
+    return global_tensor_shape
