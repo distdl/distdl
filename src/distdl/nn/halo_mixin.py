@@ -102,7 +102,7 @@ class HaloMixin:
 
         return halo_shape, recv_buffer_shape, send_buffer_shape, needed_ranges
 
-    def _compute_needed_ranges(self, subsizes, halo_shape):
+    def _compute_needed_ranges(self, tensor_shape, halo_shape):
 
         ranges = np.zeros_like(halo_shape)
 
@@ -114,7 +114,7 @@ class HaloMixin:
         # and the last maximum is so that we dont shorten the stop (keeps the
         # parallel and sequential behavior exactly the same, but I dont think
         # it is strictly necessary)
-        ranges[:, 1] = subsizes[:] + np.maximum(0, halo_shape[:, 0]) + np.maximum(0, halo_shape[:, 1])
+        ranges[:, 1] = tensor_shape[:] + np.maximum(0, halo_shape[:, 0]) + np.maximum(0, halo_shape[:, 1])
 
         return ranges
 
@@ -170,7 +170,7 @@ class HaloMixin:
         x_local_stop_index = x_local_start_index + x_local_shape - 1
         x_local_right_halo_shape = x_local_right_global_index_needed - x_local_stop_index
 
-        # Make sure the halos are always positive, so we get valid buffer sizes
+        # Make sure the halos are always positive, so we get valid buffer shape
         if require_nonnegative:
             x_local_left_halo_shape = np.maximum(x_local_left_halo_shape, 0)
             x_local_right_halo_shape = np.maximum(x_local_right_halo_shape, 0)

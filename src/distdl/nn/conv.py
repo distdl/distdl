@@ -107,7 +107,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         if self.conv_layer.bias is not None:
             self.b_broadcast = Broadcast(self.P_wb_cart, self.P_x)
 
-        # We need the halo sizes, and other info, to fully populate the pad,
+        # We need the halo shape, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their
         # construction to the pre-forward hook.
 
@@ -119,7 +119,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         self.needed_slices = None
 
         # For the halo layer we also defer construction, so that we can have
-        # the halo sizes for the input.  The halo will allocate its own
+        # the halo shape for the input.  The halo will allocate its own
         # buffers, but it needs this information at construction to be able
         # to do this in the pre-forward hook.
 
@@ -167,7 +167,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         self.needed_slices = assemble_slices(needed_ranges[:, 0],
                                              needed_ranges[:, 1])
 
-        # Unpad sizes are conv layer's padding in the dimensions where we have
+        # Unpad shape are conv layer's padding in the dimensions where we have
         # a halo, otherwise 0.  There is no halo in the batch and channel
         # dimensions.
         conv_padding = np.concatenate(([0, 0], self.conv_layer.padding))

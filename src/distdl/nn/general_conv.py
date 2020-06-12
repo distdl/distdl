@@ -240,7 +240,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self.conv_padding = P_union.broadcast_data(self.conv_padding, root=0)
         self.conv_dilation = P_union.broadcast_data(self.conv_dilation, root=0)
 
-        # We need the halo sizes, and other info, to fully populate the pad,
+        # We need the halo shape, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their
         # construction to the pre-forward hook.
 
@@ -252,7 +252,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self.needed_slices = None
 
         # For the halo layer we also defer construction, so that we can have
-        # the halo sizes for the input.  The halo will allocate its own
+        # the halo shape for the input.  The halo will allocate its own
         # buffers, but it needs this information at construction to be able
         # to do this in the pre-forward hook.
 
@@ -317,7 +317,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # This is safe because there are never halos on the channel or batch
             # dimensions.  Therefore, because we assume that the spatial partition
-            # of P_x and P_y is the same, then the halo sizes this will
+            # of P_x and P_y is the same, then the halo shape this will
             # compute will also be the same.
             exchange_info = self._compute_exchange_info(x_global_shape,
                                                         self.conv_kernel_size,
@@ -329,7 +329,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.P_y.coords)
             y_halo_shape = exchange_info[0]
 
-            # Unpad sizes are padding in the dimensions where we have a halo,
+            # Unpad shape is padding in the dimensions where we have a halo,
             # otherwise 0
             conv_padding = np.concatenate(([0, 0], self.conv_padding))
             unpad_shape = []

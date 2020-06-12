@@ -165,7 +165,7 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
 
     # TODO #93: Change this to create a subtensor so we test when local tensors
-    # have different sizes.  Then, the output size will also be different, which
+    # have different shape.  Then, the output size will also be different, which
     # we will have to get from `y` itself.
     x_local_shape = np.asarray(x_global_shape)
 

@@ -49,14 +49,14 @@ def test_padnd_adjoint(barrier_fence_fixture,
     x_local_shape = np.asarray(x_local_shape)
     padding = np.asarray(padding)
 
-    padded_sizes = [t + lpad + rpad for t, (lpad, rpad) in zip(x_local_shape, padding)]
+    padded_shape = [t + lpad + rpad for t, (lpad, rpad) in zip(x_local_shape, padding)]
 
     layer = PadNd(padding, value=0)
 
     x = torch.tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
-    dy = torch.tensor(np.random.randn(*padded_sizes))
+    dy = torch.tensor(np.random.randn(*padded_shape))
 
     y = layer(x)
     y.backward(dy)
