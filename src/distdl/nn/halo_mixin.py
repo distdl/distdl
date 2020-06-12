@@ -8,7 +8,7 @@ class HaloMixin:
 
     def _compute_exchange_info(self,
                                x_in_sizes,
-                               kernel_sizes,
+                               kernel_size,
                                stride,
                                pads,
                                dilation,
@@ -22,7 +22,7 @@ class HaloMixin:
         dim = len(partition_dims)
 
         x_in_sizes = np.atleast_1d(x_in_sizes)
-        kernel_sizes = np.atleast_1d(kernel_sizes)
+        kernel_size = np.atleast_1d(kernel_size)
         stride = np.atleast_1d(stride)
         pads = np.atleast_1d(pads)
         dilation = np.atleast_1d(dilation)
@@ -30,10 +30,10 @@ class HaloMixin:
         def compute_lpad_length(array):
             return len(x_in_sizes) - len(array)
 
-        kernel_sizes = np.pad(kernel_sizes,
-                              pad_width=(compute_lpad_length(kernel_sizes), 0),
-                              mode='constant',
-                              constant_values=1)
+        kernel_size = np.pad(kernel_size,
+                             pad_width=(compute_lpad_length(kernel_size), 0),
+                             mode='constant',
+                             constant_values=1)
         stride = np.pad(stride,
                         pad_width=(compute_lpad_length(stride), 0),
                         mode='constant',
@@ -50,7 +50,7 @@ class HaloMixin:
         halo_sizes = self._compute_halo_sizes(partition_dims,
                                               partition_coords,
                                               x_in_sizes,
-                                              kernel_sizes,
+                                              kernel_size,
                                               stride,
                                               pads,
                                               dilation)
@@ -64,7 +64,7 @@ class HaloMixin:
             nhalo = self._compute_halo_sizes(partition_dims,
                                              lcoords,
                                              x_in_sizes,
-                                             kernel_sizes,
+                                             kernel_size,
                                              stride,
                                              pads,
                                              dilation)
@@ -77,7 +77,7 @@ class HaloMixin:
             nhalo = self._compute_halo_sizes(partition_dims,
                                              rcoords,
                                              x_in_sizes,
-                                             kernel_sizes,
+                                             kernel_size,
                                              stride,
                                              pads,
                                              dilation)
@@ -90,7 +90,7 @@ class HaloMixin:
         halo_sizes_with_negatives = self._compute_halo_sizes(partition_dims,
                                                              partition_coords,
                                                              x_in_sizes,
-                                                             kernel_sizes,
+                                                             kernel_size,
                                                              stride,
                                                              pads,
                                                              dilation,
@@ -118,16 +118,16 @@ class HaloMixin:
 
         return ranges
 
-    def _compute_out_sizes(self, in_sizes, kernel_sizes, stride, pads, dilation):
+    def _compute_out_sizes(self, in_sizes, kernel_size, stride, pads, dilation):
         return np.floor((in_sizes
                          + 2*pads
-                         - dilation*(kernel_sizes-1) - 1)/stride + 1).astype(in_sizes.dtype)
+                         - dilation*(kernel_size-1) - 1)/stride + 1).astype(in_sizes.dtype)
 
     def _compute_halo_sizes(self,
                             dims,
                             coords,
                             x_in_sizes,
-                            kernel_sizes,
+                            kernel_size,
                             stride,
                             pads,
                             dilation,
@@ -139,7 +139,7 @@ class HaloMixin:
         x_in_starts = compute_starts(dims, coords, x_in_sizes)
 
         # formula from pytorch docs for maxpool
-        x_out_sizes = self._compute_out_sizes(x_in_sizes, kernel_sizes,
+        x_out_sizes = self._compute_out_sizes(x_in_sizes, kernel_size,
                                               stride, pads, dilation)
 
         x_out_subsizes = compute_subsizes(dims, coords, x_out_sizes)
@@ -147,7 +147,7 @@ class HaloMixin:
 
         local_left_indices = x_out_starts
         x_in_left_needed = self._compute_min_input_range(local_left_indices,
-                                                         kernel_sizes,
+                                                         kernel_size,
                                                          stride,
                                                          pads,
                                                          dilation)
@@ -156,7 +156,7 @@ class HaloMixin:
 
         local_right_indices = x_out_starts + x_out_subsizes - 1
         x_in_right_needed = self._compute_max_input_range(local_right_indices,
-                                                          kernel_sizes,
+                                                          kernel_size,
                                                           stride,
                                                           pads,
                                                           dilation)

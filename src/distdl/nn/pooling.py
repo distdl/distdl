@@ -11,7 +11,7 @@ class PoolingMixin:
 
     def _compute_min_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
@@ -21,13 +21,13 @@ class PoolingMixin:
 
     def _compute_max_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_sizes - 1
+        return stride * idx + kernel_size - 1
 
 
 class DistributedPoolBase(Module, HaloMixin, PoolingMixin):

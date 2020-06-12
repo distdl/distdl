@@ -16,31 +16,31 @@ class MockupConvLayer(HaloMixin):
     # These mappings come from basic knowledge of convolutions
     def _compute_min_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_sizes - 1) / 2
+        kernel_offsets = (kernel_size - 1) / 2
 
         # for even sized kernels, always shortchange the left side
-        kernel_offsets[kernel_sizes % 2 == 0] -= 1
+        kernel_offsets[kernel_size % 2 == 0] -= 1
 
         bases = idx + kernel_offsets - pads
         return bases - kernel_offsets
 
     def _compute_max_input_range(self,
                                  idx,
-                                 kernel_sizes,
+                                 kernel_size,
                                  stride,
                                  pads,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_sizes - 1) / 2
+        kernel_offsets = (kernel_size - 1) / 2
 
         bases = idx + kernel_offsets - pads
         return bases + kernel_offsets
@@ -64,13 +64,13 @@ global_tensor_sizes = np.array([1, 1, 10, 12])
 
 if P_x.active:
     mockup_conv_layer = MockupConvLayer()
-    kernel_sizes = [1, 1, 3, 3]
+    kernel_size = [1, 1, 3, 3]
     stride = [1, 1, 1, 1]
     pads = [0, 0, 0, 0]
     dilation = [1, 1, 1, 1]
 
     exchange_info = mockup_conv_layer._compute_exchange_info(global_tensor_sizes,
-                                                             kernel_sizes,
+                                                             kernel_size,
                                                              stride,
                                                              pads,
                                                              dilation,
