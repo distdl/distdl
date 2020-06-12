@@ -1,6 +1,6 @@
 import numpy as np
 
-from distdl.utilities.slicing import compute_starts
+from distdl.utilities.slicing import compute_start_index
 from distdl.utilities.slicing import compute_subshape
 
 
@@ -136,14 +136,14 @@ class HaloMixin:
         x_global_shape = np.asarray(x_global_shape)
 
         x_local_shape = compute_subshape(dims, coords, x_global_shape)
-        x_local_start_index = compute_starts(dims, coords, x_global_shape)
+        x_local_start_index = compute_start_index(dims, coords, x_global_shape)
 
         # formula from pytorch docs for maxpool
         y_global_shape = self._compute_out_shape(x_global_shape, kernel_size,
                                                  stride, padding, dilation)
 
         y_local_shape = compute_subshape(dims, coords, y_global_shape)
-        y_local_start_index = compute_starts(dims, coords, y_global_shape)
+        y_local_start_index = compute_start_index(dims, coords, y_global_shape)
 
         y_local_left_global_index = y_local_start_index
         x_local_left_global_index_needed = self._compute_min_input_range(y_local_left_global_index,

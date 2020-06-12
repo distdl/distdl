@@ -16,42 +16,42 @@ def compute_subshape(dims, coords, shape):
     return subshape
 
 
-def compute_starts(dims, coords, shape):
+def compute_start_index(dims, coords, shape):
 
     dims = np.atleast_1d(dims)
     coords = np.atleast_1d(coords)
     shape = np.atleast_1d(shape)
-    starts = (shape // dims)*coords
-    starts += np.minimum(coords, shape % dims)
+    start_index = (shape // dims)*coords
+    start_index += np.minimum(coords, shape % dims)
 
-    return starts
+    return start_index
 
 
-def compute_stops(dims, coords, shape):
+def compute_stop_index(dims, coords, shape):
 
-    starts = compute_starts(dims, coords, shape)
+    start_index = compute_start_index(dims, coords, shape)
     subshape = compute_subshape(dims, coords, shape)
-    stops = starts + subshape
+    stop_index = start_index + subshape
 
-    return stops
+    return stop_index
 
 
-def compute_intersection(r0_starts, r0_stops,
-                         r1_starts, r1_stops):
+def compute_intersection(r0_start_index, r0_stop_index,
+                         r1_start_index, r1_stop_index):
 
-    intersection_starts = np.maximum(r0_starts, r1_starts)
-    intersection_stops = np.minimum(r0_stops, r1_stops)
-    intersection_subshape = intersection_stops - intersection_starts
+    intersection_start_index = np.maximum(r0_start_index, r1_start_index)
+    intersection_stop_index = np.minimum(r0_stop_index, r1_stop_index)
+    intersection_subshape = intersection_stop_index - intersection_start_index
     intersection_subshape = np.maximum(intersection_subshape, 0)
 
-    return intersection_starts, intersection_stops, intersection_subshape
+    return intersection_start_index, intersection_stop_index, intersection_subshape
 
 
-def assemble_slices(starts, stops):
+def assemble_slices(start_index, stop_index):
 
     slices = []
 
-    for start, stop in zip(starts, stops):
+    for start, stop in zip(start_index, stop_index):
         slices.append(slice(start, stop, None))
 
     return slices
@@ -64,18 +64,18 @@ def compute_partition_intersection(x_r_dims,
                                    x_shape):
 
     # Extract the first subtensor description
-    x_r_starts = compute_starts(x_r_dims, x_r_coords, x_shape)
-    x_r_stops = compute_stops(x_r_dims, x_r_coords, x_shape)
+    x_r_start_index = compute_start_index(x_r_dims, x_r_coords, x_shape)
+    x_r_stop_index = compute_stop_index(x_r_dims, x_r_coords, x_shape)
 
     # Extract the second subtensor description
-    x_s_starts = compute_starts(x_s_dims, x_s_coords, x_shape)
-    x_s_stops = compute_stops(x_s_dims, x_s_coords, x_shape)
+    x_s_start_index = compute_start_index(x_s_dims, x_s_coords, x_shape)
+    x_s_stop_index = compute_stop_index(x_s_dims, x_s_coords, x_shape)
 
     # Compute the overlap between the subtensors and its volume
-    x_i_starts, x_i_stops, x_i_subshape = compute_intersection(x_r_starts,
-                                                               x_r_stops,
-                                                               x_s_starts,
-                                                               x_s_stops)
+    x_i_start_index, x_i_stop_index, x_i_subshape = compute_intersection(x_r_start_index,
+                                                                         x_r_stop_index,
+                                                                         x_s_start_index,
+                                                                         x_s_stop_index)
     x_i_volume = np.prod(x_i_subshape)
 
     # If the volume of the intersection is 0, we have no slice,
@@ -84,9 +84,9 @@ def compute_partition_intersection(x_r_dims,
     if x_i_volume == 0:
         return None
     else:
-        x_i_starts_rel_r = x_i_starts - x_r_starts
-        x_i_stops_rel_r = x_i_starts_rel_r + x_i_subshape
-        x_i_slices_rel_r = assemble_slices(x_i_starts_rel_r, x_i_stops_rel_r)
+        x_i_start_index_rel_r = x_i_start_index - x_r_start_index
+        x_i_stop_index_rel_r = x_i_start_index_rel_r + x_i_subshape
+        x_i_slices_rel_r = assemble_slices(x_i_start_index_rel_r, x_i_stop_index_rel_r)
         return x_i_slices_rel_r
 
 
