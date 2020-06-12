@@ -8,13 +8,13 @@ from distdl.utilities.slicing import range_coords
 
 class DistributedTranspose(Module):
 
-    def __init__(self, P_in, P_out):
+    def __init__(self, P_x, P_y):
         super(DistributedTranspose, self).__init__()
 
         self.global_tensor_sizes = None
 
-        self.P_in = P_in
-        self.P_out = P_out
+        self.P_x = P_x
+        self.P_y = P_y
 
         self.in_data = []
         self.out_data = []
@@ -33,41 +33,41 @@ class DistributedTranspose(Module):
         self._input_shape = None
         self._input_requires_grad = None
 
-        if P_in == P_out:
+        if P_x == P_y:
             self.identity = True
             return
 
         P_union = self._distdl_backend.Partition()
-        if P_in.active or P_out.active:
-            P_union = P_in.create_partition_union(P_out)
+        if P_x.active or P_y.active:
+            P_union = P_x.create_partition_union(P_y)
         self.P_union = P_union
 
-        self.P_in_dims = None
-        self.P_out_dims = None
+        self.P_x_dims = None
+        self.P_y_dims = None
         self.union_indices = None
 
         if not P_union.active:
             return
 
         data = None
-        if self.P_in.active:
-            data = self.P_in.dims
-        self.P_in_dims = self.P_union.broadcast_data(data, P_data=self.P_in)
+        if self.P_x.active:
+            data = self.P_x.dims
+        self.P_x_dims = self.P_union.broadcast_data(data, P_data=self.P_x)
 
         data = None
-        if self.P_out.active:
-            data = self.P_out.dims
-        self.P_out_dims = self.P_union.broadcast_data(data, P_data=self.P_out)
+        if self.P_y.active:
+            data = self.P_y.dims
+        self.P_y_dims = self.P_union.broadcast_data(data, P_data=self.P_y)
 
-        if len(self.P_in_dims) != len(self.P_out_dims):
+        if len(self.P_x_dims) != len(self.P_y_dims):
             raise ValueError("Input and output partition must be same dimension.")
 
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source index and the second contains
         # the destination index.
         local_indices = np.zeros(2, dtype=np.int)
-        local_indices[0] = P_in.rank if P_in.active else -1
-        local_indices[1] = P_out.rank if P_out.active else -1
+        local_indices[0] = P_x.rank if P_x.active else -1
+        local_indices[1] = P_y.rank if P_y.active else -1
 
         self.union_indices = self.P_union.allgather_data(local_indices)
 
@@ -77,11 +77,11 @@ class DistributedTranspose(Module):
         if not self.P_union.active:
             return
 
-        in_dims = self.P_in_dims
-        out_dims = self.P_out_dims
+        in_dims = self.P_x_dims
+        out_dims = self.P_y_dims
 
         global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
-                                                                               self.P_in,
+                                                                               self.P_x,
                                                                                self.P_union)
         self.global_tensor_sizes = global_tensor_sizes
 
@@ -103,8 +103,8 @@ class DistributedTranspose(Module):
         # We only need to move data to the output partition if we actually
         # have input data.  It is possible to have both input and output data,
         # either input or output data, or neither.  Hence the active guard.
-        if self.P_in.active:
-            in_coords = self.P_in.cartesian_coordinates(self.P_in.rank)
+        if self.P_x.active:
+            in_coords = self.P_x.cartesian_coordinates(self.P_x.rank)
 
             # Compute our overlaps for each output subpartition.
             for rank, out_coords in enumerate(range_coords(out_dims)):
@@ -122,8 +122,8 @@ class DistributedTranspose(Module):
 
         # We only need to obtain data from the input partition if we actually
         # have output data.
-        if self.P_out.active:
-            out_coords = self.P_out.cartesian_coordinates(self.P_out.rank)
+        if self.P_y.active:
+            out_coords = self.P_y.cartesian_coordinates(self.P_y.rank)
 
             # Compute our overlaps for each input subpartition.
             for rank, in_coords in enumerate(range_coords(in_dims)):
@@ -201,10 +201,10 @@ class DistributedTranspose(Module):
         return Function.apply(input,
                               self.P_union,
                               self.global_tensor_sizes,
-                              self.P_in,
+                              self.P_x,
                               self.in_data,
                               self.in_buffers,
-                              self.P_out,
+                              self.P_y,
                               self.out_data,
                               self.out_buffers,
                               self.dtype)

@@ -6,18 +6,18 @@ from distdl.utilities.slicing import compute_nd_slice_volume
 
 class HaloExchange(Module):
 
-    def __init__(self, halo_sizes, recv_buffer_sizes, send_buffer_sizes, cartesian_partition):
+    def __init__(self, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_x):
 
         super(HaloExchange, self).__init__()
 
         self.halo_sizes = halo_sizes
         self.recv_buffer_sizes = recv_buffer_sizes
         self.send_buffer_sizes = send_buffer_sizes
-        self.cartesian_partition = cartesian_partition
+        self.P_x = P_x
 
         self.neighbor_ranks = None
-        if self.cartesian_partition.active:
-            self.neighbor_ranks = self.cartesian_partition.neighbor_ranks(self.cartesian_partition.rank)
+        if self.P_x.active:
+            self.neighbor_ranks = self.P_x.neighbor_ranks(self.P_x.rank)
 
         self.slices = None
         self.buffers = None
@@ -111,7 +111,7 @@ class HaloExchange(Module):
     def _distdl_module_setup(self, input):
 
         self.local_tensor_sizes = input[0].shape
-        if self.cartesian_partition.active:
+        if self.P_x.active:
             self.slices = self._assemble_slices(self.local_tensor_sizes, self.recv_buffer_sizes, self.send_buffer_sizes)
             self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_sizes, self.send_buffer_sizes)
 
@@ -148,4 +148,4 @@ class HaloExchange(Module):
                               self.slices,
                               self.buffers,
                               self.neighbor_ranks,
-                              self.cartesian_partition)
+                              self.P_x)
