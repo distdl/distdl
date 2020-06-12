@@ -247,36 +247,36 @@ class MPIPartition:
         # Compute the Cartesian index of the source rank, in the matching
         # dimensions only.  This index will be constant in the dimensions of
         # the destination that we are broadcasting along.
-        src_index = -1
+        src_flat_index = -1
         if P_src.active:
-            coords_src = np.zeros_like(src_dims)
+            src_cart_index = np.zeros_like(src_dims)
             c = P_src.coords
             if transpose_src:
-                coords_src[-src_dim:] = c[::-1]
-                src_index = cartesian_index_f(src_dims[match_loc],
-                                              coords_src[match_loc])
+                src_cart_index[-src_dim:] = c[::-1]
+                src_flat_index = cartesian_index_f(src_dims[match_loc],
+                                                   src_cart_index[match_loc])
             else:
-                coords_src[-src_dim:] = c
-                src_index = cartesian_index_c(src_dims[match_loc],
-                                              coords_src[match_loc])
-        data = np.array([src_index], dtype=np.int)
-        src_indices = P_union.allgather_data(data)
+                src_cart_index[-src_dim:] = c
+                src_flat_index = cartesian_index_c(src_dims[match_loc],
+                                                   src_cart_index[match_loc])
+        data = np.array([src_flat_index], dtype=np.int)
+        src_flat_indices = P_union.allgather_data(data)
 
         # Compute the Cartesian index of the destination rank, in the matching
         # dimensions only.  This index will match the index in the source we
         # receive the broadcast from.
-        dest_index = -1
+        dest_flat_index = -1
         if P_dest.active:
-            coords_dest = P_dest.coords
+            dest_cart_index = P_dest.coords
             if transpose_dest:
-                coords_dest = coords_dest[::-1]
-                dest_index = cartesian_index_f(dest_dims[match_loc],
-                                               coords_dest[match_loc])
+                dest_cart_index = dest_cart_index[::-1]
+                dest_flat_index = cartesian_index_f(dest_dims[match_loc],
+                                                    dest_cart_index[match_loc])
             else:
-                dest_index = cartesian_index_c(dest_dims[match_loc],
-                                               coords_dest[match_loc])
-        data = np.array([dest_index], dtype=np.int)
-        dest_indices = P_union.allgather_data(data)
+                dest_flat_index = cartesian_index_c(dest_dims[match_loc],
+                                                    dest_cart_index[match_loc])
+        data = np.array([dest_flat_index], dtype=np.int)
+        dest_flat_indices = P_union.allgather_data(data)
 
         # Build partitions to communicate single broadcasts across subsets
         # of the union partition.
@@ -285,16 +285,16 @@ class MPIPartition:
         # is the root of the group.
         send_ranks, group_send = self._build_cross_partition_groups(P_src,
                                                                     P_union,
-                                                                    src_index,
-                                                                    src_indices,
-                                                                    dest_indices)
+                                                                    src_flat_index,
+                                                                    src_flat_indices,
+                                                                    dest_flat_indices)
         # Recv ranks are P_union ranks in the recv group, the first entry
         # is the root of the group.
         recv_ranks, group_recv = self._build_cross_partition_groups(P_dest,
                                                                     P_union,
-                                                                    dest_index,
-                                                                    src_indices,
-                                                                    dest_indices)
+                                                                    dest_flat_index,
+                                                                    src_flat_indices,
+                                                                    dest_flat_indices)
 
         return self._create_send_recv_partitions(P_union,
                                                  send_ranks, group_send,
@@ -355,43 +355,43 @@ class MPIPartition:
         # Compute the Cartesian index of the source rank, in the matching
         # dimensions only.  This index will be constant in the dimensions of
         # the destination that we are reducing along.
-        src_index = -1
+        src_flat_index = -1
         if P_src.active:
-            coords_src = P_src.coords
+            src_cart_index = P_src.coords
             if transpose_src:
-                coords_src = coords_src[::-1]
-                src_index = cartesian_index_f(src_dims[match_loc],
-                                              coords_src[match_loc])
+                src_cart_index = src_cart_index[::-1]
+                src_flat_index = cartesian_index_f(src_dims[match_loc],
+                                                   src_cart_index[match_loc])
             else:
-                src_index = cartesian_index_c(src_dims[match_loc],
-                                              coords_src[match_loc])
-        data = np.array([src_index], dtype=np.int)
-        src_indices = P_union.allgather_data(data)
+                src_flat_index = cartesian_index_c(src_dims[match_loc],
+                                                   src_cart_index[match_loc])
+        data = np.array([src_flat_index], dtype=np.int)
+        src_flat_indices = P_union.allgather_data(data)
 
         # Compute the Cartesian index of the destination rank, in the matching
         # dimensions only.  This index will match the index in the source we
         # receive the broadcast from.
-        dest_index = -1
+        dest_flat_index = -1
         if P_dest.active:
-            coords_dest = np.zeros_like(dest_dims)
+            dest_cart_index = np.zeros_like(dest_dims)
             c = P_dest.coords
             if transpose_dest:
-                coords_dest[:dest_dim] = c
-                coords_dest = coords_dest[::-1]
-                dest_index = cartesian_index_f(dest_dims[match_loc],
-                                               coords_dest[match_loc])
+                dest_cart_index[:dest_dim] = c
+                dest_cart_index = dest_cart_index[::-1]
+                dest_flat_index = cartesian_index_f(dest_dims[match_loc],
+                                                    dest_cart_index[match_loc])
             else:
-                coords_dest[-dest_dim:] = c
-                dest_index = cartesian_index_c(dest_dims[match_loc],
-                                               coords_dest[match_loc])
-        data = np.array([dest_index], dtype=np.int)
-        dest_indices = P_union.allgather_data(data)
+                dest_cart_index[-dest_dim:] = c
+                dest_flat_index = cartesian_index_c(dest_dims[match_loc],
+                                                    dest_cart_index[match_loc])
+        data = np.array([dest_flat_index], dtype=np.int)
+        dest_flat_indices = P_union.allgather_data(data)
 
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source "index" and the second contains
         # the destination "index".
         union_indices = -1*np.ones(2*P_union.size, dtype=np.int)
-        local_indices = np.array([src_index, dest_index], dtype=np.int)
+        local_indices = np.array([src_flat_index, dest_flat_index], dtype=np.int)
         P_union.comm.Allgather(local_indices, union_indices)
         union_indices.shape = (-1, 2)
 
@@ -402,16 +402,16 @@ class MPIPartition:
         # is the root of the group.
         send_ranks, group_send = self._build_cross_partition_groups(P_src,
                                                                     P_union,
-                                                                    src_index,
-                                                                    dest_indices,
-                                                                    src_indices)
+                                                                    src_flat_index,
+                                                                    dest_flat_indices,
+                                                                    src_flat_indices)
         # Recv ranks are P_union ranks in the recv group, the first entry
         # is the root of the group.
         recv_ranks, group_recv = self._build_cross_partition_groups(P_dest,
                                                                     P_union,
-                                                                    dest_index,
-                                                                    dest_indices,
-                                                                    src_indices)
+                                                                    dest_flat_index,
+                                                                    dest_flat_indices,
+                                                                    src_flat_indices)
 
         return self._create_send_recv_partitions(P_union,
                                                  send_ranks, group_send,
