@@ -18,7 +18,7 @@ class MockupConvLayer(HaloMixin):
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
@@ -28,21 +28,21 @@ class MockupConvLayer(HaloMixin):
         # for even sized kernels, always shortchange the left side
         kernel_offsets[kernel_size % 2 == 0] -= 1
 
-        bases = idx + kernel_offsets - pads
+        bases = idx + kernel_offsets - padding
         return bases - kernel_offsets
 
     def _compute_max_input_range(self,
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
         kernel_offsets = (kernel_size - 1) / 2
 
-        bases = idx + kernel_offsets - pads
+        bases = idx + kernel_offsets - padding
         return bases + kernel_offsets
 
 
@@ -66,13 +66,13 @@ if P_x.active:
     mockup_conv_layer = MockupConvLayer()
     kernel_size = [1, 1, 3, 3]
     stride = [1, 1, 1, 1]
-    pads = [0, 0, 0, 0]
+    padding = [0, 0, 0, 0]
     dilation = [1, 1, 1, 1]
 
     exchange_info = mockup_conv_layer._compute_exchange_info(global_tensor_sizes,
                                                              kernel_size,
                                                              stride,
-                                                             pads,
+                                                             padding,
                                                              dilation,
                                                              P_x.active,
                                                              P_x.dims,

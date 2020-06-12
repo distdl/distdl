@@ -12,7 +12,7 @@ class MockupConvLayer(HaloMixin):
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
@@ -22,21 +22,21 @@ class MockupConvLayer(HaloMixin):
         # for even sized kernels, always shortchange the left side
         kernel_offsets[kernel_size % 2 == 0] -= 1
 
-        bases = idx + kernel_offsets - pads
+        bases = idx + kernel_offsets - padding
         return bases - kernel_offsets
 
     def _compute_max_input_range(self,
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
         kernel_offsets = (kernel_size - 1) / 2
 
-        bases = idx + kernel_offsets - pads
+        bases = idx + kernel_offsets - padding
         return bases + kernel_offsets
 
 
@@ -46,7 +46,7 @@ class MockupPoolingLayer(HaloMixin):
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
@@ -56,7 +56,7 @@ class MockupPoolingLayer(HaloMixin):
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
@@ -72,7 +72,7 @@ adjoint_parametrizations.append(
         [1, 1, 10, 7],  # global_tensor_sizes
         [1, 1, 3, 3],  # kernel_size
         [1, 1, 1, 1],  # stride
-        [0, 0, 0, 0],  # pads
+        [0, 0, 0, 0],  # padding
         [1, 1, 1, 1],  # dilation
         MockupConvLayer,  # MockupKernelStyle
         9,  # passed to comm_split_fixture, required MPI ranks
@@ -87,7 +87,7 @@ adjoint_parametrizations.append(
         [1, 1, 10],  # global_tensor_sizes
         [2],  # kernel_size
         [2],  # stride
-        [0],  # pads
+        [0],  # padding
         [1],  # dilation
         MockupConvLayer,  # MockupKernelStyle
         3,  # passed to comm_split_fixture, required MPI ranks
@@ -101,7 +101,7 @@ adjoint_parametrizations.append(
                          "global_tensor_sizes,"
                          "kernel_size,"
                          "stride,"
-                         "pads,"
+                         "padding,"
                          "dilation,"
                          "MockupKernelStyle,"
                          "comm_split_fixture",
@@ -111,7 +111,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_topo,
                                global_tensor_sizes,
-                               kernel_size, stride, pads, dilation,
+                               kernel_size, stride, padding, dilation,
                                MockupKernelStyle):
     import numpy as np
     import torch
@@ -133,7 +133,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     global_tensor_sizes = np.asarray(global_tensor_sizes)
     kernel_size = np.asarray(kernel_size)
     stride = np.asarray(stride)
-    pads = np.asarray(pads)
+    padding = np.asarray(padding)
     dilation = np.asarray(dilation)
 
     halo_sizes = None
@@ -144,7 +144,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         exchange_info = mockup_layer._compute_exchange_info(global_tensor_sizes,
                                                             kernel_size,
                                                             stride,
-                                                            pads,
+                                                            padding,
                                                             dilation,
                                                             P_x.active,
                                                             P_x.dims,

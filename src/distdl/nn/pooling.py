@@ -13,7 +13,7 @@ class PoolingMixin:
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
@@ -23,7 +23,7 @@ class PoolingMixin:
                                  idx,
                                  kernel_size,
                                  stride,
-                                 pads,
+                                 padding,
                                  dilation):
 
         # incorrect, does not take dilation and padding into account
