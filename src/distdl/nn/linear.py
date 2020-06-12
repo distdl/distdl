@@ -6,11 +6,11 @@ from distdl.nn.sum_reduce import SumReduce
 from distdl.utilities.slicing import compute_subshape
 
 
-class Linear(Module):
+class DistributedLinear(Module):
 
     def __init__(self, P_x, P_y, P_w, in_features, out_features, bias=True):
 
-        super(Linear, self).__init__()
+        super(DistributedLinear, self).__init__()
 
         # P_x ~ 1 X P_fi
         self.P_x = P_x
