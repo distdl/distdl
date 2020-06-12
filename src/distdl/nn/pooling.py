@@ -14,7 +14,7 @@ class PoolingMixin:
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take dilation and padding into account
         return stride * idx + 0
@@ -24,7 +24,7 @@ class PoolingMixin:
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take dilation and padding into account
         return stride * idx + kernel_sizes - 1

@@ -18,7 +18,7 @@ class ConvMixin:
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
@@ -35,7 +35,7 @@ class ConvMixin:
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...

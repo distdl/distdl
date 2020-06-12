@@ -19,7 +19,7 @@ class MockupConvLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
@@ -36,7 +36,7 @@ class MockupConvLayer(HaloMixin):
                                  kernel_sizes,
                                  stride,
                                  pads,
-                                 dilations):
+                                 dilation):
 
         # incorrect, does not take stride and dilation into account
         # padding might also not be correct in these cases...
@@ -67,13 +67,13 @@ if P_x.active:
     kernel_sizes = [1, 1, 3, 3]
     stride = [1, 1, 1, 1]
     pads = [0, 0, 0, 0]
-    dilations = [1, 1, 1, 1]
+    dilation = [1, 1, 1, 1]
 
     exchange_info = mockup_conv_layer._compute_exchange_info(global_tensor_sizes,
                                                              kernel_sizes,
                                                              stride,
                                                              pads,
-                                                             dilations,
+                                                             dilation,
                                                              P_x.active,
                                                              P_x.dims,
                                                              P_x.coords)
