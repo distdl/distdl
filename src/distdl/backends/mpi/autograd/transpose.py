@@ -6,7 +6,7 @@ from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import NoneTensor
 
 
-class DistributedTransposeFunction(torch.autograd.Function):
+class TransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_union, x_global_shape,

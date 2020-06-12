@@ -6,10 +6,10 @@ from distdl.utilities.slicing import compute_partition_intersection
 from distdl.utilities.slicing import range_index
 
 
-class DistributedTranspose(Module):
+class Transpose(Module):
 
     def __init__(self, P_x, P_y):
-        super(DistributedTranspose, self).__init__()
+        super(Transpose, self).__init__()
 
         self.x_global_shape = None
 
@@ -193,7 +193,7 @@ class DistributedTranspose(Module):
 
     def forward(self, input):
 
-        Function = self._distdl_backend.autograd.transpose.DistributedTransposeFunction
+        Function = self._distdl_backend.autograd.transpose.TransposeFunction
 
         if self.identity:
             return input.clone()
