@@ -6,11 +6,11 @@ from distdl.nn.module import Module
 
 class Broadcast(Module):
 
-    def __init__(self, P_in, P_out, transpose_src=False, transpose_dest=False):
+    def __init__(self, P_x, P_y, transpose_src=False, transpose_dest=False):
         super(Broadcast, self).__init__()
 
-        self.P_in = P_in
-        self.P_out = P_out
+        self.P_x = P_x
+        self.P_y = P_y
 
         self.transpose_src = transpose_src
         self.transpose_dest = transpose_dest
@@ -36,8 +36,8 @@ class Broadcast(Module):
         # The identity case is if the partitions are of size 1,
         # or they are the same partition and neither is tranposed,
         # or they are the same partition and both are transposed.
-        if self.P_in == self.P_out:
-            if self.P_in.size == 1:
+        if self.P_x == self.P_y:
+            if self.P_x.size == 1:
                 self.identity = True
             elif (self.transpose_dest and self.transpose_src) or \
                  (not self.transpose_dest and not self.transpose_src):
@@ -47,9 +47,9 @@ class Broadcast(Module):
 
         # If it is not an identity, we need actual Partitions to do the work.
         if not self.identity:
-            bcast_partitions = self.P_in.create_broadcast_partition_to(self.P_out,
-                                                                       self.transpose_src,
-                                                                       self.transpose_dest)
+            bcast_partitions = self.P_x.create_broadcast_partition_to(self.P_y,
+                                                                      self.transpose_src,
+                                                                      self.transpose_dest)
             self.P_send = bcast_partitions[0]
             self.P_recv = bcast_partitions[1]
 

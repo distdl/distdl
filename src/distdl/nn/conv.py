@@ -49,13 +49,13 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
 
     TorchConvType = None
 
-    def __init__(self, P_cart, *args, **kwargs):
+    def __init__(self, P_x, *args, **kwargs):
 
         super(DistributedConvBase, self).__init__()
 
-        self.P_cart = P_cart
+        self.P_x = P_x
 
-        if not self.P_cart.active:
+        if not self.P_x.active:
             return
 
         # Do this before checking serial so that the layer works properly
@@ -63,12 +63,12 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         self.conv_layer = self.TorchConvType(*args, **kwargs)
 
         self.serial = False
-        if self.P_cart.size == 1:
+        if self.P_x.size == 1:
             self.serial = True
             return
 
         # Weights and biases partition
-        self.P_wb = self.P_cart.create_partition_inclusive([0])
+        self.P_wb = self.P_x.create_partition_inclusive([0])
         self.P_wb_cart = self.P_wb.create_cartesian_topology_partition([1])
 
         # We want only the root rank of the broadcast to have a weight and a bias parameter.
@@ -102,10 +102,10 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
             del self.conv_layer.bias
             self.conv_layer.bias = new_bias
 
-        self.w_broadcast = Broadcast(self.P_wb_cart, self.P_cart)
+        self.w_broadcast = Broadcast(self.P_wb_cart, self.P_x)
 
         if self.conv_layer.bias is not None:
-            self.b_broadcast = Broadcast(self.P_wb_cart, self.P_cart)
+            self.b_broadcast = Broadcast(self.P_wb_cart, self.P_x)
 
         # We need the halo sizes, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their
@@ -132,22 +132,22 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
 
     def _distdl_module_setup(self, input):
 
-        if not self.P_cart.active:
+        if not self.P_x.active:
             return
 
         if self.serial:
             return
 
         global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
-                                                                               self.P_cart)
+                                                                               self.P_x)
         exchange_info = self._compute_exchange_info(global_tensor_sizes,
                                                     self.conv_layer.kernel_size,
                                                     self.conv_layer.stride,
                                                     self.conv_layer.padding,
                                                     self.conv_layer.dilation,
-                                                    self.P_cart.active,
-                                                    self.P_cart.dims,
-                                                    self.P_cart.coords)
+                                                    self.P_x.active,
+                                                    self.P_x.dims,
+                                                    self.P_x.coords)
         halo_sizes = exchange_info[0]
         recv_buffer_sizes = exchange_info[1]
         send_buffer_sizes = exchange_info[2]
@@ -160,7 +160,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         self.halo_layer = HaloExchange(halo_sizes,
                                        recv_buffer_sizes,
                                        send_buffer_sizes,
-                                       self.P_cart)
+                                       self.P_x)
 
         # We have to select out the "unused" entries.
         self.needed_slices = assemble_slices(needed_ranges[:, 0],
@@ -206,7 +206,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
 
     def forward(self, input):
 
-        if not self.P_cart.active:
+        if not self.P_x.active:
             return input.clone()
 
         if self.serial:

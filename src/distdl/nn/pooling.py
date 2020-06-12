@@ -34,13 +34,13 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
     TorchPoolType = None  # noqa F821
 
-    def __init__(self, P_cart, *args, **kwargs):
+    def __init__(self, P_x, *args, **kwargs):
 
         super(DistributedPoolBase, self).__init__()
 
-        self.P_cart = P_cart
+        self.P_x = P_x
 
-        if not self.P_cart.active:
+        if not self.P_x.active:
             return
 
         self.pool_layer = self.TorchPoolType(*args, **kwargs)
@@ -68,11 +68,11 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
     def _distdl_module_setup(self, input):
 
-        if not self.P_cart.active:
+        if not self.P_x.active:
             return
 
         global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
-                                                                               self.P_cart)
+                                                                               self.P_x)
         self.global_tensor_sizes = global_tensor_sizes
 
         exchange_info = self._compute_exchange_info(global_tensor_sizes,
@@ -80,9 +80,9 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
                                                     self.pool_layer.stride,
                                                     self.pool_layer.padding,
                                                     [1],  # torch pooling layers have no dilation
-                                                    self.P_cart.active,
-                                                    self.P_cart.dims,
-                                                    self.P_cart.coords)
+                                                    self.P_x.active,
+                                                    self.P_x.dims,
+                                                    self.P_x.coords)
         halo_sizes = exchange_info[0]
         recv_buffer_sizes = exchange_info[1]
         send_buffer_sizes = exchange_info[2]
@@ -95,7 +95,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         self.halo_layer = HaloExchange(halo_sizes,
                                        recv_buffer_sizes,
                                        send_buffer_sizes,
-                                       self.P_cart)
+                                       self.P_x)
 
         # We have to select out the "unused" entries.
         self.needed_slices = assemble_slices(needed_ranges[:, 0],
@@ -131,7 +131,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
     def forward(self, input):
 
-        if not self.P_cart.active:
+        if not self.P_x.active:
             return input.clone()
 
         input_padded = self.pad_layer(input)

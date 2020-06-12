@@ -10,26 +10,26 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_union, global_tensor_sizes,
-                P_in, in_data, in_buffers,
-                P_out, out_data, out_buffers, dtype):
+                P_x, in_data, in_buffers,
+                P_y, out_data, out_buffers, dtype):
 
         ctx.P_union = P_union
         ctx.global_tensor_sizes = global_tensor_sizes
 
-        ctx.P_in = P_in
+        ctx.P_x = P_x
         ctx.in_data = in_data
         ctx.in_buffers = in_buffers
 
-        ctx.P_out = P_out
+        ctx.P_y = P_y
         ctx.out_data = out_data
         ctx.out_buffers = out_buffers
 
         ctx.dtype = dtype
 
         input_requires_grad = False
-        # By design, P_in is always first in the union
+        # By design, P_x is always first in the union
         if P_union.active:
-            if P_in.rank == 0:
+            if P_x.rank == 0:
                 input_requires_grad = input.requires_grad
                 P_union.comm.Bcast(np.array([1 if input_requires_grad else 0]),
                                    root=0)
@@ -47,7 +47,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         # If I am getting data, recv my output parts
         recv_count = 0
-        if P_out.active:
+        if P_y.active:
             for (sl, sz, partner), buff in zip(out_data, out_buffers):
                 if buff is not None:
                     req = P_union.comm.Irecv(buff, source=partner, tag=111)
@@ -61,7 +61,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         # If I have data to share, pack and send my input parts
         send_count = 0
-        if P_in.active:
+        if P_x.active:
             input_numpy = input.detach().numpy()
             for (sl, sz, partner), buff in zip(in_data, in_buffers):
                 if buff is not None:
@@ -75,9 +75,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         # We do this after the sends so that they can get started before local
         # allocations.
-        if P_out.active:
-            coords = P_out.cartesian_coordinates(P_out.rank)
-            out_sizes = compute_subsizes(P_out.comm.dims, coords, global_tensor_sizes)
+        if P_y.active:
+            coords = P_y.cartesian_coordinates(P_y.rank)
+            out_sizes = compute_subsizes(P_y.comm.dims, coords, global_tensor_sizes)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             output = np.zeros(out_sizes, dtype=dtype)
@@ -90,7 +90,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             # In MPI, we don't get the index out if the request is an
             # instance of MPI.REQUEST_NULL, instead MPI.UNDEFINED is returned.
-            if P_out.active and index < recv_count and index != MPI.UNDEFINED:
+            if P_y.active and index < recv_count and index != MPI.UNDEFINED:
                 # Unpack my output parts
                 sl, sz, partner = out_data[index]
                 buff = out_buffers[index]
@@ -100,7 +100,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             completed_count += 1
 
-        if P_out.active:
+        if P_y.active:
             output = torch.from_numpy(output)
             output.requires_grad = input_requires_grad
 
@@ -112,11 +112,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
         P_union = ctx.P_union
         global_tensor_sizes = ctx.global_tensor_sizes
 
-        P_in = ctx.P_in
+        P_x = ctx.P_x
         in_data = ctx.in_data
         in_buffers = ctx.in_buffers
 
-        P_out = ctx.P_out
+        P_y = ctx.P_y
         out_data = ctx.out_data
         out_buffers = ctx.out_buffers
 
@@ -131,7 +131,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         # Recv my input parts
         recv_count = 0
-        if P_in.active:
+        if P_x.active:
             for (sl, sz, partner), buff in zip(in_data, in_buffers):
                 if buff is not None:
                     req = P_union.comm.Irecv(buff, source=partner, tag=113)
@@ -145,7 +145,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         # Pack and send my input parts
         send_count = 0
-        if P_out.active:
+        if P_y.active:
             grad_output_numpy = grad_output.detach().numpy()
             for (sl, sz, partner), buff in zip(out_data, out_buffers):
                 if buff is not None:
@@ -157,9 +157,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
                     requests.append(MPI.REQUEST_NULL)
                 send_count += 1
 
-        if P_in.active:
-            coords = P_in.cartesian_coordinates(P_in.rank)
-            in_sizes = compute_subsizes(P_in.comm.dims, coords, global_tensor_sizes)
+        if P_x.active:
+            coords = P_x.cartesian_coordinates(P_x.rank)
+            in_sizes = compute_subsizes(P_x.comm.dims, coords, global_tensor_sizes)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             grad_input = np.zeros(in_sizes, dtype=dtype)
@@ -172,7 +172,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             # In MPI, we don't get the index out if the request is an
             # instance of MPI.REQUEST_NULL, instead MPI.UNDEFINED is returned.
-            if P_in.active and index < recv_count and index != MPI.UNDEFINED:
+            if P_x.active and index < recv_count and index != MPI.UNDEFINED:
                 # Unpack my output parts
                 sl, sz, partner = in_data[index]
                 buff = in_buffers[index]
@@ -184,7 +184,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
             completed_count += 1
 
-        if P_in.active:
+        if P_x.active:
             grad_input = torch.from_numpy(grad_input)
             grad_input.requires_grad = input_requires_grad
 

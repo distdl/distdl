@@ -8,24 +8,24 @@ from distdl.utilities.torch import NoneTensor
 class HaloExchangeFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, slices, buffers, neighbor_ranks, cartesian_partition):
+    def forward(ctx, input, slices, buffers, neighbor_ranks, P_x):
 
         ctx.slices = slices
         ctx.buffers = buffers
         ctx.neighbor_ranks = neighbor_ranks
-        ctx.cartesian_partition = cartesian_partition
+        ctx.P_x = P_x
 
-        if not cartesian_partition.active:
+        if not P_x.active:
             return NoneTensor()
 
         ctx.mark_dirty(input)
 
-        if cartesian_partition.size == 1:
+        if P_x.size == 1:
             return input
 
         input_numpy = input.detach().numpy()
 
-        dim = cartesian_partition.dim
+        dim = P_x.dim
         for i in range(dim):
 
             lbs, lgs, rbs, rgs = slices[i]
@@ -40,10 +40,10 @@ class HaloExchangeFunction(torch.autograd.Function):
             ltag = 0
             rtag = 1
 
-            lrecv_req = cartesian_partition.comm.Irecv(lgb, source=lrank, tag=rtag) if lgb is not None else MPI.REQUEST_NULL
-            rrecv_req = cartesian_partition.comm.Irecv(rgb, source=rrank, tag=ltag) if rgb is not None else MPI.REQUEST_NULL
-            lsend_req = cartesian_partition.comm.Isend(lbb, dest=lrank, tag=ltag) if lbb is not None else MPI.REQUEST_NULL
-            rsend_req = cartesian_partition.comm.Isend(rbb, dest=rrank, tag=rtag) if rbb is not None else MPI.REQUEST_NULL
+            lrecv_req = P_x.comm.Irecv(lgb, source=lrank, tag=rtag) if lgb is not None else MPI.REQUEST_NULL
+            rrecv_req = P_x.comm.Irecv(rgb, source=rrank, tag=ltag) if rgb is not None else MPI.REQUEST_NULL
+            lsend_req = P_x.comm.Isend(lbb, dest=lrank, tag=ltag) if lbb is not None else MPI.REQUEST_NULL
+            rsend_req = P_x.comm.Isend(rbb, dest=rrank, tag=rtag) if rbb is not None else MPI.REQUEST_NULL
 
             reqs = [lrecv_req, rrecv_req, lsend_req, rsend_req]
             n_reqs_completed = 0
@@ -70,17 +70,17 @@ class HaloExchangeFunction(torch.autograd.Function):
         slices = ctx.slices
         buffers = ctx.buffers
         neighbor_ranks = ctx.neighbor_ranks
-        cartesian_partition = ctx.cartesian_partition
+        P_x = ctx.P_x
 
-        if not cartesian_partition.active:
+        if not P_x.active:
             return NoneTensor(), None, None, None, None
 
-        if cartesian_partition.size == 1:
+        if P_x.size == 1:
             return grad_output, None, None, None, None
 
         grad_output_numpy = grad_output.detach().numpy()
 
-        dim = cartesian_partition.dim
+        dim = P_x.dim
         for i in reversed(range(dim)):
 
             lbs, lgs, rbs, rgs = slices[i]
@@ -97,10 +97,10 @@ class HaloExchangeFunction(torch.autograd.Function):
             ltag = 0
             rtag = 1
 
-            lrecv_req = cartesian_partition.comm.Irecv(lbb, source=lrank, tag=rtag) if lbb is not None else MPI.REQUEST_NULL
-            rrecv_req = cartesian_partition.comm.Irecv(rbb, source=rrank, tag=ltag) if rbb is not None else MPI.REQUEST_NULL
-            lsend_req = cartesian_partition.comm.Isend(lgb, dest=lrank, tag=ltag) if lgb is not None else MPI.REQUEST_NULL
-            rsend_req = cartesian_partition.comm.Isend(rgb, dest=rrank, tag=rtag) if rgb is not None else MPI.REQUEST_NULL
+            lrecv_req = P_x.comm.Irecv(lbb, source=lrank, tag=rtag) if lbb is not None else MPI.REQUEST_NULL
+            rrecv_req = P_x.comm.Irecv(rbb, source=rrank, tag=ltag) if rbb is not None else MPI.REQUEST_NULL
+            lsend_req = P_x.comm.Isend(lgb, dest=lrank, tag=ltag) if lgb is not None else MPI.REQUEST_NULL
+            rsend_req = P_x.comm.Isend(rgb, dest=rrank, tag=rtag) if rgb is not None else MPI.REQUEST_NULL
 
             reqs = [lrecv_req, rrecv_req, lsend_req, rsend_req]
             n_reqs_completed = 0
