@@ -86,7 +86,7 @@ class HaloMixin:
             if(rcoords[i] < partition_dims[i]):
                 send_buffer_sizes[i, 1] = nhalo[i, 0]
 
-        local_input_tensor_subsizes = compute_subsizes(partition_dims, partition_coords, global_tensor_shape)
+        local_input_tensor_shape = compute_subsizes(partition_dims, partition_coords, global_tensor_shape)
         halo_sizes_with_negatives = self._compute_halo_sizes(partition_dims,
                                                              partition_coords,
                                                              global_tensor_shape,
@@ -95,7 +95,7 @@ class HaloMixin:
                                                              padding,
                                                              dilation,
                                                              require_nonnegative=False)
-        needed_ranges = self._compute_needed_ranges(local_input_tensor_subsizes, halo_sizes_with_negatives)
+        needed_ranges = self._compute_needed_ranges(local_input_tensor_shape, halo_sizes_with_negatives)
 
         halo_sizes = halo_sizes.astype(int)
         needed_ranges = needed_ranges.astype(int)
@@ -126,46 +126,46 @@ class HaloMixin:
     def _compute_halo_sizes(self,
                             dims,
                             coords,
-                            global_tensor_shape,
+                            global_input_tensor_shape,
                             kernel_size,
                             stride,
                             padding,
                             dilation,
                             require_nonnegative=True):
 
-        global_tensor_shape = np.asarray(global_tensor_shape)
+        global_input_tensor_shape = np.asarray(global_input_tensor_shape)
 
-        local_input_tensor_subsizes = compute_subsizes(dims, coords, global_tensor_shape)
-        local_input_tensor_starts = compute_starts(dims, coords, global_tensor_shape)
+        local_input_tensor_shape = compute_subsizes(dims, coords, global_input_tensor_shape)
+        local_input_tensor_starts = compute_starts(dims, coords, global_input_tensor_shape)
 
         # formula from pytorch docs for maxpool
-        local_output_tensor_sizes = self._compute_out_sizes(global_tensor_shape, kernel_size,
-                                                            stride, padding, dilation)
+        global_output_tensor_shape = self._compute_out_sizes(global_input_tensor_shape, kernel_size,
+                                                             stride, padding, dilation)
 
-        local_output_tensor_subsizes = compute_subsizes(dims, coords, local_output_tensor_sizes)
-        local_output_tensor_starts = compute_starts(dims, coords, local_output_tensor_sizes)
+        local_output_tensor_shape = compute_subsizes(dims, coords, global_output_tensor_shape)
+        local_output_tensor_starts = compute_starts(dims, coords, global_output_tensor_shape)
 
-        local_left_indices = local_output_tensor_starts
-        local_input_tensor_left_needed = self._compute_min_input_range(local_left_indices,
-                                                                       kernel_size,
-                                                                       stride,
-                                                                       padding,
-                                                                       dilation)
+        local_ouput_tensor_left_index = local_output_tensor_starts
+        local_input_tensor_left_index_needed = self._compute_min_input_range(local_ouput_tensor_left_index,
+                                                                             kernel_size,
+                                                                             stride,
+                                                                             padding,
+                                                                             dilation)
         # Clamp to the boundary
-        local_input_tensor_left_needed = np.maximum(np.zeros_like(global_tensor_shape), local_input_tensor_left_needed)
+        local_input_tensor_left_index_needed = np.maximum(np.zeros_like(global_input_tensor_shape), local_input_tensor_left_index_needed)
 
-        local_right_indices = local_output_tensor_starts + local_output_tensor_subsizes - 1
-        local_input_tensor_right_needed = self._compute_max_input_range(local_right_indices,
-                                                                        kernel_size,
-                                                                        stride,
-                                                                        padding,
-                                                                        dilation)
+        local_output_tensor_right_index = local_output_tensor_starts + local_output_tensor_shape - 1
+        local_input_tensor_right_index_needed = self._compute_max_input_range(local_output_tensor_right_index,
+                                                                              kernel_size,
+                                                                              stride,
+                                                                              padding,
+                                                                              dilation)
         # Clamp to the boundary
-        local_input_tensor_right_needed = np.minimum(global_tensor_shape - 1, local_input_tensor_right_needed)
+        local_input_tensor_right_index_needed = np.minimum(global_input_tensor_shape - 1, local_input_tensor_right_index_needed)
 
         # Compute the actual ghost values
-        local_input_tensor_left_ghost = local_input_tensor_starts - local_input_tensor_left_needed
-        local_input_tensor_right_ghost = local_input_tensor_right_needed - (local_input_tensor_starts + local_input_tensor_subsizes - 1)
+        local_input_tensor_left_ghost = local_input_tensor_starts - local_input_tensor_left_index_needed
+        local_input_tensor_right_ghost = local_input_tensor_right_index_needed - (local_input_tensor_starts + local_input_tensor_shape - 1)
 
         # Make sure the halos are always positive, so we get valid buffer sizes
         if require_nonnegative:
