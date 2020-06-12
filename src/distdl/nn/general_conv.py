@@ -303,10 +303,10 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.pad_layer = PadNd(halo_sizes, value=0)
 
             # We can also set up part of the halo layer.
-            self.halo_layer = HaloExchange(halo_sizes,
+            self.halo_layer = HaloExchange(self.P_x,
+                                           halo_sizes,
                                            recv_buffer_sizes,
-                                           send_buffer_sizes,
-                                           self.P_x)
+                                           send_buffer_sizes)
 
             # We have to select out the "unused" entries.
             self.needed_slices = assemble_slices(needed_ranges[:, 0],

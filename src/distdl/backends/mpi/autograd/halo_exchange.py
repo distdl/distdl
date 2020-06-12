@@ -8,7 +8,7 @@ from distdl.utilities.torch import NoneTensor
 class HaloExchangeFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, slices, buffers, neighbor_ranks, P_x):
+    def forward(ctx, input, P_x, slices, buffers, neighbor_ranks):
 
         ctx.slices = slices
         ctx.buffers = buffers

@@ -6,14 +6,14 @@ from distdl.utilities.slicing import compute_nd_slice_volume
 
 class HaloExchange(Module):
 
-    def __init__(self, halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_x):
+    def __init__(self, P_x, halo_sizes, recv_buffer_sizes, send_buffer_sizes):
 
         super(HaloExchange, self).__init__()
 
+        self.P_x = P_x
         self.halo_sizes = halo_sizes
         self.recv_buffer_sizes = recv_buffer_sizes
         self.send_buffer_sizes = send_buffer_sizes
-        self.P_x = P_x
 
         self.neighbor_ranks = None
         if self.P_x.active:
@@ -145,7 +145,7 @@ class HaloExchange(Module):
         Function = self._distdl_backend.autograd.halo_exchange.HaloExchangeFunction
 
         return Function.apply(input,
+                              self.P_x,
                               self.slices,
                               self.buffers,
-                              self.neighbor_ranks,
-                              self.P_x)
+                              self.neighbor_ranks)

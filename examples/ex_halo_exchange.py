@@ -94,7 +94,7 @@ if P_x.active:
     t_forward_input = forward_input_padnd_layer.forward(t)
     t_adjoint_input = adjoint_input_padnd_layer.forward(t)
 
-    halo_layer = HaloExchange(halo_sizes, recv_buffer_sizes, send_buffer_sizes, P_x)
+    halo_layer = HaloExchange(P_x, halo_sizes, recv_buffer_sizes, send_buffer_sizes)
 
     print_sequential(cart_comm, f'rank = {rank}, t_forward_input =\n{t_forward_input.int()}')
 

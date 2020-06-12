@@ -154,8 +154,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         send_buffer_sizes = exchange_info[2]
 
     pad_layer = PadNd(halo_sizes, value=0)
-    halo_layer = HaloExchange(halo_sizes, recv_buffer_sizes, send_buffer_sizes,
-                              P_x)
+    halo_layer = HaloExchange(P_x, halo_sizes, recv_buffer_sizes, send_buffer_sizes)
 
     x = NoneTensor()
     if P_x.active:
