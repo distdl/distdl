@@ -387,14 +387,6 @@ class MPIPartition:
         data = np.array([dest_flat_index], dtype=np.int)
         dest_flat_indices = P_union.allgather_data(data)
 
-        # Share the two indices with every worker in the union.  The first
-        # column of data contains the source "index" and the second contains
-        # the destination "index".
-        union_indices = -1*np.ones(2*P_union.size, dtype=np.int)
-        local_indices = np.array([src_flat_index, dest_flat_index], dtype=np.int)
-        P_union.comm.Allgather(local_indices, union_indices)
-        union_indices.shape = (-1, 2)
-
         # Build partitions to communicate single reductions across subsets
         # of the union partition.
 
