@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
-from distdl.utilities.slicing import compute_subsizes
+from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import NoneTensor
 
 
@@ -77,7 +77,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # allocations.
         if P_y.active:
             coords = P_y.cartesian_coordinates(P_y.rank)
-            y_local_shape = compute_subsizes(P_y.comm.dims, coords, x_global_shape)
+            y_local_shape = compute_subshape(P_y.comm.dims, coords, x_global_shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             output = np.zeros(y_local_shape, dtype=dtype)
@@ -159,7 +159,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         if P_x.active:
             coords = P_x.cartesian_coordinates(P_x.rank)
-            x_local_shape = compute_subsizes(P_x.comm.dims, coords, x_global_shape)
+            x_local_shape = compute_subshape(P_x.comm.dims, coords, x_global_shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             grad_input = np.zeros(x_local_shape, dtype=dtype)

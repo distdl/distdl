@@ -30,7 +30,7 @@ layer = DistributedTranspose(P_x, P_y)
 
 x = NoneTensor()
 if P_x.active:
-    x_local_shape = slicing.compute_subsizes(P_x.comm.dims,
+    x_local_shape = slicing.compute_subshape(P_x.comm.dims,
                                              P_x.comm.Get_coords(P_x.rank),
                                              x_global_shape)
     x = np.zeros(x_local_shape) + P_x.rank + 1
@@ -43,7 +43,7 @@ print_sequential(P_world.comm, f"y_{P_world.rank}: {y}")
 
 dy = NoneTensor()
 if P_y.active:
-    y_local_shape = slicing.compute_subsizes(P_y.comm.dims,
+    y_local_shape = slicing.compute_subshape(P_y.comm.dims,
                                              P_y.comm.Get_coords(P_y.rank),
                                              x_global_shape)
     dy = np.zeros(y_local_shape) + P_y.rank + 1

@@ -5,7 +5,7 @@ from mpi4py import MPI
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.pooling import DistributedAvgPool2d
 from distdl.utilities.debug import print_sequential
-from distdl.utilities.slicing import compute_subsizes
+from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import NoneTensor
 
 P_world = MPIPartition(MPI.COMM_WORLD)
@@ -20,7 +20,7 @@ layer = DistributedAvgPool2d(P_x, kernel_size=[2, 2])
 
 x = NoneTensor()
 if P_x.active:
-    x_local_shape = compute_subsizes(P_x.dims,
+    x_local_shape = compute_subshape(P_x.dims,
                                      P_x.cartesian_coordinates(P_x.rank),
                                      x_global_shape)
     x = torch.tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1), dtype=float)

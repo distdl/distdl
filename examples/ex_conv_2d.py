@@ -5,7 +5,7 @@ from mpi4py import MPI
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.conv import DistributedConv2d
 from distdl.utilities.debug import print_sequential
-from distdl.utilities.slicing import compute_subsizes
+from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import NoneTensor
 
 torch.set_printoptions(linewidth=200)
@@ -22,7 +22,7 @@ layer = DistributedConv2d(P_cart, in_channels=1, out_channels=1, kernel_size=[3,
 
 x = NoneTensor()
 if P_cart.active:
-    x_local_shape = compute_subsizes(P_cart.dims,
+    x_local_shape = compute_subshape(P_cart.dims,
                                      P_cart.cartesian_coordinates(P_cart.rank),
                                      x_global_shape)
     x = torch.Tensor(np.ones(shape=x_local_shape) * (P_cart.rank + 1))

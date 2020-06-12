@@ -119,7 +119,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.halo_exchange import HaloExchange
     from distdl.nn.padnd import PadNd
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -158,7 +158,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subsizes(P_x.comm.dims,
+        x_local_shape = compute_subshape(P_x.comm.dims,
                                          P_x.comm.Get_coords(P_x.rank),
                                          x_global_shape)
         x = torch.tensor(np.random.randn(*x_local_shape))

@@ -32,7 +32,7 @@ def test_simple_conv2d_adjoint_input(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -54,7 +54,7 @@ def test_simple_conv2d_adjoint_input(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subsizes(P_x.dims,
+        x_local_shape = compute_subshape(P_x.dims,
                                          P_x.coords,
                                          x_global_shape)
         x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -93,7 +93,7 @@ def test_simple_conv2d_adjoint_weight(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -115,7 +115,7 @@ def test_simple_conv2d_adjoint_weight(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subsizes(P_x.dims,
+        x_local_shape = compute_subshape(P_x.dims,
                                          P_x.coords,
                                          x_global_shape)
         x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -157,7 +157,7 @@ def test_simple_conv2d_adjoint_bias(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -179,7 +179,7 @@ def test_simple_conv2d_adjoint_bias(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subsizes(P_x.dims,
+        x_local_shape = compute_subshape(P_x.dims,
                                          P_x.coords,
                                          x_global_shape)
         x = torch.zeros(*x_local_shape)
@@ -250,7 +250,7 @@ def test_simple_conv2d_sizes(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.conv import DistributedConv2d
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -274,7 +274,7 @@ def test_simple_conv2d_sizes(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subsizes(P_x.dims,
+        x_local_shape = compute_subshape(P_x.dims,
                                          P_x.coords,
                                          x_global_shape)
         x = torch.zeros(*x_local_shape)

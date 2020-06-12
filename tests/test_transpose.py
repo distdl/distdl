@@ -137,7 +137,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -159,7 +159,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Forward Input
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subsizes(P_x.comm.dims,
+        x_local_shape = compute_subshape(P_x.comm.dims,
                                          P_x.comm.Get_coords(P_x.rank),
                                          x_global_shape)
         x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -168,7 +168,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Adjoint Input
     dy = NoneTensor()
     if P_y.active:
-        y_local_shape = compute_subsizes(P_y.comm.dims,
+        y_local_shape = compute_subshape(P_y.comm.dims,
                                          P_y.comm.Get_coords(P_y.rank),
                                          x_global_shape)
         dy = torch.Tensor(np.random.randn(*y_local_shape))
@@ -229,7 +229,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -259,7 +259,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subsizes(P_x.comm.dims,
+            x_local_shape = compute_subshape(P_x.comm.dims,
                                              P_x.comm.Get_coords(P_x.rank),
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -277,7 +277,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -307,7 +307,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subsizes(P_x.comm.dims,
+            x_local_shape = compute_subshape(P_x.comm.dims,
                                              P_x.comm.Get_coords(P_x.rank),
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -325,7 +325,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
-    from distdl.utilities.slicing import compute_subsizes
+    from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
     # Isolate the minimum needed ranks
@@ -356,7 +356,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subsizes(P_x.comm.dims,
+            x_local_shape = compute_subshape(P_x.comm.dims,
                                              P_x.comm.Get_coords(P_x.rank),
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
