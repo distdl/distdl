@@ -173,9 +173,3 @@ class HaloMixin:
             x_in_right_ghost = np.maximum(x_in_right_ghost, 0)
 
         return np.hstack([x_in_left_ghost, x_in_right_ghost]).reshape(2, -1).T
-
-    def _compute_local_x_in_sizes_padded(self, x_in_sizes, partition_dims, partition_coords, halo_sizes):
-        local_x_in_sizes = compute_subsizes(partition_dims,
-                                            partition_coords,
-                                            x_in_sizes)
-        return [x + lpad + rpad for x, (lpad, rpad) in zip(local_x_in_sizes, halo_sizes)]
