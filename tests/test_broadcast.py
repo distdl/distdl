@@ -9,7 +9,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(4, 8), [2, 2, 1],  # P_x_ranks, P_x_topo
         np.arange(0, 12), [2, 2, 3],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-overlap-3D",
@@ -21,7 +21,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
         np.arange(4, 16), [2, 2, 3],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         16,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-3D",
@@ -33,7 +33,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
         np.arange(5, 17), [2, 2, 3],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         17,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-inactive-3D",
@@ -46,7 +46,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 1), [1],  # P_x_ranks, P_x_topo
         np.arange(0, 1), [1],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         1,  # passed to comm_split_fixture, required MPI ranks
         id="sequential-identity",
@@ -59,7 +59,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(2, 3), [1],  # P_x_ranks, P_x_topo
         np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         3,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-overlap-3D-single_source",
@@ -71,7 +71,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(3, 4), [1],  # P_x_ranks, P_x_topo
         np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         4,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-3D-single_source",
@@ -83,7 +83,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(4, 5), [1],  # P_x_ranks, P_x_topo
         np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         False,  # transpose_src
         5,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-inactive-3D-single_source",
@@ -96,7 +96,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(4, 8), [2, 2, 1],  # P_x_ranks, P_x_topo
         np.arange(0, 12), [3, 2, 2],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         True,  # transpose_src
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-overlap-3D",
@@ -108,7 +108,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
         np.arange(4, 16), [3, 2, 2],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         True,  # transpose_src
         16,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-3D",
@@ -120,7 +120,7 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [2, 2, 1],  # P_x_ranks, P_x_topo
         np.arange(5, 17), [3, 2, 2],  # P_y_ranks, P_y_topo
-        [1, 7, 5],  # global_tensor_shape
+        [1, 7, 5],  # x_global_shape
         True,  # transpose_src
         17,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-inactive-3D",
@@ -132,7 +132,7 @@ adjoint_parametrizations.append(
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
-                         "global_tensor_shape,"
+                         "x_global_shape,"
                          "transpose_src,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
@@ -141,7 +141,7 @@ def test_broadcast_adjoint(barrier_fence_fixture,
                            comm_split_fixture,
                            P_x_ranks, P_x_topo,
                            P_y_ranks, P_y_topo,
-                           global_tensor_shape,
+                           x_global_shape,
                            transpose_src):
 
     import numpy as np
@@ -167,7 +167,7 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     # TODO #93: Change this to create a subtensor so we test when local tensors
     # have different sizes.  Then, the output size will also be different, which
     # we will have to get from `y` itself.
-    tensor_sizes = np.asarray(global_tensor_shape)
+    tensor_sizes = np.asarray(x_global_shape)
 
     layer = Broadcast(P_x, P_y, transpose_src=transpose_src)
 

@@ -11,7 +11,7 @@ class DistributedTranspose(Module):
     def __init__(self, P_x, P_y):
         super(DistributedTranspose, self).__init__()
 
-        self.global_tensor_shape = None
+        self.x_global_shape = None
 
         self.P_x = P_x
         self.P_y = P_y
@@ -80,12 +80,12 @@ class DistributedTranspose(Module):
         in_dims = self.P_x_dims
         out_dims = self.P_y_dims
 
-        global_tensor_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
-                                                                               self.P_x,
-                                                                               self.P_union)
-        self.global_tensor_shape = global_tensor_shape
+        x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
+                                                                          self.P_x,
+                                                                          self.P_union)
+        self.x_global_shape = x_global_shape
 
-        tensor_dim = len(global_tensor_shape)
+        tensor_dim = len(x_global_shape)
 
         if len(in_dims) != tensor_dim:
             raise ValueError(f"Input partition mush have same dimension "
@@ -95,9 +95,9 @@ class DistributedTranspose(Module):
             raise ValueError(f"Output partition mush have same dimension "
                              f"({len(out_dims)}) as input tensor rank ({tensor_dim}).")
 
-        if 1 in global_tensor_shape[global_tensor_shape != out_dims]:
+        if 1 in x_global_shape[x_global_shape != out_dims]:
             raise ValueError(f"Input tensor must not be size 1 "
-                             f"({global_tensor_shape}) in a dimension where "
+                             f"({x_global_shape}) in a dimension where "
                              f"output partition is other than 1 ({out_dims}).")
 
         # We only need to move data to the output partition if we actually
@@ -110,7 +110,7 @@ class DistributedTranspose(Module):
             for rank, out_coords in enumerate(range_coords(out_dims)):
                 sl = compute_partition_intersection(in_dims, in_coords,
                                                     out_dims, out_coords,
-                                                    global_tensor_shape)
+                                                    x_global_shape)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the output partner's rank in
@@ -129,7 +129,7 @@ class DistributedTranspose(Module):
             for rank, in_coords in enumerate(range_coords(in_dims)):
                 sl = compute_partition_intersection(out_dims, out_coords,
                                                     in_dims, in_coords,
-                                                    global_tensor_shape)
+                                                    x_global_shape)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the input partner's rank in
@@ -200,7 +200,7 @@ class DistributedTranspose(Module):
 
         return Function.apply(input,
                               self.P_union,
-                              self.global_tensor_shape,
+                              self.x_global_shape,
                               self.P_x,
                               self.in_data,
                               self.in_buffers,

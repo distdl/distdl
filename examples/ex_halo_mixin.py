@@ -46,14 +46,14 @@ cart_comm = P_cart.comm
 layer = MockupMaxPoolLayer()
 
 if P_cart.active:
-    global_tensor_shape = np.array([1, 1, 10])
+    x_global_shape = np.array([1, 1, 10])
     kernel_size = np.array([2])
     stride = np.array([2])
     padding = np.array([0])
     dilation = np.array([1])
 
     halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
-        layer._compute_exchange_info(global_tensor_shape,
+        layer._compute_exchange_info(x_global_shape,
                                      kernel_size,
                                      stride,
                                      padding,
