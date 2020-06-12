@@ -3,7 +3,7 @@ import numpy as np
 from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
 from distdl.utilities.slicing import compute_partition_intersection
-from distdl.utilities.slicing import range_coords
+from distdl.utilities.slicing import range_index
 
 
 class DistributedTranspose(Module):
@@ -77,8 +77,8 @@ class DistributedTranspose(Module):
         if not self.P_union.active:
             return
 
-        in_shape = self.P_x_shape
-        out_shape = self.P_y_shape
+        P_in_shape = self.P_x_shape
+        P_out_shape = self.P_y_shape
 
         x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
                                                                           self.P_x,
@@ -87,29 +87,29 @@ class DistributedTranspose(Module):
 
         tensor_dim = len(x_global_shape)
 
-        if len(in_shape) != tensor_dim:
+        if len(P_in_shape) != tensor_dim:
             raise ValueError(f"Input partition mush have same dimension "
-                             f"({len(in_shape)}) as input tensor rank ({tensor_dim}).")
+                             f"({len(P_in_shape)}) as input tensor rank ({tensor_dim}).")
 
-        if len(out_shape) != tensor_dim:
+        if len(P_out_shape) != tensor_dim:
             raise ValueError(f"Output partition mush have same dimension "
-                             f"({len(out_shape)}) as input tensor rank ({tensor_dim}).")
+                             f"({len(P_out_shape)}) as input tensor rank ({tensor_dim}).")
 
-        if 1 in x_global_shape[x_global_shape != out_shape]:
+        if 1 in x_global_shape[x_global_shape != P_out_shape]:
             raise ValueError(f"Input tensor must not be size 1 "
                              f"({x_global_shape}) in a dimension where "
-                             f"output partition is other than 1 ({out_shape}).")
+                             f"output partition is other than 1 ({P_out_shape}).")
 
         # We only need to move data to the output partition if we actually
         # have input data.  It is possible to have both input and output data,
         # either input or output data, or neither.  Hence the active guard.
         if self.P_x.active:
-            in_coords = self.P_x.coords
+            P_in_index = self.P_x.index
 
             # Compute our overlaps for each output subpartition.
-            for rank, out_coords in enumerate(range_coords(out_shape)):
-                sl = compute_partition_intersection(in_shape, in_coords,
-                                                    out_shape, out_coords,
+            for rank, P_out_index in enumerate(range_index(P_out_shape)):
+                sl = compute_partition_intersection(P_in_shape, P_in_index,
+                                                    P_out_shape, P_out_index,
                                                     x_global_shape)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
@@ -123,12 +123,12 @@ class DistributedTranspose(Module):
         # We only need to obtain data from the input partition if we actually
         # have output data.
         if self.P_y.active:
-            out_coords = self.P_y.coords
+            P_out_index = self.P_y.index
 
             # Compute our overlaps for each input subpartition.
-            for rank, in_coords in enumerate(range_coords(in_shape)):
-                sl = compute_partition_intersection(out_shape, out_coords,
-                                                    in_shape, in_coords,
+            for rank, P_in_index in enumerate(range_index(P_in_shape)):
+                sl = compute_partition_intersection(P_out_shape, P_out_index,
+                                                    P_in_shape, P_in_index,
                                                     x_global_shape)
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)

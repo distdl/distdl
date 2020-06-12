@@ -31,7 +31,7 @@ layer = DistributedTranspose(P_x, P_y)
 x = NoneTensor()
 if P_x.active:
     x_local_shape = slicing.compute_subshape(P_x.shape,
-                                             P_x.coords,
+                                             P_x.index,
                                              x_global_shape)
     x = np.zeros(x_local_shape) + P_x.rank + 1
     x = torch.from_numpy(x)
@@ -44,7 +44,7 @@ print_sequential(P_world.comm, f"y_{P_world.rank}: {y}")
 dy = NoneTensor()
 if P_y.active:
     y_local_shape = slicing.compute_subshape(P_y.shape,
-                                             P_y.coords,
+                                             P_y.index,
                                              x_global_shape)
     dy = np.zeros(y_local_shape) + P_y.rank + 1
     dy = torch.from_numpy(dy)

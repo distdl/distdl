@@ -59,7 +59,7 @@ def test_mixin():
                                      dilation,
                                      P_x.active,
                                      P_x.shape,
-                                     P_x.coords)
+                                     P_x.index)
 
     if P_x.active:
         if rank == 0:

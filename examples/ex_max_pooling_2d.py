@@ -21,7 +21,7 @@ layer = DistributedMaxPool2d(P_x, kernel_size=[2, 2])
 x = NoneTensor()
 if P_x.active:
     x_local_shape = compute_subshape(P_x.shape,
-                                     P_x.coords,
+                                     P_x.index,
                                      x_global_shape)
     x = torch.tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1), dtype=float)
 x.requires_grad = True

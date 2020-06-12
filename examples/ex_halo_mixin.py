@@ -60,7 +60,7 @@ if P_x.active:
                                      dilation,
                                      P_x.active,
                                      P_x.shape,
-                                     P_x.coords)
+                                     P_x.index)
 
     print_sequential(cart_comm, f'rank = {rank}:\nhalo_shape =\n{halo_shape}\n\
 recv_buffer_shape =\n{recv_buffer_shape}\nsend_buffer_shape =\n{send_buffer_shape}\nneeded_ranges =\n{needed_ranges}')

@@ -39,7 +39,7 @@ class MPIPartition:
             self.size = -1
 
         self.shape = [1]
-        self.coords = self.rank
+        self.index = self.rank
 
     def __eq__(self, other):
 
@@ -250,7 +250,7 @@ class MPIPartition:
         src_flat_index = -1
         if P_src.active:
             src_cart_index = np.zeros_like(src_shape)
-            c = P_src.coords
+            c = P_src.index
             if transpose_src:
                 src_cart_index[-src_dim:] = c[::-1]
                 src_flat_index = cartesian_index_f(src_shape[match_loc],
@@ -267,7 +267,7 @@ class MPIPartition:
         # receive the broadcast from.
         dest_flat_index = -1
         if P_dest.active:
-            dest_cart_index = P_dest.coords
+            dest_cart_index = P_dest.index
             if transpose_dest:
                 dest_cart_index = dest_cart_index[::-1]
                 dest_flat_index = cartesian_index_f(dest_shape[match_loc],
@@ -357,7 +357,7 @@ class MPIPartition:
         # the destination that we are reducing along.
         src_flat_index = -1
         if P_src.active:
-            src_cart_index = P_src.coords
+            src_cart_index = P_src.index
             if transpose_src:
                 src_cart_index = src_cart_index[::-1]
                 src_flat_index = cartesian_index_f(src_shape[match_loc],
@@ -374,7 +374,7 @@ class MPIPartition:
         dest_flat_index = -1
         if P_dest.active:
             dest_cart_index = np.zeros_like(dest_shape)
-            c = P_dest.coords
+            c = P_dest.index
             if transpose_dest:
                 dest_cart_index[:dest_dim] = c
                 dest_cart_index = dest_cart_index[::-1]
@@ -476,9 +476,9 @@ class MPICartesianPartition(MPIPartition):
         self.shape = np.asarray(shape).astype(np.int)
         self.dim = len(self.shape)
 
-        self.coords = None
+        self.index = None
         if self.active:
-            self.coords = self.cartesian_coordinates(self.rank)
+            self.index = self.cartesian_index(self.rank)
 
     def create_cartesian_subtopology_partition(self, remain_shape):
 
@@ -495,7 +495,7 @@ class MPICartesianPartition(MPIPartition):
             comm = MPI.COMM_NULL
             return MPIPartition(comm, root=self.root)
 
-    def cartesian_coordinates(self, rank):
+    def cartesian_index(self, rank):
 
         if not self.active:
             raise Exception()
@@ -507,17 +507,17 @@ class MPICartesianPartition(MPIPartition):
         if not self.active:
             raise Exception()
 
-        coords = self.cartesian_coordinates(rank)
+        index = self.cartesian_index(rank)
 
         # Resulting list
         neighbor_ranks = []
 
-        # Loop over the dimensions and add the ranks at the neighboring coords to the list
+        # Loop over the dimensions and add the ranks at the neighboring index to the list
         for i in range(self.dim):
-            lcoords = [x-1 if j == i else x for j, x in enumerate(coords)]
-            rcoords = [x+1 if j == i else x for j, x in enumerate(coords)]
-            lrank = MPI.PROC_NULL if -1 == lcoords[i] else self.comm.Get_cart_rank(lcoords)
-            rrank = MPI.PROC_NULL if self.shape[i] == rcoords[i] else self.comm.Get_cart_rank(rcoords)
+            lindex = [x-1 if j == i else x for j, x in enumerate(index)]
+            rindex = [x+1 if j == i else x for j, x in enumerate(index)]
+            lrank = MPI.PROC_NULL if -1 == lindex[i] else self.comm.Get_cart_rank(lindex)
+            rrank = MPI.PROC_NULL if self.shape[i] == rindex[i] else self.comm.Get_cart_rank(rindex)
             neighbor_ranks.append((lrank, rrank))
 
         return neighbor_ranks

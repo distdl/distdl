@@ -148,7 +148,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
                                                     self.conv_layer.dilation,
                                                     self.P_x.active,
                                                     self.P_x.shape,
-                                                    self.P_x.coords)
+                                                    self.P_x.index)
         halo_shape = exchange_info[0]
         recv_buffer_shape = exchange_info[1]
         send_buffer_shape = exchange_info[2]

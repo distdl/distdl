@@ -160,7 +160,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     x = NoneTensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
-                                         P_x.coords,
+                                         P_x.index,
                                          x_global_shape)
         x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
@@ -169,7 +169,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     dy = NoneTensor()
     if P_y.active:
         y_local_shape = compute_subshape(P_y.shape,
-                                         P_y.coords,
+                                         P_y.index,
                                          x_global_shape)
         dy = torch.Tensor(np.random.randn(*y_local_shape))
 
@@ -260,7 +260,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         x = NoneTensor()
         if P_x.active:
             x_local_shape = compute_subshape(P_x.shape,
-                                             P_x.coords,
+                                             P_x.index,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
@@ -308,7 +308,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         x = NoneTensor()
         if P_x.active:
             x_local_shape = compute_subshape(P_x.shape,
-                                             P_x.coords,
+                                             P_x.index,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
@@ -357,7 +357,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         x = NoneTensor()
         if P_x.active:
             x_local_shape = compute_subshape(P_x.shape,
-                                             P_x.coords,
+                                             P_x.index,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
