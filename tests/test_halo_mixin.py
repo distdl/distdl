@@ -40,8 +40,8 @@ def test_mixin():
     use_ranks = ranks[:P_size]
 
     P = P_world.create_partition_inclusive(use_ranks)
-    P_cart = P.create_cartesian_topology_partition(dims)
-    rank = P_cart.rank
+    P_x = P.create_cartesian_topology_partition(dims)
+    rank = P_x.rank
 
     layer = MockupMaxPoolLayer()
 
@@ -57,11 +57,11 @@ def test_mixin():
                                      stride,
                                      padding,
                                      dilation,
-                                     P_cart.active,
-                                     P_cart.dims,
-                                     P_cart.coords)
+                                     P_x.active,
+                                     P_x.dims,
+                                     P_x.coords)
 
-    if P_cart.active:
+    if P_x.active:
         if rank == 0:
             expected_halo_shape = np.array([[0, 0], [0, 0], [0, 1]])
             expected_recv_buffer_shape = np.array([[0, 0], [0, 0], [0, 1]])
