@@ -17,7 +17,7 @@ class MockupConvLayer(HaloMixin):
     def _compute_min_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
@@ -34,7 +34,7 @@ class MockupConvLayer(HaloMixin):
     def _compute_max_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
@@ -65,13 +65,13 @@ global_tensor_sizes = np.array([1, 1, 10, 12])
 if P_x.active:
     mockup_conv_layer = MockupConvLayer()
     kernel_sizes = [1, 1, 3, 3]
-    strides = [1, 1, 1, 1]
+    stride = [1, 1, 1, 1]
     pads = [0, 0, 0, 0]
     dilations = [1, 1, 1, 1]
 
     exchange_info = mockup_conv_layer._compute_exchange_info(global_tensor_sizes,
                                                              kernel_sizes,
-                                                             strides,
+                                                             stride,
                                                              pads,
                                                              dilations,
                                                              P_x.active,

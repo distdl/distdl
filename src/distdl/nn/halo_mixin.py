@@ -9,7 +9,7 @@ class HaloMixin:
     def _compute_exchange_info(self,
                                x_in_sizes,
                                kernel_sizes,
-                               strides,
+                               stride,
                                pads,
                                dilations,
                                partition_active,
@@ -23,7 +23,7 @@ class HaloMixin:
 
         x_in_sizes = np.atleast_1d(x_in_sizes)
         kernel_sizes = np.atleast_1d(kernel_sizes)
-        strides = np.atleast_1d(strides)
+        stride = np.atleast_1d(stride)
         pads = np.atleast_1d(pads)
         dilations = np.atleast_1d(dilations)
 
@@ -34,10 +34,10 @@ class HaloMixin:
                               pad_width=(compute_lpad_length(kernel_sizes), 0),
                               mode='constant',
                               constant_values=1)
-        strides = np.pad(strides,
-                         pad_width=(compute_lpad_length(strides), 0),
-                         mode='constant',
-                         constant_values=1)
+        stride = np.pad(stride,
+                        pad_width=(compute_lpad_length(stride), 0),
+                        mode='constant',
+                        constant_values=1)
         pads = np.pad(pads,
                       pad_width=(compute_lpad_length(pads), 0),
                       mode='constant',
@@ -51,7 +51,7 @@ class HaloMixin:
                                               partition_coords,
                                               x_in_sizes,
                                               kernel_sizes,
-                                              strides,
+                                              stride,
                                               pads,
                                               dilations)
 
@@ -65,7 +65,7 @@ class HaloMixin:
                                              lcoords,
                                              x_in_sizes,
                                              kernel_sizes,
-                                             strides,
+                                             stride,
                                              pads,
                                              dilations)
             # If I have a left neighbor, my left send buffer size is my left
@@ -78,7 +78,7 @@ class HaloMixin:
                                              rcoords,
                                              x_in_sizes,
                                              kernel_sizes,
-                                             strides,
+                                             stride,
                                              pads,
                                              dilations)
             # If I have a right neighbor, my right send buffer size is my right
@@ -91,7 +91,7 @@ class HaloMixin:
                                                              partition_coords,
                                                              x_in_sizes,
                                                              kernel_sizes,
-                                                             strides,
+                                                             stride,
                                                              pads,
                                                              dilations,
                                                              require_nonnegative=False)
@@ -118,17 +118,17 @@ class HaloMixin:
 
         return ranges
 
-    def _compute_out_sizes(self, in_sizes, kernel_sizes, strides, pads, dilations):
+    def _compute_out_sizes(self, in_sizes, kernel_sizes, stride, pads, dilations):
         return np.floor((in_sizes
                          + 2*pads
-                         - dilations*(kernel_sizes-1) - 1)/strides + 1).astype(in_sizes.dtype)
+                         - dilations*(kernel_sizes-1) - 1)/stride + 1).astype(in_sizes.dtype)
 
     def _compute_halo_sizes(self,
                             dims,
                             coords,
                             x_in_sizes,
                             kernel_sizes,
-                            strides,
+                            stride,
                             pads,
                             dilations,
                             require_nonnegative=True):
@@ -140,7 +140,7 @@ class HaloMixin:
 
         # formula from pytorch docs for maxpool
         x_out_sizes = self._compute_out_sizes(x_in_sizes, kernel_sizes,
-                                              strides, pads, dilations)
+                                              stride, pads, dilations)
 
         x_out_subsizes = compute_subsizes(dims, coords, x_out_sizes)
         x_out_starts = compute_starts(dims, coords, x_out_sizes)
@@ -148,7 +148,7 @@ class HaloMixin:
         local_left_indices = x_out_starts
         x_in_left_needed = self._compute_min_input_range(local_left_indices,
                                                          kernel_sizes,
-                                                         strides,
+                                                         stride,
                                                          pads,
                                                          dilations)
         # Clamp to the boundary
@@ -157,7 +157,7 @@ class HaloMixin:
         local_right_indices = x_out_starts + x_out_subsizes - 1
         x_in_right_needed = self._compute_max_input_range(local_right_indices,
                                                           kernel_sizes,
-                                                          strides,
+                                                          stride,
                                                           pads,
                                                           dilations)
         # Clamp to the boundary
