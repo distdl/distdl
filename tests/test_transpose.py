@@ -159,8 +159,8 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Forward Input
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subshape(P_x.comm.dims,
-                                         P_x.comm.Get_coords(P_x.rank),
+        x_local_shape = compute_subshape(P_x.dims,
+                                         P_x.coords,
                                          x_global_shape)
         x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
@@ -168,8 +168,8 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Adjoint Input
     dy = NoneTensor()
     if P_y.active:
-        y_local_shape = compute_subshape(P_y.comm.dims,
-                                         P_y.comm.Get_coords(P_y.rank),
+        y_local_shape = compute_subshape(P_y.dims,
+                                         P_y.coords,
                                          x_global_shape)
         dy = torch.Tensor(np.random.randn(*y_local_shape))
 
@@ -259,8 +259,8 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subshape(P_x.comm.dims,
-                                             P_x.comm.Get_coords(P_x.rank),
+            x_local_shape = compute_subshape(P_x.dims,
+                                             P_x.coords,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
@@ -307,8 +307,8 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subshape(P_x.comm.dims,
-                                             P_x.comm.Get_coords(P_x.rank),
+            x_local_shape = compute_subshape(P_x.dims,
+                                             P_x.coords,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
@@ -356,8 +356,8 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subshape(P_x.comm.dims,
-                                             P_x.comm.Get_coords(P_x.rank),
+            x_local_shape = compute_subshape(P_x.dims,
+                                             P_x.coords,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
