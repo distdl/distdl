@@ -77,9 +77,9 @@ if P_x.active:
                                                              P_x.active,
                                                              P_x.dims,
                                                              P_x.coords)
-    halo_sizes = exchange_info[0]
-    recv_buffer_sizes = exchange_info[1]
-    send_buffer_sizes = exchange_info[2]
+    halo_shape = exchange_info[0]
+    recv_buffer_shape = exchange_info[1]
+    send_buffer_shape = exchange_info[2]
 
     x_local_shape = compute_subsizes(P_x.comm.dims,
                                      P_x.comm.Get_coords(P_x.rank),
@@ -88,13 +88,13 @@ if P_x.active:
     value = (1 + rank) * (10 ** rank)
     a = np.full(shape=x_local_shape, fill_value=value, dtype=float)
 
-    forward_input_padnd_layer = PadNd(halo_sizes.astype(int), value=0, partition=P_x)
-    adjoint_input_padnd_layer = PadNd(halo_sizes.astype(int), value=value, partition=P_x)
+    forward_input_padnd_layer = PadNd(halo_shape.astype(int), value=0, partition=P_x)
+    adjoint_input_padnd_layer = PadNd(halo_shape.astype(int), value=value, partition=P_x)
     t = torch.tensor(a, requires_grad=True)
     t_forward_input = forward_input_padnd_layer.forward(t)
     t_adjoint_input = adjoint_input_padnd_layer.forward(t)
 
-    halo_layer = HaloExchange(P_x, halo_sizes, recv_buffer_sizes, send_buffer_sizes)
+    halo_layer = HaloExchange(P_x, halo_shape, recv_buffer_shape, send_buffer_shape)
 
     print_sequential(cart_comm, f'rank = {rank}, t_forward_input =\n{t_forward_input.int()}')
 

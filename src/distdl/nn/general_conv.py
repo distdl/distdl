@@ -294,19 +294,19 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.P_x.active,
                                                         self.P_x.dims,
                                                         self.P_x.coords)
-            halo_sizes = exchange_info[0]
-            recv_buffer_sizes = exchange_info[1]
-            send_buffer_sizes = exchange_info[2]
+            halo_shape = exchange_info[0]
+            recv_buffer_shape = exchange_info[1]
+            send_buffer_shape = exchange_info[2]
             needed_ranges = exchange_info[3]
 
             # Now we have enough information to instantiate the padding shim
-            self.pad_layer = PadNd(halo_sizes, value=0)
+            self.pad_layer = PadNd(halo_shape, value=0)
 
             # We can also set up part of the halo layer.
             self.halo_layer = HaloExchange(self.P_x,
-                                           halo_sizes,
-                                           recv_buffer_sizes,
-                                           send_buffer_sizes)
+                                           halo_shape,
+                                           recv_buffer_shape,
+                                           send_buffer_shape)
 
             # We have to select out the "unused" entries.
             self.needed_slices = assemble_slices(needed_ranges[:, 0],
@@ -327,13 +327,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.P_y.active,
                                                         self.P_y.dims,
                                                         self.P_y.coords)
-            y_halo_sizes = exchange_info[0]
+            y_halo_shape = exchange_info[0]
 
             # Unpad sizes are padding in the dimensions where we have a halo,
             # otherwise 0
             conv_padding = np.concatenate(([0, 0], self.conv_padding))
             unpad_sizes = []
-            for pad, halo_size in zip(conv_padding, y_halo_sizes):
+            for pad, halo_size in zip(conv_padding, y_halo_shape):
                 unpad_sizes.append(np.where(halo_size > 0, pad, 0))
             unpad_sizes = np.asarray(unpad_sizes)
 

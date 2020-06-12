@@ -136,9 +136,9 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     padding = np.asarray(padding)
     dilation = np.asarray(dilation)
 
-    halo_sizes = None
-    recv_buffer_sizes = None
-    send_buffer_sizes = None
+    halo_shape = None
+    recv_buffer_shape = None
+    send_buffer_shape = None
     if P_x.active:
         mockup_layer = MockupKernelStyle()
         exchange_info = mockup_layer._compute_exchange_info(x_global_shape,
@@ -149,12 +149,12 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                                             P_x.active,
                                                             P_x.dims,
                                                             P_x.coords)
-        halo_sizes = exchange_info[0]
-        recv_buffer_sizes = exchange_info[1]
-        send_buffer_sizes = exchange_info[2]
+        halo_shape = exchange_info[0]
+        recv_buffer_shape = exchange_info[1]
+        send_buffer_shape = exchange_info[2]
 
-    pad_layer = PadNd(halo_sizes, value=0)
-    halo_layer = HaloExchange(P_x, halo_sizes, recv_buffer_sizes, send_buffer_sizes)
+    pad_layer = PadNd(halo_shape, value=0)
+    halo_layer = HaloExchange(P_x, halo_shape, recv_buffer_shape, send_buffer_shape)
 
     x = NoneTensor()
     if P_x.active:

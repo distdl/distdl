@@ -83,19 +83,19 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
                                                     self.P_x.active,
                                                     self.P_x.dims,
                                                     self.P_x.coords)
-        halo_sizes = exchange_info[0]
-        recv_buffer_sizes = exchange_info[1]
-        send_buffer_sizes = exchange_info[2]
+        halo_shape = exchange_info[0]
+        recv_buffer_shape = exchange_info[1]
+        send_buffer_shape = exchange_info[2]
         needed_ranges = exchange_info[3]
 
         # Now we have enough information to instantiate the padding shim
-        self.pad_layer = PadNd(halo_sizes, value=0)
+        self.pad_layer = PadNd(halo_shape, value=0)
 
         # We can also set up part of the halo layer.
         self.halo_layer = HaloExchange(self.P_x,
-                                       halo_sizes,
-                                       recv_buffer_sizes,
-                                       send_buffer_sizes)
+                                       halo_shape,
+                                       recv_buffer_shape,
+                                       send_buffer_shape)
 
         # We have to select out the "unused" entries.
         self.needed_slices = assemble_slices(needed_ranges[:, 0],
