@@ -11,7 +11,7 @@ class MockupConvLayer(HaloMixin):
     def _compute_min_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
@@ -28,7 +28,7 @@ class MockupConvLayer(HaloMixin):
     def _compute_max_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
@@ -45,22 +45,22 @@ class MockupPoolingLayer(HaloMixin):
     def _compute_min_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
         # incorrect, does not take dilation and padding into account
-        return strides * idx + 0
+        return stride * idx + 0
 
     def _compute_max_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
         # incorrect, does not take dilation and padding into account
-        return strides * idx + kernel_sizes - 1
+        return stride * idx + kernel_sizes - 1
 
 
 adjoint_parametrizations = []
@@ -71,7 +71,7 @@ adjoint_parametrizations.append(
         np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_topo
         [1, 1, 10, 7],  # global_tensor_sizes
         [1, 1, 3, 3],  # kernel_sizes
-        [1, 1, 1, 1],  # strides
+        [1, 1, 1, 1],  # stride
         [0, 0, 0, 0],  # pads
         [1, 1, 1, 1],  # dilations
         MockupConvLayer,  # MockupKernelStyle
@@ -86,7 +86,7 @@ adjoint_parametrizations.append(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
         [1, 1, 10],  # global_tensor_sizes
         [2],  # kernel_sizes
-        [2],  # strides
+        [2],  # stride
         [0],  # pads
         [1],  # dilations
         MockupConvLayer,  # MockupKernelStyle
@@ -100,7 +100,7 @@ adjoint_parametrizations.append(
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "global_tensor_sizes,"
                          "kernel_sizes,"
-                         "strides,"
+                         "stride,"
                          "pads,"
                          "dilations,"
                          "MockupKernelStyle,"
@@ -111,7 +111,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_topo,
                                global_tensor_sizes,
-                               kernel_sizes, strides, pads, dilations,
+                               kernel_sizes, stride, pads, dilations,
                                MockupKernelStyle):
     import numpy as np
     import torch
@@ -132,7 +132,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
 
     global_tensor_sizes = np.asarray(global_tensor_sizes)
     kernel_sizes = np.asarray(kernel_sizes)
-    strides = np.asarray(strides)
+    stride = np.asarray(stride)
     pads = np.asarray(pads)
     dilations = np.asarray(dilations)
 
@@ -143,7 +143,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         mockup_layer = MockupKernelStyle()
         exchange_info = mockup_layer._compute_exchange_info(global_tensor_sizes,
                                                             kernel_sizes,
-                                                            strides,
+                                                            stride,
                                                             pads,
                                                             dilations,
                                                             P_x.active,

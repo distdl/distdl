@@ -19,7 +19,7 @@ class ConvMixin:
     def _compute_min_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
@@ -36,7 +36,7 @@ class ConvMixin:
     def _compute_max_input_range(self,
                                  idx,
                                  kernel_sizes,
-                                 strides,
+                                 stride,
                                  pads,
                                  dilations):
 
