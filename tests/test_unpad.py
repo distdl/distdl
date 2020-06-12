@@ -6,7 +6,7 @@ adjoint_parametrizations = []
 adjoint_parametrizations.append(
     pytest.param(
         [4, 5, 6],  # tensor_sizes
-        [[1, 2], [1, 2], [1, 2]],  # pads
+        [[1, 2], [1, 2], [1, 2]],  # padding
         1,  # passed to comm_split_fixture, required MPI ranks
         id="positive_padding",
         marks=[pytest.mark.mpi(min_size=1)]
@@ -16,7 +16,7 @@ adjoint_parametrizations.append(
 adjoint_parametrizations.append(
     pytest.param(
         [4, 5, 6],  # tensor_sizes
-        [[1, 0], [0, 2], [0, 0]],  # pads
+        [[1, 0], [0, 2], [0, 0]],  # padding
         1,  # passed to comm_split_fixture, required MPI ranks
         id="nonnegative_padding",
         marks=[pytest.mark.mpi(min_size=1)]
@@ -25,14 +25,14 @@ adjoint_parametrizations.append(
 
 
 @pytest.mark.parametrize("tensor_sizes,"
-                         "pads,"
+                         "padding,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_unpadnd_adjoint(barrier_fence_fixture,
                          comm_split_fixture,
                          tensor_sizes,
-                         pads):
+                         padding):
 
     import numpy as np
     import torch
@@ -47,9 +47,9 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     P_world = MPIPartition(base_comm)
 
     tensor_sizes = np.asarray(tensor_sizes)
-    pads = np.asarray(pads)
+    padding = np.asarray(padding)
 
-    layer = UnpadNd(pads, value=0)
+    layer = UnpadNd(padding, value=0)
 
     x = torch.tensor(np.random.randn(*tensor_sizes))
     x.requires_grad = True
