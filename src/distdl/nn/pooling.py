@@ -71,11 +71,11 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         if not self.P_x.active:
             return
 
-        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+        global_tensor_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
                                                                                self.P_x)
-        self.global_tensor_sizes = global_tensor_sizes
+        self.global_tensor_shape = global_tensor_shape
 
-        exchange_info = self._compute_exchange_info(global_tensor_sizes,
+        exchange_info = self._compute_exchange_info(global_tensor_shape,
                                                     self.pool_layer.kernel_size,
                                                     self.pool_layer.stride,
                                                     self.pool_layer.padding,
@@ -112,7 +112,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         self.needed_slices = None
         self.halo_layer = None
 
-        self.global_tensor_sizes = None
+        self.global_tensor_shape = None
 
         # Reset any info about the input
         self._distdl_is_setup = False

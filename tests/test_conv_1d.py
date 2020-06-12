@@ -8,7 +8,7 @@ adjoint_parametrizations = []
 adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
-        [1, 5, 10],  # global_tensor_size
+        [1, 5, 10],  # global_tensor_shape
         3,  # passed to comm_split_fixture, required MPI ranks
         id="distributed",
         marks=[pytest.mark.mpi(min_size=3)]
@@ -18,14 +18,14 @@ adjoint_parametrizations.append(
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_simple_conv1d_adjoint_input(barrier_fence_fixture,
                                      comm_split_fixture,
                                      P_x_ranks, P_x_topo,
-                                     global_tensor_size):
+                                     global_tensor_shape):
 
     import numpy as np
     import torch
@@ -45,10 +45,10 @@ def test_simple_conv1d_adjoint_input(barrier_fence_fixture,
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
     P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_size)
+    global_tensor_shape = np.asarray(global_tensor_shape)
 
     layer = DistributedConv1d(P_x,
-                              in_channels=global_tensor_sizes[1],
+                              in_channels=global_tensor_shape[1],
                               out_channels=10,
                               kernel_size=[3], bias=False)
 
@@ -56,7 +56,7 @@ def test_simple_conv1d_adjoint_input(barrier_fence_fixture,
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              global_tensor_sizes)
+                                              global_tensor_shape)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -79,14 +79,14 @@ def test_simple_conv1d_adjoint_input(barrier_fence_fixture,
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_simple_conv1d_adjoint_weight(barrier_fence_fixture,
                                       comm_split_fixture,
                                       P_x_ranks, P_x_topo,
-                                      global_tensor_size):
+                                      global_tensor_shape):
 
     import numpy as np
     import torch
@@ -106,10 +106,10 @@ def test_simple_conv1d_adjoint_weight(barrier_fence_fixture,
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
     P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_size)
+    global_tensor_shape = np.asarray(global_tensor_shape)
 
     layer = DistributedConv1d(P_x,
-                              in_channels=global_tensor_sizes[1],
+                              in_channels=global_tensor_shape[1],
                               out_channels=10,
                               kernel_size=[3], bias=False)
 
@@ -117,7 +117,7 @@ def test_simple_conv1d_adjoint_weight(barrier_fence_fixture,
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              global_tensor_sizes)
+                                              global_tensor_shape)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -143,14 +143,14 @@ def test_simple_conv1d_adjoint_weight(barrier_fence_fixture,
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "global_tensor_size,"
+                         "global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_simple_conv1d_adjoint_bias(barrier_fence_fixture,
                                     comm_split_fixture,
                                     P_x_ranks, P_x_topo,
-                                    global_tensor_size):
+                                    global_tensor_shape):
 
     import numpy as np
     import torch
@@ -170,10 +170,10 @@ def test_simple_conv1d_adjoint_bias(barrier_fence_fixture,
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
     P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
 
-    global_tensor_sizes = np.asarray(global_tensor_size)
+    global_tensor_shape = np.asarray(global_tensor_shape)
 
     layer = DistributedConv1d(P_x,
-                              in_channels=global_tensor_sizes[1],
+                              in_channels=global_tensor_shape[1],
                               out_channels=10,
                               kernel_size=[3], bias=True)
 
@@ -181,7 +181,7 @@ def test_simple_conv1d_adjoint_bias(barrier_fence_fixture,
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              global_tensor_sizes)
+                                              global_tensor_shape)
         x = torch.zeros(*input_tensor_sizes)
     x.requires_grad = True
 

@@ -282,11 +282,11 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         if self.serial:
             return
 
-        global_tensor_sizes = self._distdl_backend.compute_global_tensor_sizes(input[0],
+        global_tensor_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
                                                                                self.P_x,
                                                                                self.P_union)
         if self.P_x.active:
-            exchange_info = self._compute_exchange_info(global_tensor_sizes,
+            exchange_info = self._compute_exchange_info(global_tensor_shape,
                                                         self.conv_kernel_size,
                                                         self.conv_stride,
                                                         self.conv_padding,
@@ -319,7 +319,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             # dimensions.  Therefore, because we assume that the spatial partition
             # of P_x and P_y is the same, then the halo sizes this will
             # compute will also be the same.
-            exchange_info = self._compute_exchange_info(global_tensor_sizes,
+            exchange_info = self._compute_exchange_info(global_tensor_shape,
                                                         self.conv_kernel_size,
                                                         self.conv_stride,
                                                         self.conv_padding,
@@ -351,7 +351,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self.needed_slices = None
         self.halo_layer = None
 
-        self.global_tensor_sizes = None
+        self.global_tensor_shape = None
 
         # Reset any info about the input
         self._distdl_is_setup = False

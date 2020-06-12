@@ -10,8 +10,8 @@ adjoint_parametrizations.append(
         np.arange(4, 8), [1, 4],  # P_x_ranks, P_x_topo
         np.arange(0, 3), [1, 3],  # P_y_ranks, P_y_topo
         np.arange(0, 12), [3, 4],  # P_w_ranks, P_w_topo
-        [1, 12],  # x global_tensor_size
-        [1, 6],  # y global_tensor_size
+        [1, 12],  # x global_tensor_shape
+        [1, 6],  # y global_tensor_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed",
         marks=[pytest.mark.mpi(min_size=12)]
@@ -24,8 +24,8 @@ adjoint_parametrizations.append(
         np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
         np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
         np.arange(0, 1), [1, 1],  # P_w_ranks, P_w_topo
-        [1, 12],  # x global_tensor_size
-        [1, 6],  # y global_tensor_size
+        [1, 12],  # x global_tensor_shape
+        [1, 6],  # y global_tensor_shape
         1,  # passed to comm_split_fixture, required MPI ranks
         id="sequential",
         marks=[pytest.mark.mpi(min_size=1)]
@@ -37,8 +37,8 @@ adjoint_parametrizations.append(
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "P_w_ranks, P_w_topo,"
-                         "x_global_tensor_size,"
-                         "y_global_tensor_size,"
+                         "x_global_tensor_shape,"
+                         "y_global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -47,8 +47,8 @@ def test_linear_adjoint_input(barrier_fence_fixture,
                               P_x_ranks, P_x_topo,
                               P_y_ranks, P_y_topo,
                               P_w_ranks, P_w_topo,
-                              x_global_tensor_size,
-                              y_global_tensor_size):
+                              x_global_tensor_shape,
+                              y_global_tensor_shape):
 
     import numpy as np
     import torch
@@ -74,19 +74,19 @@ def test_linear_adjoint_input(barrier_fence_fixture,
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
     P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
 
-    x_global_tensor_size = np.asarray(x_global_tensor_size)
-    y_global_tensor_size = np.asarray(y_global_tensor_size)
+    x_global_tensor_shape = np.asarray(x_global_tensor_shape)
+    y_global_tensor_shape = np.asarray(y_global_tensor_shape)
 
     layer = Linear(P_x, P_y, P_w,
-                   x_global_tensor_size[1],
-                   y_global_tensor_size[1],
+                   x_global_tensor_shape[1],
+                   y_global_tensor_shape[1],
                    bias=False)
 
     x = NoneTensor()
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              x_global_tensor_size)
+                                              x_global_tensor_shape)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -111,8 +111,8 @@ def test_linear_adjoint_input(barrier_fence_fixture,
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "P_w_ranks, P_w_topo,"
-                         "x_global_tensor_size,"
-                         "y_global_tensor_size,"
+                         "x_global_tensor_shape,"
+                         "y_global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -121,8 +121,8 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
                                P_x_ranks, P_x_topo,
                                P_y_ranks, P_y_topo,
                                P_w_ranks, P_w_topo,
-                               x_global_tensor_size,
-                               y_global_tensor_size):
+                               x_global_tensor_shape,
+                               y_global_tensor_shape):
 
     import numpy as np
     import torch
@@ -148,19 +148,19 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
     P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
 
-    x_global_tensor_size = np.asarray(x_global_tensor_size)
-    y_global_tensor_size = np.asarray(y_global_tensor_size)
+    x_global_tensor_shape = np.asarray(x_global_tensor_shape)
+    y_global_tensor_shape = np.asarray(y_global_tensor_shape)
 
     layer = Linear(P_x, P_y, P_w,
-                   x_global_tensor_size[1],
-                   y_global_tensor_size[1],
+                   x_global_tensor_shape[1],
+                   y_global_tensor_shape[1],
                    bias=False)
 
     x = NoneTensor()
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              x_global_tensor_size)
+                                              x_global_tensor_shape)
         x = torch.Tensor(np.random.randn(*input_tensor_sizes))
     x.requires_grad = True
 
@@ -188,8 +188,8 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "P_y_ranks, P_y_topo,"
                          "P_w_ranks, P_w_topo,"
-                         "x_global_tensor_size,"
-                         "y_global_tensor_size,"
+                         "x_global_tensor_shape,"
+                         "y_global_tensor_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -198,8 +198,8 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
                              P_x_ranks, P_x_topo,
                              P_y_ranks, P_y_topo,
                              P_w_ranks, P_w_topo,
-                             x_global_tensor_size,
-                             y_global_tensor_size):
+                             x_global_tensor_shape,
+                             y_global_tensor_shape):
     import numpy as np
     import torch
 
@@ -224,19 +224,19 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
     P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
 
-    x_global_tensor_size = np.asarray(x_global_tensor_size)
-    y_global_tensor_size = np.asarray(y_global_tensor_size)
+    x_global_tensor_shape = np.asarray(x_global_tensor_shape)
+    y_global_tensor_shape = np.asarray(y_global_tensor_shape)
 
     layer = Linear(P_x, P_y, P_w,
-                   x_global_tensor_size[1],
-                   y_global_tensor_size[1],
+                   x_global_tensor_shape[1],
+                   y_global_tensor_shape[1],
                    bias=True)
 
     x = NoneTensor()
     if P_x.active:
         input_tensor_sizes = compute_subsizes(P_x.dims,
                                               P_x.coords,
-                                              x_global_tensor_size)
+                                              x_global_tensor_shape)
         # For this test, we are only testing to see if the adjoint works
         # correctly for the bias term.  But the adjoint test only works on the
         # Jacobian of the linear layer.  The Jacobian block for b is 0 for x and
