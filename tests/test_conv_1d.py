@@ -54,10 +54,10 @@ def test_simple_conv1d_adjoint_input(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        input_tensor_sizes = compute_subsizes(P_x.dims,
-                                              P_x.coords,
-                                              x_global_shape)
-        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+        x_local_shape = compute_subsizes(P_x.dims,
+                                         P_x.coords,
+                                         x_global_shape)
+        x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     y = layer(x)
@@ -115,10 +115,10 @@ def test_simple_conv1d_adjoint_weight(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        input_tensor_sizes = compute_subsizes(P_x.dims,
-                                              P_x.coords,
-                                              x_global_shape)
-        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+        x_local_shape = compute_subsizes(P_x.dims,
+                                         P_x.coords,
+                                         x_global_shape)
+        x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     y = layer(x)
@@ -179,10 +179,10 @@ def test_simple_conv1d_adjoint_bias(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        input_tensor_sizes = compute_subsizes(P_x.dims,
-                                              P_x.coords,
-                                              x_global_shape)
-        x = torch.zeros(*input_tensor_sizes)
+        x_local_shape = compute_subsizes(P_x.dims,
+                                         P_x.coords,
+                                         x_global_shape)
+        x = torch.zeros(*x_local_shape)
     x.requires_grad = True
 
     y = layer(x)

@@ -20,8 +20,10 @@ layer = DistributedMaxPool1d(P_x, kernel_size=[2], stride=[2])
 
 x = NoneTensor()
 if P_x.active:
-    input_tensor_sizes = compute_subsizes(P_x.dims, P_x.cartesian_coordinates(P_x.rank), x_global_shape)
-    x = torch.tensor(np.ones(shape=input_tensor_sizes) * (P_x.rank + 1), dtype=float)
+    x_local_shape = compute_subsizes(P_x.dims,
+                                     P_x.cartesian_coordinates(P_x.rank),
+                                     x_global_shape)
+    x = torch.tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1), dtype=float)
 x.requires_grad = True
 
 print_sequential(P_world.comm, f'rank = {P_world.rank}, input =\n{x}')
