@@ -38,7 +38,7 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.unpadnd import UnPadNd
+    from distdl.nn.unpadnd import UnpadNd
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -49,7 +49,7 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     tensor_sizes = np.asarray(tensor_sizes)
     pads = np.asarray(pads)
 
-    layer = UnPadNd(pads, value=0)
+    layer = UnpadNd(pads, value=0)
 
     x = torch.tensor(np.random.randn(*tensor_sizes))
     x.requires_grad = True
