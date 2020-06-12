@@ -7,8 +7,8 @@ adjoint_parametrizations = []
 # Main functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(4, 8), [4, 1],  # P_x_ranks, P_x_topo
-        np.arange(0, 12), [3, 4],  # P_y_ranks, P_y_topo
+        np.arange(4, 8), [4, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 12), [3, 4],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-overlap-3D",
@@ -18,8 +18,8 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_topo
-        np.arange(4, 16), [3, 4],  # P_y_ranks, P_y_topo
+        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_shape
+        np.arange(4, 16), [3, 4],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         16,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-3D",
@@ -29,8 +29,8 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_topo
-        np.arange(5, 17), [3, 4],  # P_y_ranks, P_y_topo
+        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_shape
+        np.arange(5, 17), [3, 4],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         17,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-disjoint-inactive-3D",
@@ -41,8 +41,8 @@ adjoint_parametrizations.append(
 # Sequential functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
-        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
+        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         1,  # passed to comm_split_fixture, required MPI ranks
         id="sequential-identity",
@@ -53,8 +53,8 @@ adjoint_parametrizations.append(
 # As a scatter
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(4, 5), [1, 1],  # P_x_ranks, P_x_topo
-        np.arange(0, 12), [3, 4],  # P_y_ranks, P_y_topo
+        np.arange(4, 5), [1, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 12), [3, 4],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_scatter-overlap-3D",
@@ -64,8 +64,8 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
-        np.arange(1, 13), [3, 4],  # P_y_ranks, P_y_topo
+        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_shape
+        np.arange(1, 13), [3, 4],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         13,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_scatter-disjoint-3D",
@@ -75,8 +75,8 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
-        np.arange(2, 14), [3, 4],  # P_y_ranks, P_y_topo
+        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_shape
+        np.arange(2, 14), [3, 4],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         14,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_scatter-disjoint-inactive-3D",
@@ -87,8 +87,8 @@ adjoint_parametrizations.append(
 # As a gather
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 12), [3, 4],  # P_x_ranks, P_x_topo
-        np.arange(4, 5), [1, 1],  # P_y_ranks, P_y_topo
+        np.arange(0, 12), [3, 4],  # P_x_ranks, P_x_shape
+        np.arange(4, 5), [1, 1],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         12,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_gather-overlap-3D",
@@ -98,8 +98,8 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(1, 13), [3, 4],  # P_x_ranks, P_x_topo
-        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
+        np.arange(1, 13), [3, 4],  # P_x_ranks, P_x_shape
+        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         13,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_gather-disjoint-3D",
@@ -109,8 +109,8 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(2, 14), [3, 4],  # P_x_ranks, P_x_topo
-        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
+        np.arange(2, 14), [3, 4],  # P_x_ranks, P_x_shape
+        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_shape
         [77, 55],  # x_global_shape
         14,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-as_gather-disjoint-inactive-3D",
@@ -120,16 +120,16 @@ adjoint_parametrizations.append(
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "P_y_ranks, P_y_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
+                         "P_y_ranks, P_y_shape,"
                          "x_global_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_transpose_adjoint(barrier_fence_fixture,
                            comm_split_fixture,
-                           P_x_ranks, P_x_topo,
-                           P_y_ranks, P_y_topo,
+                           P_x_ranks, P_x_shape,
+                           P_y_ranks, P_y_shape,
                            x_global_shape):
 
     import numpy as np
@@ -148,10 +148,10 @@ def test_transpose_adjoint(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     P_y_base = P_world.create_partition_inclusive(P_y_ranks)
-    P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
+    P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
 
     # The global tensor size is the same for x and y
     layer = DistributedTranspose(P_x, P_y)

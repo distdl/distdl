@@ -7,9 +7,9 @@ adjoint_parametrizations = []
 # Main functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(4, 8), [1, 4],  # P_x_ranks, P_x_topo
-        np.arange(0, 3), [1, 3],  # P_y_ranks, P_y_topo
-        np.arange(0, 12), [3, 4],  # P_w_ranks, P_w_topo
+        np.arange(4, 8), [1, 4],  # P_x_ranks, P_x_shape
+        np.arange(0, 3), [1, 3],  # P_y_ranks, P_y_shape
+        np.arange(0, 12), [3, 4],  # P_w_ranks, P_w_shape
         [1, 12],  # x_global_shape
         [1, 6],  # y_global_shape
         12,  # passed to comm_split_fixture, required MPI ranks
@@ -21,9 +21,9 @@ adjoint_parametrizations.append(
 # Main functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_topo
-        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_topo
-        np.arange(0, 1), [1, 1],  # P_w_ranks, P_w_topo
+        np.arange(0, 1), [1, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 1), [1, 1],  # P_y_ranks, P_y_shape
+        np.arange(0, 1), [1, 1],  # P_w_ranks, P_w_shape
         [1, 12],  # x_global_shape
         [1, 6],  # y_global_shape
         1,  # passed to comm_split_fixture, required MPI ranks
@@ -34,9 +34,9 @@ adjoint_parametrizations.append(
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "P_y_ranks, P_y_topo,"
-                         "P_w_ranks, P_w_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
+                         "P_y_ranks, P_y_shape,"
+                         "P_w_ranks, P_w_shape,"
                          "x_global_shape,"
                          "y_global_shape,"
                          "comm_split_fixture",
@@ -44,9 +44,9 @@ adjoint_parametrizations.append(
                          indirect=["comm_split_fixture"])
 def test_linear_adjoint_input(barrier_fence_fixture,
                               comm_split_fixture,
-                              P_x_ranks, P_x_topo,
-                              P_y_ranks, P_y_topo,
-                              P_w_ranks, P_w_topo,
+                              P_x_ranks, P_x_shape,
+                              P_y_ranks, P_y_shape,
+                              P_w_ranks, P_w_shape,
                               x_global_shape,
                               y_global_shape):
 
@@ -66,13 +66,13 @@ def test_linear_adjoint_input(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     P_y_base = P_world.create_partition_inclusive(P_y_ranks)
-    P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
+    P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
 
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
-    P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
+    P_w = P_w_base.create_cartesian_topology_partition(P_w_shape)
 
     x_global_shape = np.asarray(x_global_shape)
     y_global_shape = np.asarray(y_global_shape)
@@ -108,9 +108,9 @@ def test_linear_adjoint_input(barrier_fence_fixture,
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "P_y_ranks, P_y_topo,"
-                         "P_w_ranks, P_w_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
+                         "P_y_ranks, P_y_shape,"
+                         "P_w_ranks, P_w_shape,"
                          "x_global_shape,"
                          "y_global_shape,"
                          "comm_split_fixture",
@@ -118,9 +118,9 @@ def test_linear_adjoint_input(barrier_fence_fixture,
                          indirect=["comm_split_fixture"])
 def test_linear_adjoint_weight(barrier_fence_fixture,
                                comm_split_fixture,
-                               P_x_ranks, P_x_topo,
-                               P_y_ranks, P_y_topo,
-                               P_w_ranks, P_w_topo,
+                               P_x_ranks, P_x_shape,
+                               P_y_ranks, P_y_shape,
+                               P_w_ranks, P_w_shape,
                                x_global_shape,
                                y_global_shape):
 
@@ -140,13 +140,13 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     P_y_base = P_world.create_partition_inclusive(P_y_ranks)
-    P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
+    P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
 
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
-    P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
+    P_w = P_w_base.create_cartesian_topology_partition(P_w_shape)
 
     x_global_shape = np.asarray(x_global_shape)
     y_global_shape = np.asarray(y_global_shape)
@@ -185,9 +185,9 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
-                         "P_y_ranks, P_y_topo,"
-                         "P_w_ranks, P_w_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
+                         "P_y_ranks, P_y_shape,"
+                         "P_w_ranks, P_w_shape,"
                          "x_global_shape,"
                          "y_global_shape,"
                          "comm_split_fixture",
@@ -195,9 +195,9 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
                          indirect=["comm_split_fixture"])
 def test_linear_adjoint_bias(barrier_fence_fixture,
                              comm_split_fixture,
-                             P_x_ranks, P_x_topo,
-                             P_y_ranks, P_y_topo,
-                             P_w_ranks, P_w_topo,
+                             P_x_ranks, P_x_shape,
+                             P_y_ranks, P_y_shape,
+                             P_w_ranks, P_w_shape,
                              x_global_shape,
                              y_global_shape):
     import numpy as np
@@ -216,13 +216,13 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     P_y_base = P_world.create_partition_inclusive(P_y_ranks)
-    P_y = P_y_base.create_cartesian_topology_partition(P_y_topo)
+    P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
 
     P_w_base = P_world.create_partition_inclusive(P_w_ranks)
-    P_w = P_w_base.create_cartesian_topology_partition(P_w_topo)
+    P_w = P_w_base.create_cartesian_topology_partition(P_w_shape)
 
     x_global_shape = np.asarray(x_global_shape)
     y_global_shape = np.asarray(y_global_shape)

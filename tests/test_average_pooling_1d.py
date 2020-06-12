@@ -6,7 +6,7 @@ adjoint_parametrizations = []
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
+        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_shape
         [1, 1, 10],  # x_global_shape
         3,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-weird_1",
@@ -16,7 +16,7 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 6), [1, 1, 6],  # P_x_ranks, P_x_topo
+        np.arange(0, 6), [1, 1, 6],  # P_x_ranks, P_x_shape
         [1, 1, 20],  # x_global_shape
         6,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-weird_2",
@@ -26,7 +26,7 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_topo
+        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_shape
         [1, 1, 12],  # x_global_shape
         3,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-no_comm",
@@ -36,14 +36,14 @@ adjoint_parametrizations.append(
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_average_pooling_adjoint_input(barrier_fence_fixture,
                                        comm_split_fixture,
-                                       P_x_ranks, P_x_topo,
+                                       P_x_ranks, P_x_shape,
                                        x_global_shape):
 
     import numpy as np
@@ -62,7 +62,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     x_global_shape = np.asarray(x_global_shape)
 

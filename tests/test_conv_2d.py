@@ -7,7 +7,7 @@ adjoint_parametrizations = []
 # Main functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
         [1, 5, 10, 10],  # x_global_shape
         4,  # passed to comm_split_fixture, required MPI ranks
         id="distributed",
@@ -17,14 +17,14 @@ adjoint_parametrizations.append(
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_simple_conv2d_adjoint_input(barrier_fence_fixture,
                                      comm_split_fixture,
-                                     P_x_ranks, P_x_topo,
+                                     P_x_ranks, P_x_shape,
                                      x_global_shape):
 
     import numpy as np
@@ -43,7 +43,7 @@ def test_simple_conv2d_adjoint_input(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     x_global_shape = np.asarray(x_global_shape)
 
@@ -78,14 +78,14 @@ def test_simple_conv2d_adjoint_input(barrier_fence_fixture,
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_simple_conv2d_adjoint_weight(barrier_fence_fixture,
                                       comm_split_fixture,
-                                      P_x_ranks, P_x_topo,
+                                      P_x_ranks, P_x_shape,
                                       x_global_shape):
 
     import numpy as np
@@ -104,7 +104,7 @@ def test_simple_conv2d_adjoint_weight(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     x_global_shape = np.asarray(x_global_shape)
 
@@ -142,14 +142,14 @@ def test_simple_conv2d_adjoint_weight(barrier_fence_fixture,
 
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_simple_conv2d_adjoint_bias(barrier_fence_fixture,
                                     comm_split_fixture,
-                                    P_x_ranks, P_x_topo,
+                                    P_x_ranks, P_x_shape,
                                     x_global_shape):
 
     import numpy as np
@@ -168,7 +168,7 @@ def test_simple_conv2d_adjoint_bias(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     x_global_shape = np.asarray(x_global_shape)
 
@@ -209,7 +209,7 @@ size_parametrizations = []
 
 size_parametrizations.append(
     pytest.param(
-        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
         [1, 5, 10, 10],  # x_global_shape
         [1, 10, 5, 5],  # y_local_shape
         [1, 1],  # padding
@@ -220,7 +220,7 @@ size_parametrizations.append(
     )
 size_parametrizations.append(
     pytest.param(
-        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
         [1, 5, 10, 10],  # x_global_shape
         [1, 10, 4, 4],  # y_local_shape
         [0, 0],  # padding
@@ -231,7 +231,7 @@ size_parametrizations.append(
     )
 
 
-@pytest.mark.parametrize("P_x_ranks, P_x_topo,"
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
                          "y_local_shape,"
                          "padding,"
@@ -240,7 +240,7 @@ size_parametrizations.append(
                          indirect=["comm_split_fixture"])
 def test_simple_conv2d_shape(barrier_fence_fixture,
                              comm_split_fixture,
-                             P_x_ranks, P_x_topo,
+                             P_x_ranks, P_x_shape,
                              x_global_shape,
                              y_local_shape,
                              padding):
@@ -261,7 +261,7 @@ def test_simple_conv2d_shape(barrier_fence_fixture,
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_topo)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     x_global_shape = np.asarray(x_global_shape)
 
