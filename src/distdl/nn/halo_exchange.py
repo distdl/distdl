@@ -2,6 +2,7 @@ import numpy as np
 
 from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
+from distdl.utilities.torch import NoneTensor
 
 
 class HaloExchange(Module):
@@ -110,9 +111,9 @@ class HaloExchange(Module):
 
     def _distdl_module_setup(self, input):
 
-        self.x_local_shape = input[0].shape
         if self.P_x.active:
-            self.slices = self._assemble_slices(self.x_local_shape, self.recv_buffer_shape, self.send_buffer_shape)
+            x_local_shape = input[0].shape
+            self.slices = self._assemble_slices(x_local_shape, self.recv_buffer_shape, self.send_buffer_shape)
             self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_shape, self.send_buffer_shape)
 
         self._distdl_is_setup = True
@@ -143,6 +144,9 @@ class HaloExchange(Module):
     def forward(self, input):
 
         Function = self._distdl_backend.autograd.halo_exchange.HaloExchangeFunction
+
+        if not self.P_x.active:
+            return NoneTensor()
 
         return Function.apply(input,
                               self.P_x,
