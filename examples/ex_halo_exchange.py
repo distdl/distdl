@@ -76,13 +76,13 @@ if P_x.active:
                                                              dilation,
                                                              P_x.active,
                                                              P_x.shape,
-                                                             P_x.coords)
+                                                             P_x.index)
     halo_shape = exchange_info[0]
     recv_buffer_shape = exchange_info[1]
     send_buffer_shape = exchange_info[2]
 
     x_local_shape = compute_subshape(P_x.shape,
-                                     P_x.coords,
+                                     P_x.index,
                                      x_global_shape)
 
     value = (1 + rank) * (10 ** rank)

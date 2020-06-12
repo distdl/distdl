@@ -23,7 +23,7 @@ layer = DistributedConv2d(P_x, in_channels=1, out_channels=1, kernel_size=[3, 3]
 x = NoneTensor()
 if P_x.active:
     x_local_shape = compute_subshape(P_x.shape,
-                                     P_x.coords,
+                                     P_x.index,
                                      x_global_shape)
     x = torch.Tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1))
 x.requires_grad = True

@@ -10,7 +10,7 @@ from distdl.nn.sum_reduce import SumReduce
 from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.slicing import compute_subshape
-from distdl.utilities.slicing import range_coords
+from distdl.utilities.slicing import range_index
 from distdl.utilities.torch import NoneTensor
 
 
@@ -141,7 +141,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # This subset is taken to be the origin of the spartial component
             w_root_subset = []
-            for i, c in enumerate(range_coords(P_w.shape)):
+            for i, c in enumerate(range_index(P_w.shape)):
                 c = np.asarray(c)
                 # Find the P_co x P_ci x 1 x ... x 1 subset to store the weights
                 if np.all(c[2:] == 0):
@@ -153,7 +153,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.stores_weight = self.P_wr.active
 
             b_subset = []
-            for i, c in enumerate(range_coords(P_w.shape)):
+            for i, c in enumerate(range_index(P_w.shape)):
                 c = np.asarray(c)
                 # Find the P_co x 1 x P_0 x ... x P_D-1 subset that needs biases in its calculation.
                 # This is everywhere that the input channels is rank 0.
@@ -166,7 +166,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # Now find the subset of _that_ which actually stores the learnable parameter.
             b_root_subset = []
-            for i, c in enumerate(range_coords(P_w.shape)):
+            for i, c in enumerate(range_index(P_w.shape)):
                 c = np.asarray(c)
             # Find the P_co x 1 x 1 x ... x 1 subset to store the biases
                 if np.all(c[1:] == 0):
@@ -183,7 +183,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # Do this before checking serial so that the layer works properly
             # in the serial case
-            local_channels = compute_subshape(P_channels, P_w.coords[0:2], [out_channels, in_channels])
+            local_channels = compute_subshape(P_channels, P_w.index[0:2], [out_channels, in_channels])
             local_out_channels, local_in_channels = local_channels
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels
@@ -293,7 +293,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.conv_dilation,
                                                         self.P_x.active,
                                                         self.P_x.shape,
-                                                        self.P_x.coords)
+                                                        self.P_x.index)
             halo_shape = exchange_info[0]
             recv_buffer_shape = exchange_info[1]
             send_buffer_shape = exchange_info[2]
@@ -326,7 +326,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.conv_dilation,
                                                         self.P_y.active,
                                                         self.P_y.shape,
-                                                        self.P_y.coords)
+                                                        self.P_y.index)
             y_halo_shape = exchange_info[0]
 
             # Unpad shape is padding in the dimensions where we have a halo,
