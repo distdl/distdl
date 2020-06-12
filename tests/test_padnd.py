@@ -5,7 +5,7 @@ adjoint_parametrizations = []
 
 adjoint_parametrizations.append(
     pytest.param(
-        [3, 4, 5],  # tensor_sizes
+        [3, 4, 5],  # x_local_shape
         [[1, 2], [1, 2], [1, 2]],  # padding
         1,  # passed to comm_split_fixture, required MPI ranks
         id="positive_padding",
@@ -15,7 +15,7 @@ adjoint_parametrizations.append(
 
 adjoint_parametrizations.append(
     pytest.param(
-        [3, 4, 5],  # tensor_sizes
+        [3, 4, 5],  # x_local_shape
         [[1, 0], [0, 2], [0, 0]],  # padding
         1,  # passed to comm_split_fixture, required MPI ranks
         id="nonnegative_padding",
@@ -24,14 +24,14 @@ adjoint_parametrizations.append(
     )
 
 
-@pytest.mark.parametrize("tensor_sizes,"
+@pytest.mark.parametrize("x_local_shape,"
                          "padding,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
 def test_padnd_adjoint(barrier_fence_fixture,
                        comm_split_fixture,
-                       tensor_sizes,
+                       x_local_shape,
                        padding):
 
     import numpy as np
@@ -46,14 +46,14 @@ def test_padnd_adjoint(barrier_fence_fixture,
         return
     P_world = MPIPartition(base_comm)
 
-    tensor_sizes = np.asarray(tensor_sizes)
+    x_local_shape = np.asarray(x_local_shape)
     padding = np.asarray(padding)
 
-    padded_sizes = [t + lpad + rpad for t, (lpad, rpad) in zip(tensor_sizes, padding)]
+    padded_sizes = [t + lpad + rpad for t, (lpad, rpad) in zip(x_local_shape, padding)]
 
     layer = PadNd(padding, value=0)
 
-    x = torch.tensor(np.random.randn(*tensor_sizes))
+    x = torch.tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     dy = torch.tensor(np.random.randn(*padded_sizes))

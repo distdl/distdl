@@ -24,7 +24,7 @@ P_x = P_x_base.create_cartesian_topology_partition(in_dims)
 P_y_base = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
 P_y = P_y_base.create_cartesian_topology_partition(out_dims)
 
-tensor_sizes = np.array([7, 5])
+x_global_shape = np.array([7, 5])
 
 layer = DistributedTranspose(P_x, P_y)
 
@@ -32,7 +32,7 @@ x = NoneTensor()
 if P_x.active:
     x_local_shape = slicing.compute_subsizes(P_x.comm.dims,
                                              P_x.comm.Get_coords(P_x.rank),
-                                             tensor_sizes)
+                                             x_global_shape)
     x = np.zeros(x_local_shape) + P_x.rank + 1
     x = torch.from_numpy(x)
 x.requires_grad = True
@@ -45,7 +45,7 @@ dy = NoneTensor()
 if P_y.active:
     y_local_shape = slicing.compute_subsizes(P_y.comm.dims,
                                              P_y.comm.Get_coords(P_y.rank),
-                                             tensor_sizes)
+                                             x_global_shape)
     dy = np.zeros(y_local_shape) + P_y.rank + 1
     dy = torch.from_numpy(dy)
 
