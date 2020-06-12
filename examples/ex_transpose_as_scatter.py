@@ -4,7 +4,7 @@ from mpi4py import MPI
 
 import distdl.utilities.slicing as slicing
 from distdl.backends.mpi.partition import MPIPartition
-from distdl.nn.transpose import Transpose
+from distdl.nn.transpose import DistributedTranspose
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.torch import NoneTensor
 
@@ -26,7 +26,7 @@ P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
 x_global_shape = np.array([7, 5])
 
-layer = Transpose(P_x, P_y)
+layer = DistributedTranspose(P_x, P_y)
 
 x = NoneTensor()
 if P_x.active:
