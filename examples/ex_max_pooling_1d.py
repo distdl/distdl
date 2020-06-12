@@ -20,7 +20,7 @@ layer = DistributedMaxPool1d(P_x, kernel_size=[2], stride=[2])
 
 x = NoneTensor()
 if P_x.active:
-    x_local_shape = compute_subshape(P_x.dims,
+    x_local_shape = compute_subshape(P_x.shape,
                                      P_x.coords,
                                      x_global_shape)
     x = torch.tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1), dtype=float)

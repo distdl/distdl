@@ -38,7 +38,7 @@ class MPIPartition:
             self.rank = MPI.PROC_NULL
             self.size = -1
 
-        self.dims = [1]
+        self.shape = [1]
         self.coords = self.rank
 
     def __eq__(self, other):
@@ -85,18 +85,18 @@ class MPIPartition:
 
         return MPIPartition(comm, group, root=self.root)
 
-    def create_cartesian_topology_partition(self, dims, **options):
+    def create_cartesian_topology_partition(self, shape, **options):
 
-        dims = np.asarray(dims)
+        shape = np.asarray(shape)
         if self.active:
-            comm = self.comm.Create_cart(dims, **options)
+            comm = self.comm.Create_cart(shape, **options)
             group = comm.Get_group()
 
             if not check_identical_group(self.group, group):
                 raise Exception()
 
             # group = self.group
-            return MPICartesianPartition(comm, group, self.root, dims)
+            return MPICartesianPartition(comm, group, self.root, shape)
 
         else:
             comm = MPI.COMM_NULL
@@ -210,15 +210,15 @@ class MPIPartition:
         # Get the rank and shape of the two partitions
         data = None
         if P_src.active:
-            data = P_src.dims
-        P_src_dims = P_union.broadcast_data(data, P_data=P_src)
-        src_dim = len(P_src_dims)
+            data = P_src.shape
+        P_src_shape = P_union.broadcast_data(data, P_data=P_src)
+        src_dim = len(P_src_shape)
 
         data = None
         if P_dest.active:
-            data = P_dest.dims
-        P_dest_dims = P_union.broadcast_data(data, P_data=P_dest)
-        dest_dim = len(P_dest_dims)
+            data = P_dest.shape
+        P_dest_shape = P_union.broadcast_data(data, P_data=P_dest)
+        dest_dim = len(P_dest_shape)
 
         # The source must be smaller (or equal) in size to the destination.
         if src_dim > dest_dim:
@@ -228,36 +228,36 @@ class MPIPartition:
         # Share the src partition dimensions with everyone.  We will compare
         # this with the destination dimensions, so we pad it to the left with
         # ones to make a valid comparison.
-        src_dims = np.ones(dest_dim, dtype=np.int)
-        src_dims[-src_dim:] = P_src_dims[::-1] if transpose_src else P_src_dims
-        dest_dims = P_dest_dims[::-1] if transpose_dest else P_dest_dims
+        src_shape = np.ones(dest_dim, dtype=np.int)
+        src_shape[-src_dim:] = P_src_shape[::-1] if transpose_src else P_src_shape
+        dest_shape = P_dest_shape[::-1] if transpose_dest else P_dest_shape
 
         # Find any location that the dimensions differ and where the source
         # dimension is not 1 where they differ.  If there are any such
         # dimensions, we cannot perform a valid broadcast.
-        no_match_loc = np.where((src_dims != dest_dims) & (src_dims != 1))[0]
+        no_match_loc = np.where((src_shape != dest_shape) & (src_shape != 1))[0]
 
         if len(no_match_loc) > 0:
             raise Exception("No broadcast: Dimensions don't match or "
                             "source is not 1 where there is a mismatch.")
 
         # We will use the matching dimensions to compute the broadcast indices
-        match_loc = np.where((src_dims == dest_dims))[0]
+        match_loc = np.where((src_shape == dest_shape))[0]
 
         # Compute the Cartesian index of the source rank, in the matching
         # dimensions only.  This index will be constant in the dimensions of
         # the destination that we are broadcasting along.
         src_flat_index = -1
         if P_src.active:
-            src_cart_index = np.zeros_like(src_dims)
+            src_cart_index = np.zeros_like(src_shape)
             c = P_src.coords
             if transpose_src:
                 src_cart_index[-src_dim:] = c[::-1]
-                src_flat_index = cartesian_index_f(src_dims[match_loc],
+                src_flat_index = cartesian_index_f(src_shape[match_loc],
                                                    src_cart_index[match_loc])
             else:
                 src_cart_index[-src_dim:] = c
-                src_flat_index = cartesian_index_c(src_dims[match_loc],
+                src_flat_index = cartesian_index_c(src_shape[match_loc],
                                                    src_cart_index[match_loc])
         data = np.array([src_flat_index], dtype=np.int)
         src_flat_indices = P_union.allgather_data(data)
@@ -270,10 +270,10 @@ class MPIPartition:
             dest_cart_index = P_dest.coords
             if transpose_dest:
                 dest_cart_index = dest_cart_index[::-1]
-                dest_flat_index = cartesian_index_f(dest_dims[match_loc],
+                dest_flat_index = cartesian_index_f(dest_shape[match_loc],
                                                     dest_cart_index[match_loc])
             else:
-                dest_flat_index = cartesian_index_c(dest_dims[match_loc],
+                dest_flat_index = cartesian_index_c(dest_shape[match_loc],
                                                     dest_cart_index[match_loc])
         data = np.array([dest_flat_index], dtype=np.int)
         dest_flat_indices = P_union.allgather_data(data)
@@ -321,36 +321,36 @@ class MPIPartition:
         # Get the rank and shape of the two partitions
         data = None
         if P_src.active:
-            data = P_src.dims
-        P_src_dims = P_union.broadcast_data(data, P_data=P_src)
-        src_dim = len(P_src_dims)
+            data = P_src.shape
+        P_src_shape = P_union.broadcast_data(data, P_data=P_src)
+        src_dim = len(P_src_shape)
 
         data = None
         if P_dest.active:
-            data = P_dest.dims
-        P_dest_dims = P_union.broadcast_data(data, P_data=P_dest)
-        dest_dim = len(P_dest_dims)
+            data = P_dest.shape
+        P_dest_shape = P_union.broadcast_data(data, P_data=P_dest)
+        dest_dim = len(P_dest_shape)
 
         # The source must be smaller (or equal) in size to the destination.
         if dest_dim > src_dim:
             raise Exception("No reduction: Source partition smaller than "
                             "destination partition.")
 
-        src_dims = P_src_dims[::-1] if transpose_src else P_src_dims
-        dest_dims = np.ones(src_dim, dtype=np.int)
-        dest_dims[-dest_dim:] = P_dest_dims[::-1] if transpose_dest else P_dest_dims
+        src_shape = P_src_shape[::-1] if transpose_src else P_src_shape
+        dest_shape = np.ones(src_dim, dtype=np.int)
+        dest_shape[-dest_dim:] = P_dest_shape[::-1] if transpose_dest else P_dest_shape
 
         # Find any location that the dimensions differ and where the dest
         # dimension is not 1 where they differ.  If there are any such
         # dimensions, we cannot perform a valid reduction.
-        no_match_loc = np.where((src_dims != dest_dims) & (dest_dims != 1))[0]
+        no_match_loc = np.where((src_shape != dest_shape) & (dest_shape != 1))[0]
 
         if len(no_match_loc) > 0:
             raise Exception("No broadcast: Dimensions don't match or "
                             "source is not 1 where there is a mismatch.")
 
         # We will use the matching dimensions to compute the broadcast indices
-        match_loc = np.where((src_dims == dest_dims))[0]
+        match_loc = np.where((src_shape == dest_shape))[0]
 
         # Compute the Cartesian index of the source rank, in the matching
         # dimensions only.  This index will be constant in the dimensions of
@@ -360,10 +360,10 @@ class MPIPartition:
             src_cart_index = P_src.coords
             if transpose_src:
                 src_cart_index = src_cart_index[::-1]
-                src_flat_index = cartesian_index_f(src_dims[match_loc],
+                src_flat_index = cartesian_index_f(src_shape[match_loc],
                                                    src_cart_index[match_loc])
             else:
-                src_flat_index = cartesian_index_c(src_dims[match_loc],
+                src_flat_index = cartesian_index_c(src_shape[match_loc],
                                                    src_cart_index[match_loc])
         data = np.array([src_flat_index], dtype=np.int)
         src_flat_indices = P_union.allgather_data(data)
@@ -373,16 +373,16 @@ class MPIPartition:
         # receive the broadcast from.
         dest_flat_index = -1
         if P_dest.active:
-            dest_cart_index = np.zeros_like(dest_dims)
+            dest_cart_index = np.zeros_like(dest_shape)
             c = P_dest.coords
             if transpose_dest:
                 dest_cart_index[:dest_dim] = c
                 dest_cart_index = dest_cart_index[::-1]
-                dest_flat_index = cartesian_index_f(dest_dims[match_loc],
+                dest_flat_index = cartesian_index_f(dest_shape[match_loc],
                                                     dest_cart_index[match_loc])
             else:
                 dest_cart_index[-dest_dim:] = c
-                dest_flat_index = cartesian_index_c(dest_dims[match_loc],
+                dest_flat_index = cartesian_index_c(dest_shape[match_loc],
                                                     dest_cart_index[match_loc])
         data = np.array([dest_flat_index], dtype=np.int)
         dest_flat_indices = P_union.allgather_data(data)
@@ -469,27 +469,27 @@ class MPIPartition:
 
 class MPICartesianPartition(MPIPartition):
 
-    def __init__(self, comm, group, root, dims):
+    def __init__(self, comm, group, root, shape):
 
         super(MPICartesianPartition, self).__init__(comm, group, root)
 
-        self.dims = np.asarray(dims).astype(np.int)
-        self.dim = len(self.dims)
+        self.shape = np.asarray(shape).astype(np.int)
+        self.dim = len(self.shape)
 
         self.coords = None
         if self.active:
             self.coords = self.cartesian_coordinates(self.rank)
 
-    def create_cartesian_subtopology_partition(self, remain_dims):
+    def create_cartesian_subtopology_partition(self, remain_shape):
 
-        # remain_dims = np.asarray(remain_dims)
+        # remain_shape = np.asarray(remain_shape)
         if self.active:
-            comm = self.comm.Sub(remain_dims)
+            comm = self.comm.Sub(remain_shape)
             group = comm.Get_group()
 
             return MPICartesianPartition(comm, group,
                                          self.root,
-                                         self.dims[remain_dims == True]) # noqa E712
+                                         self.shape[remain_shape == True]) # noqa E712
 
         else:
             comm = MPI.COMM_NULL
@@ -517,7 +517,7 @@ class MPICartesianPartition(MPIPartition):
             lcoords = [x-1 if j == i else x for j, x in enumerate(coords)]
             rcoords = [x+1 if j == i else x for j, x in enumerate(coords)]
             lrank = MPI.PROC_NULL if -1 == lcoords[i] else self.comm.Get_cart_rank(lcoords)
-            rrank = MPI.PROC_NULL if self.dims[i] == rcoords[i] else self.comm.Get_cart_rank(rcoords)
+            rrank = MPI.PROC_NULL if self.shape[i] == rcoords[i] else self.comm.Get_cart_rank(rcoords)
             neighbor_ranks.append((lrank, rrank))
 
         return neighbor_ranks

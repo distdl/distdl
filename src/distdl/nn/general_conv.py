@@ -78,50 +78,50 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         P_union = P_union.create_partition_union(P_y)
         self.P_union = P_union
 
-        P_w_dims = None
+        P_w_shape = None
         if P_union.rank == 0:
-            P_w_dims = np.array(P_w.dims, dtype=np.int)
-        P_w_dims = P_union.broadcast_data(P_w_dims, root=0)
+            P_w_shape = np.array(P_w.shape, dtype=np.int)
+        P_w_shape = P_union.broadcast_data(P_w_shape, root=0)
 
-        P_co = P_w_dims[0]
-        P_ci = P_w_dims[1]
+        P_co = P_w_shape[0]
+        P_ci = P_w_shape[1]
         P_channels = [P_co, P_ci]
 
-        P_x_new_dims = []
+        P_x_new_shape = []
         if self.P_x.active:
-            if(np.any(P_x.dims[2:] != P_w_dims[2:])):
+            if(np.any(P_x.shape[2:] != P_w_shape[2:])):
                 raise ValueError("Spatial components of P_x and P_w must match.")
-            if P_w_dims[1] != P_x.dims[1]:
+            if P_w_shape[1] != P_x.shape[1]:
                 raise ValueError("Index 2 of P_w dimension must match input channel partition.")
-            P_x_new_dims = list(P_x.dims)
-            P_x_new_dims.insert(1, 1)
+            P_x_new_shape = list(P_x.shape)
+            P_x_new_shape.insert(1, 1)
             # Currently a hack, removing the batch dimension because P_w does
             # not have one. This is OK because we assume there are no partitions
             # in the batch dimension.
-            P_x_new_dims = np.asarray(P_x_new_dims[1:], dtype=int)
+            P_x_new_shape = np.asarray(P_x_new_shape[1:], dtype=int)
 
         # For the purposes of this layer, we re-cast P_x to have the extra
         # dimension.  This has no impact outside of the layer or on the results.
-        self.P_x = self.P_x.create_cartesian_topology_partition(P_x_new_dims)
+        self.P_x = self.P_x.create_cartesian_topology_partition(P_x_new_shape)
 
-        P_y_new_dims = []
+        P_y_new_shape = []
         if self.P_y.active:
-            if(np.any(P_y.dims[2:] != P_w_dims[2:])):
+            if(np.any(P_y.shape[2:] != P_w_shape[2:])):
                 raise ValueError("Spatial components of P_y and P_w must match.")
-            if P_w_dims[0] != P_y.dims[1]:
+            if P_w_shape[0] != P_y.shape[1]:
                 raise ValueError("Index 1 of P_w dimension must match output channel partition.")
-            P_y_new_dims = list(P_y.dims)
-            P_y_new_dims.insert(2, 1)
+            P_y_new_shape = list(P_y.shape)
+            P_y_new_shape.insert(2, 1)
             # Currently a hack, removing the batch dimension because P_w does
             # not have one. This is OK because we assume there are no partitions
             # in the batch dimension.
-            P_y_new_dims = np.asarray(P_y_new_dims[1:], dtype=int)
+            P_y_new_shape = np.asarray(P_y_new_shape[1:], dtype=int)
 
         # For the purposes of this layer, we re-cast P_x to have the extra
         # dimension.  This has no impact outside of the layer or on the results.
-        self.P_y = self.P_y.create_cartesian_topology_partition(P_y_new_dims)
+        self.P_y = self.P_y.create_cartesian_topology_partition(P_y_new_shape)
 
-        P_spatial = P_w_dims[2:]
+        P_spatial = P_w_shape[2:]
 
         self.serial = False
         if self.P_w.size == 1:
@@ -141,7 +141,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # This subset is taken to be the origin of the spartial component
             w_root_subset = []
-            for i, c in enumerate(range_coords(P_w.dims)):
+            for i, c in enumerate(range_coords(P_w.shape)):
                 c = np.asarray(c)
                 # Find the P_co x P_ci x 1 x ... x 1 subset to store the weights
                 if np.all(c[2:] == 0):
@@ -153,7 +153,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.stores_weight = self.P_wr.active
 
             b_subset = []
-            for i, c in enumerate(range_coords(P_w.dims)):
+            for i, c in enumerate(range_coords(P_w.shape)):
                 c = np.asarray(c)
                 # Find the P_co x 1 x P_0 x ... x P_D-1 subset that needs biases in its calculation.
                 # This is everywhere that the input channels is rank 0.
@@ -166,7 +166,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # Now find the subset of _that_ which actually stores the learnable parameter.
             b_root_subset = []
-            for i, c in enumerate(range_coords(P_w.dims)):
+            for i, c in enumerate(range_coords(P_w.shape)):
                 c = np.asarray(c)
             # Find the P_co x 1 x 1 x ... x 1 subset to store the biases
                 if np.all(c[1:] == 0):
@@ -292,7 +292,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.conv_padding,
                                                         self.conv_dilation,
                                                         self.P_x.active,
-                                                        self.P_x.dims,
+                                                        self.P_x.shape,
                                                         self.P_x.coords)
             halo_shape = exchange_info[0]
             recv_buffer_shape = exchange_info[1]
@@ -325,7 +325,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                                                         self.conv_padding,
                                                         self.conv_dilation,
                                                         self.P_y.active,
-                                                        self.P_y.dims,
+                                                        self.P_y.shape,
                                                         self.P_y.coords)
             y_halo_shape = exchange_info[0]
 

@@ -35,12 +35,12 @@ def test_mixin():
     P_world = MPIPartition(MPI.COMM_WORLD)
     ranks = np.arange(P_world.size)
 
-    dims = [1, 1, 4]
-    P_size = np.prod(dims)
+    shape = [1, 1, 4]
+    P_size = np.prod(shape)
     use_ranks = ranks[:P_size]
 
     P = P_world.create_partition_inclusive(use_ranks)
-    P_x = P.create_cartesian_topology_partition(dims)
+    P_x = P.create_cartesian_topology_partition(shape)
     rank = P_x.rank
 
     layer = MockupMaxPoolLayer()
@@ -58,7 +58,7 @@ def test_mixin():
                                      padding,
                                      dilation,
                                      P_x.active,
-                                     P_x.dims,
+                                     P_x.shape,
                                      P_x.coords)
 
     if P_x.active:

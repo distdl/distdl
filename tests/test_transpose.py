@@ -159,7 +159,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Forward Input
     x = NoneTensor()
     if P_x.active:
-        x_local_shape = compute_subshape(P_x.dims,
+        x_local_shape = compute_subshape(P_x.shape,
                                          P_x.coords,
                                          x_global_shape)
         x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -168,7 +168,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Adjoint Input
     dy = NoneTensor()
     if P_y.active:
-        y_local_shape = compute_subshape(P_y.dims,
+        y_local_shape = compute_subshape(P_y.shape,
                                          P_y.coords,
                                          x_global_shape)
         dy = torch.Tensor(np.random.randn(*y_local_shape))
@@ -203,18 +203,18 @@ def test_excepts_mismatched_partitions(barrier_fence_fixture,
         return
     P_world = MPIPartition(base_comm)
 
-    in_dims = (1, 4, 1, 1)
-    out_dims = (1, 2)
+    in_shape = (1, 4, 1, 1)
+    out_shape = (1, 2)
 
-    in_size = np.prod(in_dims)
-    out_size = np.prod(out_dims)
+    in_size = np.prod(in_shape)
+    out_size = np.prod(out_shape)
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(np.arange(0, in_size))
-    P_x = P_x_base.create_cartesian_topology_partition(in_dims)
+    P_x = P_x_base.create_cartesian_topology_partition(in_shape)
 
     P_y_base = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
-    P_y = P_y_base.create_cartesian_topology_partition(out_dims)
+    P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
         DistributedTranspose(P_x, P_y)
@@ -239,19 +239,19 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     P_world = MPIPartition(base_comm)
 
     # Input partition rank must match tensor rank
-    in_dims = (1, 4, 1, 1)
-    out_dims = (1, 1, 1, 2)
+    in_shape = (1, 4, 1, 1)
+    out_shape = (1, 1, 1, 2)
     x_global_shape = np.array([16, 5, 5])
 
-    in_size = np.prod(in_dims)
-    out_size = np.prod(out_dims)
+    in_size = np.prod(in_shape)
+    out_size = np.prod(out_shape)
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(np.arange(0, in_size))
-    P_x = P_x_base.create_cartesian_topology_partition(in_dims)
+    P_x = P_x_base.create_cartesian_topology_partition(in_shape)
 
     P_y_base = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
-    P_y = P_y_base.create_cartesian_topology_partition(out_dims)
+    P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
         layer = DistributedTranspose(P_x, P_y)
@@ -259,7 +259,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subshape(P_x.dims,
+            x_local_shape = compute_subshape(P_x.shape,
                                              P_x.coords,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -287,19 +287,19 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     P_world = MPIPartition(base_comm)
 
     # Output partition rank must match tensor rank
-    in_dims = (4, 1, 1)
-    out_dims = (1, 1, 1, 2)
+    in_shape = (4, 1, 1)
+    out_shape = (1, 1, 1, 2)
     x_global_shape = np.array([16, 5, 5])
 
-    in_size = np.prod(in_dims)
-    out_size = np.prod(out_dims)
+    in_size = np.prod(in_shape)
+    out_size = np.prod(out_shape)
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(np.arange(0, in_size))
-    P_x = P_x_base.create_cartesian_topology_partition(in_dims)
+    P_x = P_x_base.create_cartesian_topology_partition(in_shape)
 
     P_y_base = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
-    P_y = P_y_base.create_cartesian_topology_partition(out_dims)
+    P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
         layer = DistributedTranspose(P_x, P_y)
@@ -307,7 +307,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subshape(P_x.dims,
+            x_local_shape = compute_subshape(P_x.shape,
                                              P_x.coords,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))
@@ -336,19 +336,19 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
 
     # A tensor with size 1 in a dimension cannot be partitioned in that
     # dimension.  (See last dimension of output and tensor.)
-    in_dims = (1, 4, 1, 1)
-    out_dims = (1, 1, 1, 2)
+    in_shape = (1, 4, 1, 1)
+    out_shape = (1, 1, 1, 2)
     x_global_shape = np.array([1, 16, 5, 1])
 
-    in_size = np.prod(in_dims)
-    out_size = np.prod(out_dims)
+    in_size = np.prod(in_shape)
+    out_size = np.prod(out_shape)
 
     # Create the partitions
     P_x_base = P_world.create_partition_inclusive(np.arange(0, in_size))
-    P_x = P_x_base.create_cartesian_topology_partition(in_dims)
+    P_x = P_x_base.create_cartesian_topology_partition(in_shape)
 
     P_y_base = P_world.create_partition_inclusive(np.arange(P_world.size-out_size, P_world.size))
-    P_y = P_y_base.create_cartesian_topology_partition(out_dims)
+    P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
         layer = DistributedTranspose(P_x, P_y)
@@ -356,7 +356,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            x_local_shape = compute_subshape(P_x.dims,
+            x_local_shape = compute_subshape(P_x.shape,
                                              P_x.coords,
                                              x_global_shape)
             x = torch.Tensor(np.random.randn(*x_local_shape))

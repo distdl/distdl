@@ -34,12 +34,12 @@ class MockupMaxPoolLayer(HaloMixin):
 P_world = MPIPartition(MPI.COMM_WORLD)
 ranks = np.arange(P_world.size)
 
-dims = [1, 1, 4]
-P_size = np.prod(dims)
+shape = [1, 1, 4]
+P_size = np.prod(shape)
 use_ranks = ranks[:P_size]
 
 P = P_world.create_subpartition(use_ranks)
-P_x = P.create_cartesian_subpartition(dims)
+P_x = P.create_cartesian_subpartition(shape)
 rank = P_x.rank
 cart_comm = P_x.comm
 
@@ -59,7 +59,7 @@ if P_x.active:
                                      padding,
                                      dilation,
                                      P_x.active,
-                                     P_x.dims,
+                                     P_x.shape,
                                      P_x.coords)
 
     print_sequential(cart_comm, f'rank = {rank}:\nhalo_shape =\n{halo_shape}\n\

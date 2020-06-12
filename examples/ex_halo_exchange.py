@@ -51,12 +51,12 @@ torch.set_printoptions(linewidth=200)
 P_world = MPIPartition(MPI.COMM_WORLD)
 ranks = np.arange(P_world.size)
 
-dims = [1, 1, 2, 2]
-P_size = np.prod(dims)
+shape = [1, 1, 2, 2]
+P_size = np.prod(shape)
 use_ranks = ranks[:P_size]
 
 P_x_base = P_world.create_partition_inclusive(use_ranks)
-P_x = P_x_base.create_cartesian_topology_partition(dims)
+P_x = P_x_base.create_cartesian_topology_partition(shape)
 rank = P_x.rank
 cart_comm = P_x.comm
 
@@ -75,13 +75,13 @@ if P_x.active:
                                                              padding,
                                                              dilation,
                                                              P_x.active,
-                                                             P_x.dims,
+                                                             P_x.shape,
                                                              P_x.coords)
     halo_shape = exchange_info[0]
     recv_buffer_shape = exchange_info[1]
     send_buffer_shape = exchange_info[2]
 
-    x_local_shape = compute_subshape(P_x.dims,
+    x_local_shape = compute_subshape(P_x.shape,
                                      P_x.coords,
                                      x_global_shape)
 

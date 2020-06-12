@@ -24,8 +24,8 @@ class Linear(Module):
         self.x_broadcast = Broadcast(self.P_x, self.P_w)
 
         if self.P_w.active:
-            local_in_features = compute_subshape(P_w.dims[1], P_w.coords[1], in_features)
-            local_out_features = compute_subshape(P_w.dims[0], P_w.coords[0], out_features)
+            local_in_features = compute_subshape(P_w.shape[1], P_w.coords[1], in_features)
+            local_out_features = compute_subshape(P_w.shape[0], P_w.coords[0], out_features)
             # On column 0, use the specified bias, otherwise no bias to
             # prevent double counting
             bias = self.bias if (self.P_w.coords[-1] == 0) else False
