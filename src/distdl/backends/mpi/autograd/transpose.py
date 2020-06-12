@@ -9,12 +9,12 @@ from distdl.utilities.torch import NoneTensor
 class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, P_union, global_tensor_shape,
+    def forward(ctx, input, P_union, x_global_shape,
                 P_x, in_data, in_buffers,
                 P_y, out_data, out_buffers, dtype):
 
         ctx.P_union = P_union
-        ctx.global_tensor_shape = global_tensor_shape
+        ctx.x_global_shape = x_global_shape
 
         ctx.P_x = P_x
         ctx.in_data = in_data
@@ -77,7 +77,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # allocations.
         if P_y.active:
             coords = P_y.cartesian_coordinates(P_y.rank)
-            out_sizes = compute_subsizes(P_y.comm.dims, coords, global_tensor_shape)
+            out_sizes = compute_subsizes(P_y.comm.dims, coords, x_global_shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             output = np.zeros(out_sizes, dtype=dtype)
@@ -110,7 +110,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
 
         P_union = ctx.P_union
-        global_tensor_shape = ctx.global_tensor_shape
+        x_global_shape = ctx.x_global_shape
 
         P_x = ctx.P_x
         in_data = ctx.in_data
@@ -159,7 +159,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         if P_x.active:
             coords = P_x.cartesian_coordinates(P_x.rank)
-            in_sizes = compute_subsizes(P_x.comm.dims, coords, global_tensor_shape)
+            in_sizes = compute_subsizes(P_x.comm.dims, coords, x_global_shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
             grad_input = np.zeros(in_sizes, dtype=dtype)

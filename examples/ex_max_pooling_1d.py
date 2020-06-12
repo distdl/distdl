@@ -14,13 +14,13 @@ P_world.comm.Barrier()
 P_x_base = P_world.create_partition_inclusive(np.arange(3))
 P_x = P_x_base.create_cartesian_topology_partition([1, 1, 3])
 
-global_tensor_shape = np.array([1, 1, 10])
+x_global_shape = np.array([1, 1, 10])
 
 layer = DistributedMaxPool1d(P_x, kernel_size=[2], stride=[2])
 
 x = NoneTensor()
 if P_x.active:
-    input_tensor_sizes = compute_subsizes(P_x.dims, P_x.cartesian_coordinates(P_x.rank), global_tensor_shape)
+    input_tensor_sizes = compute_subsizes(P_x.dims, P_x.cartesian_coordinates(P_x.rank), x_global_shape)
     x = torch.tensor(np.ones(shape=input_tensor_sizes) * (P_x.rank + 1), dtype=float)
 x.requires_grad = True
 

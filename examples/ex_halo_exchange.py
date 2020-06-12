@@ -60,7 +60,7 @@ P_x = P_x_base.create_cartesian_topology_partition(dims)
 rank = P_x.rank
 cart_comm = P_x.comm
 
-global_tensor_shape = np.array([1, 1, 10, 12])
+x_global_shape = np.array([1, 1, 10, 12])
 
 if P_x.active:
     mockup_conv_layer = MockupConvLayer()
@@ -69,7 +69,7 @@ if P_x.active:
     padding = [0, 0, 0, 0]
     dilation = [1, 1, 1, 1]
 
-    exchange_info = mockup_conv_layer._compute_exchange_info(global_tensor_shape,
+    exchange_info = mockup_conv_layer._compute_exchange_info(x_global_shape,
                                                              kernel_size,
                                                              stride,
                                                              padding,
@@ -83,7 +83,7 @@ if P_x.active:
 
     in_subsizes = compute_subsizes(P_x.comm.dims,
                                    P_x.comm.Get_coords(P_x.rank),
-                                   global_tensor_shape)
+                                   x_global_shape)
 
     value = (1 + rank) * (10 ** rank)
     a = np.full(shape=in_subsizes, fill_value=value, dtype=float)
