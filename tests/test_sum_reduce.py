@@ -167,19 +167,19 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     # TODO #93: Change this to create a subtensor so we test when local tensors
     # have different sizes.  Then, the output size will also be different, which
     # we will have to get from `y` itself.
-    tensor_sizes = np.asarray(x_global_shape)
+    x_local_shape = np.asarray(x_global_shape)
 
     layer = SumReduce(P_x, P_y, transpose_src=transpose_src)
 
     x = NoneTensor()
     if P_x.active:
-        x = torch.Tensor(np.random.randn(*tensor_sizes))
+        x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     dy = NoneTensor()
     if P_y.active:
         # Adjoint Input
-        dy = torch.Tensor(np.random.randn(*tensor_sizes))
+        dy = torch.Tensor(np.random.randn(*x_local_shape))
 
     # y = F @ x
     y = layer(x)
