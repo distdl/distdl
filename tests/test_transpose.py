@@ -136,7 +136,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.transpose import Transpose
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -154,7 +154,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
 
     # The global tensor size is the same for x and y
-    layer = DistributedTranspose(P_x, P_y)
+    layer = Transpose(P_x, P_y)
 
     # Forward Input
     x = NoneTensor()
@@ -195,7 +195,7 @@ def test_excepts_mismatched_partitions(barrier_fence_fixture,
     import numpy as np
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.transpose import Transpose
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -217,7 +217,7 @@ def test_excepts_mismatched_partitions(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        DistributedTranspose(P_x, P_y)
+        Transpose(P_x, P_y)
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
@@ -228,7 +228,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.transpose import Transpose
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -254,7 +254,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(P_x, P_y)
+        layer = Transpose(P_x, P_y)
 
         # Forward Input
         x = NoneTensor()
@@ -276,7 +276,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.transpose import Transpose
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -302,7 +302,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(P_x, P_y)
+        layer = Transpose(P_x, P_y)
 
         # Forward Input
         x = NoneTensor()
@@ -324,7 +324,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.transpose import Transpose
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -351,7 +351,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
-        layer = DistributedTranspose(P_x, P_y)
+        layer = Transpose(P_x, P_y)
 
         # Forward Input
         x = NoneTensor()

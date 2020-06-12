@@ -12,4 +12,4 @@ from .pooling import DistributedAvgPool2d  # noqa: F401
 from .pooling import DistributedMaxPool1d  # noqa: F401
 from .pooling import DistributedMaxPool2d  # noqa: F401
 from .sum_reduce import SumReduce  # noqa: F401
-from .transpose import DistributedTranspose  # noqa: F401
+from .transpose import Transpose  # noqa: F401
