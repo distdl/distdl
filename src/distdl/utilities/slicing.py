@@ -5,7 +5,7 @@ MAX_INT = np.iinfo(INDEX_DTYPE).max
 MIN_INT = np.iinfo(INDEX_DTYPE).min
 
 
-def compute_subsizes(dims, coords, sizes):
+def compute_subshape(dims, coords, sizes):
 
     dims = np.atleast_1d(dims)
     coords = np.atleast_1d(coords)
@@ -30,7 +30,7 @@ def compute_starts(dims, coords, sizes):
 def compute_stops(dims, coords, sizes):
 
     starts = compute_starts(dims, coords, sizes)
-    subsizes = compute_subsizes(dims, coords, sizes)
+    subsizes = compute_subshape(dims, coords, sizes)
     stops = starts + subsizes
 
     return stops

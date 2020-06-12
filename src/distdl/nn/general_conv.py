@@ -9,7 +9,7 @@ from distdl.nn.padnd import PadNd
 from distdl.nn.sum_reduce import SumReduce
 from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
-from distdl.utilities.slicing import compute_subsizes
+from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.slicing import range_coords
 from distdl.utilities.torch import NoneTensor
 
@@ -183,7 +183,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # Do this before checking serial so that the layer works properly
             # in the serial case
-            local_channels = compute_subsizes(P_channels, P_w.coords[0:2], [out_channels, in_channels])
+            local_channels = compute_subshape(P_channels, P_w.coords[0:2], [out_channels, in_channels])
             local_out_channels, local_in_channels = local_channels
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels

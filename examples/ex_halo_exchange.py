@@ -8,7 +8,7 @@ from distdl.nn.halo_mixin import HaloMixin
 from distdl.nn.padnd import PadNd
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.misc import DummyContext
-from distdl.utilities.slicing import compute_subsizes
+from distdl.utilities.slicing import compute_subshape
 
 
 class MockupConvLayer(HaloMixin):
@@ -81,7 +81,7 @@ if P_x.active:
     recv_buffer_shape = exchange_info[1]
     send_buffer_shape = exchange_info[2]
 
-    x_local_shape = compute_subsizes(P_x.comm.dims,
+    x_local_shape = compute_subshape(P_x.comm.dims,
                                      P_x.comm.Get_coords(P_x.rank),
                                      x_global_shape)
 
