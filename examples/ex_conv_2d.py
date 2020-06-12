@@ -22,8 +22,10 @@ layer = DistributedConv2d(P_cart, in_channels=1, out_channels=1, kernel_size=[3,
 
 x = NoneTensor()
 if P_cart.active:
-    input_tensor_sizes = compute_subsizes(P_cart.dims, P_cart.cartesian_coordinates(P_cart.rank), x_global_shape)
-    x = torch.Tensor(np.ones(shape=input_tensor_sizes) * (P_cart.rank + 1))
+    x_local_shape = compute_subsizes(P_cart.dims,
+                                     P_cart.cartesian_coordinates(P_cart.rank),
+                                     x_global_shape)
+    x = torch.Tensor(np.ones(shape=x_local_shape) * (P_cart.rank + 1))
 x.requires_grad = True
 
 print_sequential(P_world.comm, f'rank = {P_world.rank}, input =\n{x}')

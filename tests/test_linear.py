@@ -84,10 +84,10 @@ def test_linear_adjoint_input(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        input_tensor_sizes = compute_subsizes(P_x.dims,
-                                              P_x.coords,
-                                              x_global_shape)
-        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+        x_local_shape = compute_subsizes(P_x.dims,
+                                         P_x.coords,
+                                         x_global_shape)
+        x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     y = layer(x)
@@ -158,10 +158,10 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        input_tensor_sizes = compute_subsizes(P_x.dims,
-                                              P_x.coords,
-                                              x_global_shape)
-        x = torch.Tensor(np.random.randn(*input_tensor_sizes))
+        x_local_shape = compute_subsizes(P_x.dims,
+                                         P_x.coords,
+                                         x_global_shape)
+        x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     y = layer(x)
@@ -234,15 +234,15 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
 
     x = NoneTensor()
     if P_x.active:
-        input_tensor_sizes = compute_subsizes(P_x.dims,
-                                              P_x.coords,
-                                              x_global_shape)
+        x_local_shape = compute_subsizes(P_x.dims,
+                                         P_x.coords,
+                                         x_global_shape)
         # For this test, we are only testing to see if the adjoint works
         # correctly for the bias term.  But the adjoint test only works on the
         # Jacobian of the linear layer.  The Jacobian block for b is 0 for x and
         # W, so killing x makes the forward operator equal to its Jacobian and
         # we can test to see that adjoint is computed correctly.
-        x = torch.zeros(*input_tensor_sizes)
+        x = torch.zeros(*x_local_shape)
     x.requires_grad = True
 
     y = layer(x)
