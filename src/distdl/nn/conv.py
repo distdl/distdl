@@ -99,6 +99,10 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
 
     def _distdl_module_setup(self, input):
 
+        self._distdl_is_setup = True
+        self._input_shape = input[0].shape
+        self._input_requires_grad = input[0].requires_grad
+
         if not self.P_x.active:
             return
 
@@ -144,10 +148,6 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         unpad_shape = np.asarray(unpad_shape)
 
         self.unpad_layer = UnpadNd(unpad_shape, value=0)
-
-        self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
 
     def _distdl_module_teardown(self, input):
 
