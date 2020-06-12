@@ -21,7 +21,7 @@ layer = DistributedConv1d(P_cart, in_channels=1, out_channels=1, kernel_size=[3]
 x = NoneTensor()
 if P_cart.active:
     x_local_shape = compute_subshape(P_cart.dims,
-                                     P_cart.cartesian_coordinates(P_cart.rank),
+                                     P_cart.coords,
                                      x_global_shape)
     x = torch.Tensor(np.ones(shape=x_local_shape) * (P_cart.rank + 1))
 x.requires_grad = True

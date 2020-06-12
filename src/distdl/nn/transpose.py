@@ -104,7 +104,7 @@ class DistributedTranspose(Module):
         # have input data.  It is possible to have both input and output data,
         # either input or output data, or neither.  Hence the active guard.
         if self.P_x.active:
-            in_coords = self.P_x.cartesian_coordinates(self.P_x.rank)
+            in_coords = self.P_x.coords
 
             # Compute our overlaps for each output subpartition.
             for rank, out_coords in enumerate(range_coords(out_dims)):
@@ -123,7 +123,7 @@ class DistributedTranspose(Module):
         # We only need to obtain data from the input partition if we actually
         # have output data.
         if self.P_y.active:
-            out_coords = self.P_y.cartesian_coordinates(self.P_y.rank)
+            out_coords = self.P_y.coords
 
             # Compute our overlaps for each input subpartition.
             for rank, in_coords in enumerate(range_coords(in_dims)):
