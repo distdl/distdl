@@ -159,19 +159,19 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Forward Input
     x = NoneTensor()
     if P_x.active:
-        in_subsizes = compute_subsizes(P_x.comm.dims,
-                                       P_x.comm.Get_coords(P_x.rank),
-                                       x_global_shape)
-        x = torch.Tensor(np.random.randn(*in_subsizes))
+        x_local_shape = compute_subsizes(P_x.comm.dims,
+                                         P_x.comm.Get_coords(P_x.rank),
+                                         x_global_shape)
+        x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
     # Adjoint Input
     dy = NoneTensor()
     if P_y.active:
-        out_subsizes = compute_subsizes(P_y.comm.dims,
-                                        P_y.comm.Get_coords(P_y.rank),
-                                        x_global_shape)
-        dy = torch.Tensor(np.random.randn(*out_subsizes))
+        y_local_shape = compute_subsizes(P_y.comm.dims,
+                                         P_y.comm.Get_coords(P_y.rank),
+                                         x_global_shape)
+        dy = torch.Tensor(np.random.randn(*y_local_shape))
 
     # y = F @ x
     y = layer(x)
@@ -259,10 +259,10 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            in_subsizes = compute_subsizes(P_x.comm.dims,
-                                           P_x.comm.Get_coords(P_x.rank),
-                                           x_global_shape)
-            x = torch.Tensor(np.random.randn(*in_subsizes))
+            x_local_shape = compute_subsizes(P_x.comm.dims,
+                                             P_x.comm.Get_coords(P_x.rank),
+                                             x_global_shape)
+            x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
 
         layer(x)
@@ -307,10 +307,10 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            in_subsizes = compute_subsizes(P_x.comm.dims,
-                                           P_x.comm.Get_coords(P_x.rank),
-                                           x_global_shape)
-            x = torch.Tensor(np.random.randn(*in_subsizes))
+            x_local_shape = compute_subsizes(P_x.comm.dims,
+                                             P_x.comm.Get_coords(P_x.rank),
+                                             x_global_shape)
+            x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
 
         layer(x)
@@ -356,10 +356,10 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         # Forward Input
         x = NoneTensor()
         if P_x.active:
-            in_subsizes = compute_subsizes(P_x.comm.dims,
-                                           P_x.comm.Get_coords(P_x.rank),
-                                           x_global_shape)
-            x = torch.Tensor(np.random.randn(*in_subsizes))
+            x_local_shape = compute_subsizes(P_x.comm.dims,
+                                             P_x.comm.Get_coords(P_x.rank),
+                                             x_global_shape)
+            x = torch.Tensor(np.random.randn(*x_local_shape))
         x.requires_grad = True
 
         layer(x)

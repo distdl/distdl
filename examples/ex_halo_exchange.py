@@ -81,12 +81,12 @@ if P_x.active:
     recv_buffer_sizes = exchange_info[1]
     send_buffer_sizes = exchange_info[2]
 
-    in_subsizes = compute_subsizes(P_x.comm.dims,
-                                   P_x.comm.Get_coords(P_x.rank),
-                                   x_global_shape)
+    x_local_shape = compute_subsizes(P_x.comm.dims,
+                                     P_x.comm.Get_coords(P_x.rank),
+                                     x_global_shape)
 
     value = (1 + rank) * (10 ** rank)
-    a = np.full(shape=in_subsizes, fill_value=value, dtype=float)
+    a = np.full(shape=x_local_shape, fill_value=value, dtype=float)
 
     forward_input_padnd_layer = PadNd(halo_sizes.astype(int), value=0, partition=P_x)
     adjoint_input_padnd_layer = PadNd(halo_sizes.astype(int), value=value, partition=P_x)

@@ -30,10 +30,10 @@ layer = DistributedTranspose(P_x, P_y)
 
 x = NoneTensor()
 if P_x.active:
-    in_subsizes = slicing.compute_subsizes(P_x.comm.dims,
-                                           P_x.comm.Get_coords(P_x.rank),
-                                           tensor_sizes)
-    x = np.zeros(in_subsizes) + P_x.rank + 1
+    x_local_shape = slicing.compute_subsizes(P_x.comm.dims,
+                                             P_x.comm.Get_coords(P_x.rank),
+                                             tensor_sizes)
+    x = np.zeros(x_local_shape) + P_x.rank + 1
     x = torch.from_numpy(x)
 x.requires_grad = True
 print_sequential(P_world.comm, f"x_{P_world.rank}: {x}")
@@ -43,10 +43,10 @@ print_sequential(P_world.comm, f"y_{P_world.rank}: {y}")
 
 dy = NoneTensor()
 if P_y.active:
-    out_subsizes = slicing.compute_subsizes(P_y.comm.dims,
-                                            P_y.comm.Get_coords(P_y.rank),
-                                            tensor_sizes)
-    dy = np.zeros(out_subsizes) + P_y.rank + 1
+    y_local_shape = slicing.compute_subsizes(P_y.comm.dims,
+                                             P_y.comm.Get_coords(P_y.rank),
+                                             tensor_sizes)
+    dy = np.zeros(y_local_shape) + P_y.rank + 1
     dy = torch.from_numpy(dy)
 
 print_sequential(P_world.comm, f"dy_{P_world.rank}: {dy}")
