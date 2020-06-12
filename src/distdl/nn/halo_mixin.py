@@ -47,7 +47,7 @@ class HaloMixin:
                           mode='constant',
                           constant_values=1)
 
-        halo_sizes = self._compute_halo_sizes(partition_dims,
+        halo_shape = self._compute_halo_shape(partition_dims,
                                               partition_coords,
                                               x_global_shape,
                                               kernel_size,
@@ -55,13 +55,13 @@ class HaloMixin:
                                               padding,
                                               dilation)
 
-        recv_buffer_sizes = halo_sizes.copy()
+        recv_buffer_shape = halo_shape.copy()
 
-        send_buffer_sizes = np.zeros_like(halo_sizes)
+        send_buffer_shape = np.zeros_like(halo_shape)
 
         for i in range(dim):
             lcoords = [x - 1 if j == i else x for j, x in enumerate(partition_coords)]
-            nhalo = self._compute_halo_sizes(partition_dims,
+            nhalo = self._compute_halo_shape(partition_dims,
                                              lcoords,
                                              x_global_shape,
                                              kernel_size,
@@ -71,10 +71,10 @@ class HaloMixin:
             # If I have a left neighbor, my left send buffer size is my left
             # neighbor's right halo size
             if(lcoords[i] > -1):
-                send_buffer_sizes[i, 0] = nhalo[i, 1]
+                send_buffer_shape[i, 0] = nhalo[i, 1]
 
             rcoords = [x + 1 if j == i else x for j, x in enumerate(partition_coords)]
-            nhalo = self._compute_halo_sizes(partition_dims,
+            nhalo = self._compute_halo_shape(partition_dims,
                                              rcoords,
                                              x_global_shape,
                                              kernel_size,
@@ -84,10 +84,10 @@ class HaloMixin:
             # If I have a right neighbor, my right send buffer size is my right
             # neighbor's left halo size
             if(rcoords[i] < partition_dims[i]):
-                send_buffer_sizes[i, 1] = nhalo[i, 0]
+                send_buffer_shape[i, 1] = nhalo[i, 0]
 
         x_local_shape = compute_subsizes(partition_dims, partition_coords, x_global_shape)
-        halo_sizes_with_negatives = self._compute_halo_sizes(partition_dims,
+        halo_shape_with_negatives = self._compute_halo_shape(partition_dims,
                                                              partition_coords,
                                                              x_global_shape,
                                                              kernel_size,
@@ -95,26 +95,26 @@ class HaloMixin:
                                                              padding,
                                                              dilation,
                                                              require_nonnegative=False)
-        needed_ranges = self._compute_needed_ranges(x_local_shape, halo_sizes_with_negatives)
+        needed_ranges = self._compute_needed_ranges(x_local_shape, halo_shape_with_negatives)
 
-        halo_sizes = halo_sizes.astype(int)
+        halo_shape = halo_shape.astype(int)
         needed_ranges = needed_ranges.astype(int)
 
-        return halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges
+        return halo_shape, recv_buffer_shape, send_buffer_shape, needed_ranges
 
-    def _compute_needed_ranges(self, subsizes, halo_sizes):
+    def _compute_needed_ranges(self, subsizes, halo_shape):
 
-        ranges = np.zeros_like(halo_sizes)
+        ranges = np.zeros_like(halo_shape)
 
         # If we have a negative halo on the left, we want to not pass that
         # data to the torch layer
-        ranges[:, 0] = -1*np.minimum(0, halo_sizes[:, 0])
+        ranges[:, 0] = -1*np.minimum(0, halo_shape[:, 0])
 
         # The stop of the slice will be the data + the length of the two halos
         # and the last maximum is so that we dont shorten the stop (keeps the
         # parallel and sequential behavior exactly the same, but I dont think
         # it is strictly necessary)
-        ranges[:, 1] = subsizes[:] + np.maximum(0, halo_sizes[:, 0]) + np.maximum(0, halo_sizes[:, 1])
+        ranges[:, 1] = subsizes[:] + np.maximum(0, halo_shape[:, 0]) + np.maximum(0, halo_shape[:, 1])
 
         return ranges
 
@@ -123,7 +123,7 @@ class HaloMixin:
                          + 2*padding
                          - dilation*(kernel_size-1) - 1)/stride + 1).astype(in_sizes.dtype)
 
-    def _compute_halo_sizes(self,
+    def _compute_halo_shape(self,
                             dims,
                             coords,
                             x_global_shape,

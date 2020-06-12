@@ -52,7 +52,7 @@ if P_cart.active:
     padding = np.array([0])
     dilation = np.array([1])
 
-    halo_sizes, recv_buffer_sizes, send_buffer_sizes, needed_ranges = \
+    halo_shape, recv_buffer_shape, send_buffer_shape, needed_ranges = \
         layer._compute_exchange_info(x_global_shape,
                                      kernel_size,
                                      stride,
@@ -62,5 +62,5 @@ if P_cart.active:
                                      P_cart.dims,
                                      P_cart.coords)
 
-    print_sequential(cart_comm, f'rank = {rank}:\nhalo_sizes =\n{halo_sizes}\n\
-recv_buffer_sizes =\n{recv_buffer_sizes}\nsend_buffer_sizes =\n{send_buffer_sizes}\nneeded_ranges =\n{needed_ranges}')
+    print_sequential(cart_comm, f'rank = {rank}:\nhalo_shape =\n{halo_shape}\n\
+recv_buffer_shape =\n{recv_buffer_shape}\nsend_buffer_shape =\n{send_buffer_shape}\nneeded_ranges =\n{needed_ranges}')
