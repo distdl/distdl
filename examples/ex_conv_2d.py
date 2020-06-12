@@ -14,18 +14,18 @@ P_world = MPIPartition(MPI.COMM_WORLD)
 P_world.comm.Barrier()
 
 P = P_world.create_partition_inclusive(np.arange(4))
-P_cart = P.create_cartesian_topology_partition([1, 1, 2, 2])
+P_x = P.create_cartesian_topology_partition([1, 1, 2, 2])
 
 x_global_shape = np.array([1, 1, 10, 10])
 
-layer = DistributedConv2d(P_cart, in_channels=1, out_channels=1, kernel_size=[3, 3])
+layer = DistributedConv2d(P_x, in_channels=1, out_channels=1, kernel_size=[3, 3])
 
 x = NoneTensor()
-if P_cart.active:
-    x_local_shape = compute_subshape(P_cart.dims,
-                                     P_cart.coords,
+if P_x.active:
+    x_local_shape = compute_subshape(P_x.dims,
+                                     P_x.coords,
                                      x_global_shape)
-    x = torch.Tensor(np.ones(shape=x_local_shape) * (P_cart.rank + 1))
+    x = torch.Tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1))
 x.requires_grad = True
 
 print_sequential(P_world.comm, f'rank = {P_world.rank}, input =\n{x}')

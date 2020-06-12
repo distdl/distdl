@@ -39,13 +39,13 @@ P_size = np.prod(dims)
 use_ranks = ranks[:P_size]
 
 P = P_world.create_subpartition(use_ranks)
-P_cart = P.create_cartesian_subpartition(dims)
-rank = P_cart.rank
-cart_comm = P_cart.comm
+P_x = P.create_cartesian_subpartition(dims)
+rank = P_x.rank
+cart_comm = P_x.comm
 
 layer = MockupMaxPoolLayer()
 
-if P_cart.active:
+if P_x.active:
     x_global_shape = np.array([1, 1, 10])
     kernel_size = np.array([2])
     stride = np.array([2])
@@ -58,9 +58,9 @@ if P_cart.active:
                                      stride,
                                      padding,
                                      dilation,
-                                     P_cart.active,
-                                     P_cart.dims,
-                                     P_cart.coords)
+                                     P_x.active,
+                                     P_x.dims,
+                                     P_x.coords)
 
     print_sequential(cart_comm, f'rank = {rank}:\nhalo_shape =\n{halo_shape}\n\
 recv_buffer_shape =\n{recv_buffer_shape}\nsend_buffer_shape =\n{send_buffer_shape}\nneeded_ranges =\n{needed_ranges}')
