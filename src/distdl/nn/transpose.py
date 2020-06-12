@@ -65,11 +65,11 @@ class DistributedTranspose(Module):
         # Share the two indices with every worker in the union.  The first
         # column of data contains the source index and the second contains
         # the destination index.
-        local_indices = np.zeros(2, dtype=np.int)
-        local_indices[0] = P_x.rank if P_x.active else -1
-        local_indices[1] = P_y.rank if P_y.active else -1
+        data = np.array([P_x.rank if P_x.active else -1], dtype=np.int)
+        self.P_x_ranks = P_union.allgather_data(data)
 
-        self.union_indices = self.P_union.allgather_data(local_indices)
+        data = np.array([P_y.rank if P_y.active else -1], dtype=np.int)
+        self.P_y_ranks = P_union.allgather_data(data)
 
     def _distdl_module_setup(self, input):
 
@@ -115,7 +115,7 @@ class DistributedTranspose(Module):
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the output partner's rank in
                     # the common partition.
-                    partner = np.where(self.union_indices[:, 1] == rank)[0][0]
+                    partner = np.where(self.P_y_ranks == rank)[0][0]
                     self.in_data.append((sl, sz, partner))
                 else:
                     self.in_data.append((None, None, None))
@@ -134,7 +134,7 @@ class DistributedTranspose(Module):
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the input partner's rank in
                     # the common partition.
-                    partner = np.where(self.union_indices[:, 0] == rank)[0][0]
+                    partner = np.where(self.P_x_ranks == rank)[0][0]
                     self.out_data.append((sl, sz, partner))
                 else:
                     self.out_data.append((None, None, None))
