@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-class UnPadNdFunction(torch.autograd.Function):
+class UnpadNdFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, pad_width, value):
@@ -35,14 +35,14 @@ class UnPadNdFunction(torch.autograd.Function):
         return torch.tensor(result, requires_grad=grad_output.requires_grad).float(), None, None, None
 
 
-class UnPadNd(torch.nn.Module):
+class UnpadNd(torch.nn.Module):
 
     def __init__(self, pad_width, value):
 
-        super(UnPadNd, self).__init__()
+        super(UnpadNd, self).__init__()
 
         self.pad_width = pad_width
         self.value = value
 
     def forward(self, input):
-        return UnPadNdFunction.apply(input, self.pad_width, self.value)
+        return UnpadNdFunction.apply(input, self.pad_width, self.value)

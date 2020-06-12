@@ -6,7 +6,7 @@ from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.halo_mixin import HaloMixin
 from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
-from distdl.nn.unpadnd import UnPadNd
+from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.torch import NoneTensor
 
@@ -175,7 +175,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
             unpad_sizes.append(np.where(halo_size > 0, pad, 0))
         unpad_sizes = np.asarray(unpad_sizes)
 
-        self.unpad_layer = UnPadNd(unpad_sizes, value=0)
+        self.unpad_layer = UnpadNd(unpad_sizes, value=0)
 
         self._distdl_is_setup = True
         self._input_shape = input[0].shape
