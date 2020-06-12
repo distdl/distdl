@@ -54,7 +54,7 @@ def test_distributed_linear_adjoint_input(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.distributed_linear import DistributedLinear
+    from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
@@ -128,7 +128,7 @@ def test_distributed_linear_adjoint_weight(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.distributed_linear import DistributedLinear
+    from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
@@ -204,7 +204,7 @@ def test_distributed_linear_adjoint_bias(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.distributed_linear import DistributedLinear
+    from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
