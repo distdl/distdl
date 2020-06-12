@@ -76,7 +76,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # We do this after the sends so that they can get started before local
         # allocations.
         if P_y.active:
-            coords = P_y.cartesian_coordinates(P_y.rank)
+            coords = P_y.coords
             y_local_shape = compute_subshape(P_y.dims, coords, x_global_shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
@@ -158,7 +158,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 send_count += 1
 
         if P_x.active:
-            coords = P_x.cartesian_coordinates(P_x.rank)
+            coords = P_x.coords
             x_local_shape = compute_subshape(P_x.dims, coords, x_global_shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.

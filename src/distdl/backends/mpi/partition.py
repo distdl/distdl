@@ -250,7 +250,7 @@ class MPIPartition:
         src_index = -1
         if P_src.active:
             coords_src = np.zeros_like(src_dims)
-            c = P_src.cartesian_coordinates(P_src.rank)
+            c = P_src.coords
             if transpose_src:
                 coords_src[-src_dim:] = c[::-1]
                 src_index = cartesian_index_f(src_dims[match_loc],
@@ -267,7 +267,7 @@ class MPIPartition:
         # receive the broadcast from.
         dest_index = -1
         if P_dest.active:
-            coords_dest = P_dest.cartesian_coordinates(P_dest.rank)
+            coords_dest = P_dest.coords
             if transpose_dest:
                 coords_dest = coords_dest[::-1]
                 dest_index = cartesian_index_f(dest_dims[match_loc],
@@ -357,7 +357,7 @@ class MPIPartition:
         # the destination that we are reducing along.
         src_index = -1
         if P_src.active:
-            coords_src = P_src.cartesian_coordinates(P_src.rank)
+            coords_src = P_src.coords
             if transpose_src:
                 coords_src = coords_src[::-1]
                 src_index = cartesian_index_f(src_dims[match_loc],
@@ -374,7 +374,7 @@ class MPIPartition:
         dest_index = -1
         if P_dest.active:
             coords_dest = np.zeros_like(dest_dims)
-            c = P_dest.cartesian_coordinates(P_dest.rank)
+            c = P_dest.coords
             if transpose_dest:
                 coords_dest[:dest_dim] = c
                 coords_dest = coords_dest[::-1]
