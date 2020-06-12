@@ -1,6 +1,5 @@
 import numpy as np
 
-from distdl.backends.mpi.exchange_tensor import compute_output_tensor_structure
 from distdl.nn.module import Module
 
 
@@ -56,9 +55,9 @@ class SumReduce(Module):
             self.input_tensor_structure = (input[0].requires_grad,
                                            len(input[0].shape),
                                            np.array(input[0].shape, dtype=np.int))
-            self.output_tensor_structure = compute_output_tensor_structure(input[0],
-                                                                           self.P_send,
-                                                                           self.P_recv)
+            self.output_tensor_structure = self._distdl_backend.compute_output_tensor_structure(input[0],
+                                                                                                self.P_send,
+                                                                                                self.P_recv)
 
         self._distdl_is_setup = True
         self._input_shape = input[0].shape
