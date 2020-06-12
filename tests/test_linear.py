@@ -54,7 +54,7 @@ def test_linear_adjoint_input(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.linear import Linear
+    from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -77,10 +77,10 @@ def test_linear_adjoint_input(barrier_fence_fixture,
     x_global_shape = np.asarray(x_global_shape)
     y_global_shape = np.asarray(y_global_shape)
 
-    layer = Linear(P_x, P_y, P_w,
-                   x_global_shape[1],
-                   y_global_shape[1],
-                   bias=False)
+    layer = DistributedLinear(P_x, P_y, P_w,
+                              x_global_shape[1],
+                              y_global_shape[1],
+                              bias=False)
 
     x = NoneTensor()
     if P_x.active:
@@ -128,7 +128,7 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.linear import Linear
+    from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -151,10 +151,10 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
     x_global_shape = np.asarray(x_global_shape)
     y_global_shape = np.asarray(y_global_shape)
 
-    layer = Linear(P_x, P_y, P_w,
-                   x_global_shape[1],
-                   y_global_shape[1],
-                   bias=False)
+    layer = DistributedLinear(P_x, P_y, P_w,
+                              x_global_shape[1],
+                              y_global_shape[1],
+                              bias=False)
 
     x = NoneTensor()
     if P_x.active:
@@ -200,11 +200,12 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
                              P_w_ranks, P_w_shape,
                              x_global_shape,
                              y_global_shape):
+
     import numpy as np
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.linear import Linear
+    from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import NoneTensor
 
@@ -227,10 +228,10 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
     x_global_shape = np.asarray(x_global_shape)
     y_global_shape = np.asarray(y_global_shape)
 
-    layer = Linear(P_x, P_y, P_w,
-                   x_global_shape[1],
-                   y_global_shape[1],
-                   bias=True)
+    layer = DistributedLinear(P_x, P_y, P_w,
+                              x_global_shape[1],
+                              y_global_shape[1],
+                              bias=True)
 
     x = NoneTensor()
     if P_x.active:
