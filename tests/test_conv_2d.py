@@ -211,7 +211,7 @@ size_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
         [1, 5, 10, 10],  # x_global_shape
-        [1, 10, 5, 5],  # local_output_tensor_size
+        [1, 10, 5, 5],  # y_local_shape
         [1, 1],  # padding
         4,  # passed to comm_split_fixture, required MPI ranks
         id="distributed",
@@ -222,7 +222,7 @@ size_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_topo
         [1, 5, 10, 10],  # x_global_shape
-        [1, 10, 4, 4],  # local_output_tensor_size
+        [1, 10, 4, 4],  # y_local_shape
         [0, 0],  # padding
         4,  # passed to comm_split_fixture, required MPI ranks
         id="distributed",
@@ -233,16 +233,16 @@ size_parametrizations.append(
 
 @pytest.mark.parametrize("P_x_ranks, P_x_topo,"
                          "x_global_shape,"
-                         "local_output_tensor_size,"
+                         "y_local_shape,"
                          "padding,"
                          "comm_split_fixture",
                          size_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_simple_conv2d_sizes(barrier_fence_fixture,
+def test_simple_conv2d_shape(barrier_fence_fixture,
                              comm_split_fixture,
                              P_x_ranks, P_x_topo,
                              x_global_shape,
-                             local_output_tensor_size,
+                             y_local_shape,
                              padding):
 
     import numpy as np
@@ -283,4 +283,4 @@ def test_simple_conv2d_sizes(barrier_fence_fixture,
     y = layer(x)
 
     if P_x.active:
-        assert(np.array_equal(np.array(y.shape), np.asarray(local_output_tensor_size)))
+        assert(np.array_equal(np.array(y.shape), np.asarray(y_local_shape)))

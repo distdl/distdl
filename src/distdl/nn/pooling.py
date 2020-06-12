@@ -45,7 +45,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
         self.pool_layer = self.TorchPoolType(*args, **kwargs)
 
-        # We need the halo sizes, and other info, to fully populate the pad,
+        # We need the halo shape, and other info, to fully populate the pad,
         # and halo exchange layers.
 
         self.pad_layer = None
@@ -55,7 +55,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         self.needed_slices = None
 
         # For the halo layer we also defer construction, so that we can have
-        # the halo sizes for the input.  The halo will allocate its own
+        # the halo shape for the input.  The halo will allocate its own
         # buffers, but it needs this information at construction to be able
         # to do this in the pre-forward hook.
 
