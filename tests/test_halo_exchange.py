@@ -2,65 +2,17 @@ import numpy as np
 import pytest
 from adjoint_test import check_adjoint_test_tight
 
-from distdl.nn.halo_mixin import HaloMixin
+from distdl.nn.mixins.conv_mixin import ConvMixin
+from distdl.nn.mixins.halo_mixin import HaloMixin
+from distdl.nn.mixins.pooling_mixin import PoolingMixin
 
 
-class MockupConvLayer(HaloMixin):
-
-    # These mappings come from basic knowledge of convolutions
-    def _compute_min_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take stride and dilation into account
-        # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_size - 1) / 2
-
-        # for even sized kernels, always shortchange the left side
-        kernel_offsets[kernel_size % 2 == 0] -= 1
-
-        bases = idx + kernel_offsets - padding
-        return bases - kernel_offsets
-
-    def _compute_max_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take stride and dilation into account
-        # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_size - 1) / 2
-
-        bases = idx + kernel_offsets - padding
-        return bases + kernel_offsets
+class MockConvLayer(HaloMixin, ConvMixin):
+    pass
 
 
-class MockupPoolingLayer(HaloMixin):
-
-    def _compute_min_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + 0
-
-    def _compute_max_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_size - 1
+class MockPoolLayer(HaloMixin, PoolingMixin):
+    pass
 
 
 adjoint_parametrizations = []
@@ -74,7 +26,7 @@ adjoint_parametrizations.append(
         [1, 1, 1, 1],  # stride
         [0, 0, 0, 0],  # padding
         [1, 1, 1, 1],  # dilation
-        MockupConvLayer,  # MockupKernelStyle
+        MockConvLayer,  # MockKernelStyle
         9,  # passed to comm_split_fixture, required MPI ranks
         id="conv-same_padding",
         marks=[pytest.mark.mpi(min_size=9)]
@@ -89,7 +41,7 @@ adjoint_parametrizations.append(
         [2],  # stride
         [0],  # padding
         [1],  # dilation
-        MockupConvLayer,  # MockupKernelStyle
+        MockConvLayer,  # MockKernelStyle
         3,  # passed to comm_split_fixture, required MPI ranks
         id="conv-same_padding",
         marks=[pytest.mark.mpi(min_size=3)]
@@ -103,7 +55,7 @@ adjoint_parametrizations.append(
                          "stride,"
                          "padding,"
                          "dilation,"
-                         "MockupKernelStyle,"
+                         "MockKernelStyle,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
@@ -112,7 +64,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                P_x_ranks, P_x_shape,
                                x_global_shape,
                                kernel_size, stride, padding, dilation,
-                               MockupKernelStyle):
+                               MockKernelStyle):
     import numpy as np
     import torch
 
@@ -140,7 +92,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     recv_buffer_shape = None
     send_buffer_shape = None
     if P_x.active:
-        mockup_layer = MockupKernelStyle()
+        mockup_layer = MockKernelStyle()
         exchange_info = mockup_layer._compute_exchange_info(x_global_shape,
                                                             kernel_size,
                                                             stride,

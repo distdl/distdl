@@ -4,46 +4,16 @@ from mpi4py import MPI
 
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.halo_exchange import HaloExchange
-from distdl.nn.halo_mixin import HaloMixin
+from distdl.nn.mixins.conv_mixin import ConvMixin
+from distdl.nn.mixins.halo_mixin import HaloMixin
 from distdl.nn.padnd import PadNd
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.misc import DummyContext
 from distdl.utilities.slicing import compute_subshape
 
 
-class MockupConvLayer(HaloMixin):
-
-    # These mappings come from basic knowledge of convolutions
-    def _compute_min_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take stride and dilation into account
-        # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_size - 1) / 2
-
-        # for even sized kernels, always shortchange the left side
-        kernel_offsets[kernel_size % 2 == 0] -= 1
-
-        bases = idx + kernel_offsets - padding
-        return bases - kernel_offsets
-
-    def _compute_max_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take stride and dilation into account
-        # padding might also not be correct in these cases...
-        kernel_offsets = (kernel_size - 1) / 2
-
-        bases = idx + kernel_offsets - padding
-        return bases + kernel_offsets
+class MockConvLayer(HaloMixin, ConvMixin):
+    pass
 
 
 torch.set_printoptions(linewidth=200)
@@ -63,7 +33,7 @@ cart_comm = P_x.comm
 x_global_shape = np.array([1, 1, 10, 12])
 
 if P_x.active:
-    mockup_conv_layer = MockupConvLayer()
+    mockup_conv_layer = MockConvLayer()
     kernel_size = [1, 1, 3, 3]
     stride = [1, 1, 1, 1]
     padding = [0, 0, 0, 0]

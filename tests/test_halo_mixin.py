@@ -2,32 +2,12 @@ import numpy as np
 from mpi4py import MPI
 
 from distdl.backends.mpi.partition import MPIPartition
-from distdl.nn.halo_mixin import HaloMixin
+from distdl.nn.mixins.halo_mixin import HaloMixin
+from distdl.nn.mixins.pooling_mixin import PoolingMixin
 
 
-class MockupMaxPoolLayer(HaloMixin):
-
-    # These mappings come from the PyTorch documentation
-
-    def _compute_min_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + 0
-
-    def _compute_max_input_range(self,
-                                 idx,
-                                 kernel_size,
-                                 stride,
-                                 padding,
-                                 dilation):
-
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_size - 1
+class MockPoolLayer(HaloMixin, PoolingMixin):
+    pass
 
 
 def test_mixin():
@@ -43,7 +23,7 @@ def test_mixin():
     P_x = P.create_cartesian_topology_partition(shape)
     rank = P_x.rank
 
-    layer = MockupMaxPoolLayer()
+    layer = MockPoolLayer()
 
     x_global_shape = np.array([1, 1, 10])
     kernel_size = np.array([2])
