@@ -42,19 +42,19 @@ adjoint_parametrizations.append(
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_distributed_linear_adjoint_input(barrier_fence_fixture,
-                                          comm_split_fixture,
-                                          P_x_ranks, P_x_topo,
-                                          P_y_ranks, P_y_topo,
-                                          P_w_ranks, P_w_topo,
-                                          x_global_tensor_size,
-                                          y_global_tensor_size):
+def test_linear_adjoint_input(barrier_fence_fixture,
+                              comm_split_fixture,
+                              P_x_ranks, P_x_topo,
+                              P_y_ranks, P_y_topo,
+                              P_w_ranks, P_w_topo,
+                              x_global_tensor_size,
+                              y_global_tensor_size):
 
     import numpy as np
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.linear import DistributedLinear
+    from distdl.nn.linear import Linear
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
@@ -77,10 +77,10 @@ def test_distributed_linear_adjoint_input(barrier_fence_fixture,
     x_global_tensor_size = np.asarray(x_global_tensor_size)
     y_global_tensor_size = np.asarray(y_global_tensor_size)
 
-    layer = DistributedLinear(P_x, P_y, P_w,
-                              x_global_tensor_size[1],
-                              y_global_tensor_size[1],
-                              bias=False)
+    layer = Linear(P_x, P_y, P_w,
+                   x_global_tensor_size[1],
+                   y_global_tensor_size[1],
+                   bias=False)
 
     x = NoneTensor()
     if P_x.active:
@@ -116,19 +116,19 @@ def test_distributed_linear_adjoint_input(barrier_fence_fixture,
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_distributed_linear_adjoint_weight(barrier_fence_fixture,
-                                           comm_split_fixture,
-                                           P_x_ranks, P_x_topo,
-                                           P_y_ranks, P_y_topo,
-                                           P_w_ranks, P_w_topo,
-                                           x_global_tensor_size,
-                                           y_global_tensor_size):
+def test_linear_adjoint_weight(barrier_fence_fixture,
+                               comm_split_fixture,
+                               P_x_ranks, P_x_topo,
+                               P_y_ranks, P_y_topo,
+                               P_w_ranks, P_w_topo,
+                               x_global_tensor_size,
+                               y_global_tensor_size):
 
     import numpy as np
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.linear import DistributedLinear
+    from distdl.nn.linear import Linear
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
@@ -151,10 +151,10 @@ def test_distributed_linear_adjoint_weight(barrier_fence_fixture,
     x_global_tensor_size = np.asarray(x_global_tensor_size)
     y_global_tensor_size = np.asarray(y_global_tensor_size)
 
-    layer = DistributedLinear(P_x, P_y, P_w,
-                              x_global_tensor_size[1],
-                              y_global_tensor_size[1],
-                              bias=False)
+    layer = Linear(P_x, P_y, P_w,
+                   x_global_tensor_size[1],
+                   y_global_tensor_size[1],
+                   bias=False)
 
     x = NoneTensor()
     if P_x.active:
@@ -193,18 +193,18 @@ def test_distributed_linear_adjoint_weight(barrier_fence_fixture,
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_distributed_linear_adjoint_bias(barrier_fence_fixture,
-                                         comm_split_fixture,
-                                         P_x_ranks, P_x_topo,
-                                         P_y_ranks, P_y_topo,
-                                         P_w_ranks, P_w_topo,
-                                         x_global_tensor_size,
-                                         y_global_tensor_size):
+def test_linear_adjoint_bias(barrier_fence_fixture,
+                             comm_split_fixture,
+                             P_x_ranks, P_x_topo,
+                             P_y_ranks, P_y_topo,
+                             P_w_ranks, P_w_topo,
+                             x_global_tensor_size,
+                             y_global_tensor_size):
     import numpy as np
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.linear import DistributedLinear
+    from distdl.nn.linear import Linear
     from distdl.utilities.slicing import compute_subsizes
     from distdl.utilities.torch import NoneTensor
 
@@ -227,10 +227,10 @@ def test_distributed_linear_adjoint_bias(barrier_fence_fixture,
     x_global_tensor_size = np.asarray(x_global_tensor_size)
     y_global_tensor_size = np.asarray(y_global_tensor_size)
 
-    layer = DistributedLinear(P_x, P_y, P_w,
-                              x_global_tensor_size[1],
-                              y_global_tensor_size[1],
-                              bias=True)
+    layer = Linear(P_x, P_y, P_w,
+                   x_global_tensor_size[1],
+                   y_global_tensor_size[1],
+                   bias=True)
 
     x = NoneTensor()
     if P_x.active:

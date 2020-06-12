@@ -4,7 +4,7 @@ from .conv import DistributedConv2d  # noqa: F401
 from .conv import DistributedConv3d  # noqa: F401
 from .halo_exchange import HaloExchange  # noqa: F401
 from .halo_mixin import HaloMixin  # noqa: F401
-from .linear import DistributedLinear  # noqa: F401
+from .linear import Linear  # noqa: F401
 from .module import Module  # noqa: F401
 from .padnd import PadNd  # noqa: F401
 from .pooling import DistributedAvgPool1d  # noqa: F401
