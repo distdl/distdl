@@ -3,7 +3,7 @@ import torch
 from mpi4py import MPI
 
 from distdl.utilities.slicing import compute_subshape
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 
 class DistributedTransposeFunction(torch.autograd.Function):
@@ -43,7 +43,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         requests = []
 
         # Default everyone to output nothing
-        output = NoneTensor()
+        output = zero_volume_tensor()
 
         # If I am getting data, recv my output parts
         recv_count = 0
@@ -127,7 +127,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         requests = []
 
         # Default everyone to output None
-        grad_input = NoneTensor()
+        grad_input = zero_volume_tensor()
 
         # Recv my input parts
         recv_count = 0

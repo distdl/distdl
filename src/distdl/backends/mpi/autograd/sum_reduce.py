@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 
 class SumReduceFunction(torch.autograd.Function):
@@ -23,7 +23,7 @@ class SumReduceFunction(torch.autograd.Function):
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        output = NoneTensor()
+        output = zero_volume_tensor()
 
         requests = []
 
@@ -70,7 +70,7 @@ class SumReduceFunction(torch.autograd.Function):
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        grad_input = NoneTensor()
+        grad_input = zero_volume_tensor()
 
         requests = []
 

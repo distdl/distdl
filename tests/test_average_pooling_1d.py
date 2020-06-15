@@ -52,7 +52,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.pooling import DistributedAvgPool1d
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -70,7 +70,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
                                  kernel_size=[2],
                                  stride=[2])
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -80,7 +80,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_x.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 

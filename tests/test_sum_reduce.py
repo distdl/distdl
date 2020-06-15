@@ -149,7 +149,7 @@ def test_broadcast_adjoint(barrier_fence_fixture,
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.sum_reduce import SumReduce
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -171,12 +171,12 @@ def test_broadcast_adjoint(barrier_fence_fixture,
 
     layer = SumReduce(P_x, P_y, transpose_src=transpose_src)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x = torch.Tensor(np.random.randn(*x_local_shape))
     x.requires_grad = True
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         # Adjoint Input
         dy = torch.Tensor(np.random.randn(*x_local_shape))

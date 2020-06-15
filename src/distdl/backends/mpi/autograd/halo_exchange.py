@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 
 class HaloExchangeFunction(torch.autograd.Function):
@@ -16,7 +16,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         ctx.P_x = P_x
 
         if not P_x.active:
-            return NoneTensor()
+            return zero_volume_tensor()
 
         ctx.mark_dirty(input)
 
@@ -73,7 +73,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         P_x = ctx.P_x
 
         if not P_x.active:
-            return NoneTensor(), None, None, None, None
+            return zero_volume_tensor(), None, None, None, None
 
         if P_x.size == 1:
             return grad_output, None, None, None, None

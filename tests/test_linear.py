@@ -56,7 +56,7 @@ def test_linear_adjoint_input(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -82,7 +82,7 @@ def test_linear_adjoint_input(barrier_fence_fixture,
                               y_global_shape[1],
                               bias=False)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -92,7 +92,7 @@ def test_linear_adjoint_input(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
@@ -130,7 +130,7 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -156,7 +156,7 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
                               y_global_shape[1],
                               bias=False)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -166,14 +166,14 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
     y.backward(dy)
 
-    W = NoneTensor()
-    dW = NoneTensor()
+    W = zero_volume_tensor()
+    dW = zero_volume_tensor()
     if P_w.active:
         W = layer.sublinear.weight.detach()
         dW = layer.sublinear.weight.grad.detach()
@@ -207,7 +207,7 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.linear import DistributedLinear
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -233,7 +233,7 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
                               y_global_shape[1],
                               bias=True)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -248,14 +248,14 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
     y.backward(dy)
 
-    b = NoneTensor()
-    db = NoneTensor()
+    b = zero_volume_tensor()
+    db = zero_volume_tensor()
     if P_w.active and P_w.index[-1] == 0:
         b = layer.sublinear.bias.detach()
         db = layer.sublinear.bias.grad.detach()

@@ -138,7 +138,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -157,7 +157,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     layer = DistributedTranspose(P_x, P_y)
 
     # Forward Input
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -166,7 +166,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     x.requires_grad = True
 
     # Adjoint Input
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         y_local_shape = compute_subshape(P_y.shape,
                                          P_y.index,
@@ -230,7 +230,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -257,7 +257,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
         layer = DistributedTranspose(P_x, P_y)
 
         # Forward Input
-        x = NoneTensor()
+        x = zero_volume_tensor()
         if P_x.active:
             x_local_shape = compute_subshape(P_x.shape,
                                              P_x.index,
@@ -278,7 +278,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -305,7 +305,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         layer = DistributedTranspose(P_x, P_y)
 
         # Forward Input
-        x = NoneTensor()
+        x = zero_volume_tensor()
         if P_x.active:
             x_local_shape = compute_subshape(P_x.shape,
                                              P_x.index,
@@ -326,7 +326,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -354,7 +354,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         layer = DistributedTranspose(P_x, P_y)
 
         # Forward Input
-        x = NoneTensor()
+        x = zero_volume_tensor()
         if P_x.active:
             x_local_shape = compute_subshape(P_x.shape,
                                              P_x.index,
