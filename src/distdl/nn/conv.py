@@ -9,7 +9,7 @@ from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 
 class DistributedConvBase(Module, HaloMixin, ConvMixin):
@@ -47,10 +47,10 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
                 self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
 
         else:
-            self.weight = NoneTensor()
+            self.weight = zero_volume_tensor()
 
             if self.conv_layer.bias is not None:
-                self.bias = NoneTensor()
+                self.bias = zero_volume_tensor()
 
         self.weight.requires_grad = self.conv_layer.weight.requires_grad
 

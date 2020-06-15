@@ -72,7 +72,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     from distdl.nn.halo_exchange import HaloExchange
     from distdl.nn.padnd import PadNd
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -108,7 +108,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     pad_layer = PadNd(halo_shape, value=0)
     halo_layer = HaloExchange(P_x, halo_shape, recv_buffer_shape, send_buffer_shape)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -117,7 +117,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         x = pad_layer.forward(x)
     x.requires_grad = True
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_x.active:
         dy = torch.tensor(np.random.randn(*x.shape))
 

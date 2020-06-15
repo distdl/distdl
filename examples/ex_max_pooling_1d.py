@@ -6,7 +6,7 @@ from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.pooling import DistributedMaxPool1d
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.slicing import compute_subshape
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 P_world = MPIPartition(MPI.COMM_WORLD)
 P_world.comm.Barrier()
@@ -18,7 +18,7 @@ x_global_shape = np.array([1, 1, 10])
 
 layer = DistributedMaxPool1d(P_x, kernel_size=[2], stride=[2])
 
-x = NoneTensor()
+x = zero_volume_tensor()
 if P_x.active:
     x_local_shape = compute_subshape(P_x.shape,
                                      P_x.index,

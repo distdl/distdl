@@ -63,7 +63,7 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.general_conv import DistributedGeneralConv1d
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -88,7 +88,7 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
                                      out_channels=10,
                                      kernel_size=[3], bias=False)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -98,7 +98,7 @@ def test_general_conv1d_adjoint_input(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
@@ -134,7 +134,7 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.general_conv import DistributedGeneralConv1d
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -159,7 +159,7 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
                                      out_channels=10,
                                      kernel_size=[3], bias=False)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -169,14 +169,14 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
     y.backward(dy)
 
-    W = NoneTensor()
-    dW = NoneTensor()
+    W = zero_volume_tensor()
+    dW = zero_volume_tensor()
     if P_w.active:
         W = layer._weight.detach()
         dW = layer._weight.grad.detach()
@@ -208,7 +208,7 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.general_conv import DistributedGeneralConv1d
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import NoneTensor
+    from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
@@ -233,7 +233,7 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
                                      out_channels=10,
                                      kernel_size=[3], bias=True)
 
-    x = NoneTensor()
+    x = zero_volume_tensor()
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -243,14 +243,14 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = NoneTensor()
+    dy = zero_volume_tensor()
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
     y.backward(dy)
 
-    b = NoneTensor()
-    db = NoneTensor()
+    b = zero_volume_tensor()
+    db = zero_volume_tensor()
     if P_w.active and layer.stores_bias:
         b = layer._bias.detach()
         db = layer._bias.grad.detach()

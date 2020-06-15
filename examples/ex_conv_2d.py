@@ -6,7 +6,7 @@ from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.conv import DistributedConv2d
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.slicing import compute_subshape
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 torch.set_printoptions(linewidth=200)
 
@@ -20,7 +20,7 @@ x_global_shape = np.array([1, 1, 10, 10])
 
 layer = DistributedConv2d(P_x, in_channels=1, out_channels=1, kernel_size=[3, 3])
 
-x = NoneTensor()
+x = zero_volume_tensor()
 if P_x.active:
     x_local_shape = compute_subshape(P_x.shape,
                                      P_x.index,

@@ -12,7 +12,7 @@ from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.slicing import range_index
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 
 class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
@@ -163,7 +163,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             if self.stores_weight:
                 self._weight = torch.nn.Parameter(self.conv_layer.weight.detach())
             else:
-                self._weight = NoneTensor()
+                self._weight = zero_volume_tensor()
             # This always exists so we can copy the property
             self._weight.requires_grad = self.conv_layer.weight.requires_grad
 
@@ -179,7 +179,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             if self.stores_bias:
                 self._bias = torch.nn.Parameter(self.conv_layer.bias.detach())
             else:
-                self._bias = NoneTensor()
+                self._bias = zero_volume_tensor()
             # This does not always exist, but when it does we can copy the
             # property.
             if self.receives_bias:

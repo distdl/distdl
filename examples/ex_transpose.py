@@ -6,7 +6,7 @@ import distdl.utilities.slicing as slicing
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.transpose import DistributedTranspose
 from distdl.utilities.debug import print_sequential
-from distdl.utilities.torch import NoneTensor
+from distdl.utilities.torch import zero_volume_tensor
 
 # Set up MPI cartesian communicator
 
@@ -28,7 +28,7 @@ x_global_shape = np.array([7, 5])
 
 layer = DistributedTranspose(P_x, P_y)
 
-x = NoneTensor()
+x = zero_volume_tensor()
 if P_x.active:
     x_local_shape = slicing.compute_subshape(P_x.shape,
                                              P_x.index,
@@ -41,7 +41,7 @@ print_sequential(P_world.comm, f"x_{P_world.rank}: {x}")
 y = layer(x)
 print_sequential(P_world.comm, f"y_{P_world.rank}: {y}")
 
-dy = NoneTensor()
+dy = zero_volume_tensor()
 if P_y.active:
     y_local_shape = slicing.compute_subshape(P_y.shape,
                                              P_y.index,
