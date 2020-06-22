@@ -8,11 +8,12 @@ from distdl.utilities.torch import zero_volume_tensor
 class SumReduceFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, P_send, P_recv,
+    def forward(ctx, input, P_send, P_recv, preserve_batch,
                 input_tensor_structure, output_tensor_structure, dtype):
 
         ctx.P_send = P_send
         ctx.P_recv = P_recv
+        ctx.preserve_batch = preserve_batch
         ctx.input_tensor_structure = input_tensor_structure
         ctx.output_tensor_structure = output_tensor_structure
         ctx.dtype = dtype
@@ -23,7 +24,10 @@ class SumReduceFunction(torch.autograd.Function):
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        output = zero_volume_tensor()
+        if preserve_batch:
+            output = zero_volume_tensor(input.shape[0])
+        else:
+            output = zero_volume_tensor()
 
         requests = []
 
@@ -62,6 +66,7 @@ class SumReduceFunction(torch.autograd.Function):
 
         P_send = ctx.P_send
         P_recv = ctx.P_recv
+        preserve_batch = ctx.preserve_batch
         input_tensor_structure = ctx.input_tensor_structure
         dtype = ctx.dtype
 
@@ -70,7 +75,10 @@ class SumReduceFunction(torch.autograd.Function):
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
-        grad_input = zero_volume_tensor()
+        if preserve_batch:
+            grad_input = zero_volume_tensor(grad_output.shape[0])
+        else:
+            grad_input = zero_volume_tensor()
 
         requests = []
 
@@ -95,4 +103,4 @@ class SumReduceFunction(torch.autograd.Function):
 
         MPI.Request.Waitall(requests)
 
-        return grad_input, None, None, None, None, None
+        return grad_input, None, None, None, None, None, None

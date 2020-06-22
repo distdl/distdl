@@ -16,7 +16,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         ctx.P_x = P_x
 
         if not P_x.active:
-            return zero_volume_tensor()
+            return zero_volume_tensor(input.shape[0])
 
         ctx.mark_dirty(input)
 
@@ -73,7 +73,7 @@ class HaloExchangeFunction(torch.autograd.Function):
         P_x = ctx.P_x
 
         if not P_x.active:
-            return zero_volume_tensor(), None, None, None, None
+            return zero_volume_tensor(grad_output.shape[0]), None, None, None, None
 
         if P_x.size == 1:
             return grad_output, None, None, None, None

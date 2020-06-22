@@ -8,13 +8,15 @@ from distdl.utilities.slicing import range_index
 
 class DistributedTranspose(Module):
 
-    def __init__(self, P_x, P_y):
+    def __init__(self, P_x, P_y, preserve_batch=True):
         super(DistributedTranspose, self).__init__()
 
         self.x_global_shape = None
 
         self.P_x = P_x
         self.P_y = P_y
+
+        self.preserve_batch = preserve_batch
 
         self.in_data = []
         self.out_data = []
@@ -198,6 +200,9 @@ class DistributedTranspose(Module):
         if self.identity:
             return input.clone()
 
+        if not (self.P_x.active or self.P_y.active):
+            return input.clone()
+
         return Function.apply(input,
                               self.P_union,
                               self.x_global_shape,
@@ -207,4 +212,5 @@ class DistributedTranspose(Module):
                               self.P_y,
                               self.out_data,
                               self.out_buffers,
+                              self.preserve_batch,
                               self.dtype)

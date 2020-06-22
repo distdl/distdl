@@ -5,7 +5,10 @@ from distdl.nn.module import Module
 
 class SumReduce(Module):
 
-    def __init__(self, P_x, P_y, transpose_src=False, transpose_dest=False):
+    def __init__(self, P_x, P_y,
+                 transpose_src=False, transpose_dest=False,
+                 preserve_batch=True):
+
         super(SumReduce, self).__init__()
 
         self.P_x = P_x
@@ -13,6 +16,8 @@ class SumReduce(Module):
 
         self.transpose_src = transpose_src
         self.transpose_dest = transpose_dest
+
+        self.preserve_batch = preserve_batch
 
         # TODO: #25  Make selection of dtype more sensible.
         self.dtype = np.float32
@@ -43,6 +48,9 @@ class SumReduce(Module):
                 self.identity = True
 
     def _distdl_module_setup(self, input):
+
+        if not (self.P_x.active or self.P_y.active):
+            return
 
         # If it is not an identity, we need actual Partitions to do the work.
         if not self.identity:
@@ -95,9 +103,13 @@ class SumReduce(Module):
         if self.identity:
             return input.clone()
 
+        if not (self.P_x.active or self.P_y.active):
+            return input.clone()
+
         return Function.apply(input,
                               self.P_send,
                               self.P_recv,
+                              self.preserve_batch,
                               self.input_tensor_structure,
                               self.output_tensor_structure,
                               self.dtype)

@@ -231,13 +231,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self._input_requires_grad = None
 
         if P_w.active:
-            self.w_broadcast = Broadcast(self.P_wr, self.P_w)
+            self.w_broadcast = Broadcast(self.P_wr, self.P_w, preserve_batch=False)
 
         if self.receives_bias or self.stores_bias:
-            self.b_broadcast = Broadcast(self.P_br, self.P_b)
+            self.b_broadcast = Broadcast(self.P_br, self.P_b, preserve_batch=False)
 
-        self.x_broadcast = Broadcast(self.P_x, self.P_w)
-        self.y_sum_reduce = SumReduce(self.P_w, self.P_y)
+        self.x_broadcast = Broadcast(self.P_x, self.P_w, preserve_batch=True)
+        self.y_sum_reduce = SumReduce(self.P_w, self.P_y, preserve_batch=True)
 
     def _distdl_module_setup(self, input):
 
