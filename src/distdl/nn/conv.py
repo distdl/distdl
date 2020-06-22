@@ -69,10 +69,12 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
             del self.conv_layer.bias
             self.conv_layer.bias = new_bias
 
-        self.w_broadcast = Broadcast(self.P_wb_cart, self.P_x)
+        self.w_broadcast = Broadcast(self.P_wb_cart, self.P_x,
+                                     preserve_batch=False)
 
         if self.conv_layer.bias is not None:
-            self.b_broadcast = Broadcast(self.P_wb_cart, self.P_x)
+            self.b_broadcast = Broadcast(self.P_wb_cart, self.P_x,
+                                         preserve_batch=False)
 
         # We need the halo shape, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their

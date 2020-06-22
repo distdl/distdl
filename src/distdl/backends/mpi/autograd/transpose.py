@@ -11,7 +11,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, P_union, x_global_shape,
                 P_x, in_data, in_buffers,
-                P_y, out_data, out_buffers, dtype):
+                P_y, out_data, out_buffers, preserve_batch, dtype):
 
         ctx.P_union = P_union
         ctx.x_global_shape = x_global_shape
@@ -23,6 +23,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
         ctx.P_y = P_y
         ctx.out_data = out_data
         ctx.out_buffers = out_buffers
+
+        ctx.preserve_batch = preserve_batch
 
         ctx.dtype = dtype
 
@@ -43,7 +45,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
         requests = []
 
         # Default everyone to output nothing
-        output = zero_volume_tensor()
+        if preserve_batch:
+            output = zero_volume_tensor(input.shape[0])
+        else:
+            output = zero_volume_tensor()
 
         # If I am getting data, recv my output parts
         recv_count = 0
@@ -120,6 +125,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
         out_data = ctx.out_data
         out_buffers = ctx.out_buffers
 
+        preserve_batch = ctx.preserve_batch
+
         dtype = ctx.dtype
 
         input_requires_grad = ctx.input_requires_grad
@@ -127,7 +134,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
         requests = []
 
         # Default everyone to output None
-        grad_input = zero_volume_tensor()
+        if preserve_batch:
+            grad_input = zero_volume_tensor(grad_output.shape[0])
+        else:
+            grad_input = zero_volume_tensor()
 
         # Recv my input parts
         recv_count = 0
@@ -188,4 +198,4 @@ class DistributedTransposeFunction(torch.autograd.Function):
             grad_input = torch.from_numpy(grad_input)
             grad_input.requires_grad = input_requires_grad
 
-        return grad_input, None, None, None, None, None, None, None, None, None
+        return grad_input, None, None, None, None, None, None, None, None, None, None

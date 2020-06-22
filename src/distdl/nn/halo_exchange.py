@@ -2,7 +2,6 @@ import numpy as np
 
 from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
-from distdl.utilities.torch import zero_volume_tensor
 
 
 class HaloExchange(Module):
@@ -146,7 +145,7 @@ class HaloExchange(Module):
         Function = self._distdl_backend.autograd.halo_exchange.HaloExchangeFunction
 
         if not self.P_x.active:
-            return zero_volume_tensor()
+            return input.clone()
 
         return Function.apply(input,
                               self.P_x,

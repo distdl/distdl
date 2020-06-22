@@ -21,7 +21,7 @@ class DistributedLinear(Module):
 
         self.bias = bias
 
-        self.x_broadcast = Broadcast(self.P_x, self.P_w)
+        self.x_broadcast = Broadcast(self.P_x, self.P_w, preserve_batch=True)
 
         if self.P_w.active:
             local_in_features = compute_subshape(P_w.shape[1], P_w.index[1], in_features)
@@ -31,7 +31,8 @@ class DistributedLinear(Module):
             bias = self.bias if (self.P_w.index[-1] == 0) else False
             self.sublinear = torch.nn.Linear(local_in_features[0], local_out_features[0], bias=bias)
 
-        self.y_sum_reduce = SumReduce(self.P_w, self.P_y, transpose_src=True)
+        self.y_sum_reduce = SumReduce(self.P_w, self.P_y,
+                                      transpose_src=True, preserve_batch=True)
 
     def forward(self, input):
 
