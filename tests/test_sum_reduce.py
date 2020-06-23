@@ -137,12 +137,12 @@ adjoint_parametrizations.append(
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_broadcast_adjoint(barrier_fence_fixture,
-                           comm_split_fixture,
-                           P_x_ranks, P_x_shape,
-                           P_y_ranks, P_y_shape,
-                           x_global_shape,
-                           transpose_src):
+def test_sum_reduce_adjoint(barrier_fence_fixture,
+                            comm_split_fixture,
+                            P_x_ranks, P_x_shape,
+                            P_y_ranks, P_y_shape,
+                            x_global_shape,
+                            transpose_src):
 
     import numpy as np
     import torch
