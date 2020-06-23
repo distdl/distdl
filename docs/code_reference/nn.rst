@@ -1,50 +1,85 @@
-=============================
-DistDL Neural Network Modules
-=============================
+.. role:: hidden
+    :class: hidden-section
 
-.. automodapi:: distdl.nn
+=========
+distdl.nn
+=========
 
+.. toctree::
+    :glob:
+    :hidden:
 
-Base Module
-===========
+    nn/*
 
-.. automodapi:: distdl.nn.module
-	:no-inheritance-diagram:
+Overview
+========
 
-
-Distributed Modules
-===================
-
-.. automodapi:: distdl.nn.broadcast
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.conv
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.general_conv
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.halo_exchange
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.linear
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.pooling
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.sum_reduce
-	:no-inheritance-diagram:
-
-.. automodapi:: distdl.nn.transpose
-	:no-inheritance-diagram:
+These are the public interfaces.
 
 
-Sequential Modules
-==================
+Distributed Containers
+======================
 
-.. automodapi:: distdl.nn.padnd
-	:no-inheritance-diagram:
+.. list-table::
+   :widths: 35 65
+   :width: 100%
+   :header-rows: 0
+   :align: left
 
-.. automodapi:: distdl.nn.unpadnd
-	:no-inheritance-diagram:
+   * - :ref:`code_reference/nn/module:Base Distributed Module`
+     - Base class of all distributed layers in DistDL.
+
+Primitive Distributed Data Movement Layers
+==========================================
+
+We implement a number of primitives.
+
+.. list-table::
+   :widths: 35 65
+   :width: 100%
+   :header-rows: 0
+   :align: left
+
+   * - :ref:`code_reference/nn/broadcast:Broadcast Layer`
+     - Performs a broadcast of a tensor from one partition to another.
+   * - :ref:`code_reference/nn/halo_exchange:Halo Exchange Layer`
+     - Performs the halo exchange operation of a tensor on a partition.
+   * - :ref:`code_reference/nn/sum_reduce:Sum-Reduce Layer`
+     - Performs a sum-reduction of a tensor from one partition to another.
+   * - :ref:`code_reference/nn/transpose:Transpose Layer`
+     - Performs a transpose or a tensor from one partition to another.
+
+Distributed Comptutation Layers
+===============================
+
+We implement a number of distributed layers based on the actual layers and the primitives.
+
+.. list-table::
+   :widths: 35 65
+   :width: 100%
+   :header-rows: 0
+   :align: left
+
+   * - :ref:`code_reference/nn/convolution:Convolution Layers`
+     - Distributed convolutional layers.
+   * - :ref:`code_reference/nn/pooling:Pooling Layers`
+     - Distributed pooling layers.
+   * - :ref:`code_reference/nn/linear:Linear Layer`
+     - Distributed linear layer.
+
+Additional Sequential Layers
+============================
+
+We implement some useful sequential modules.
+
+.. list-table::
+   :widths: 35 65
+   :width: 100%
+   :header-rows: 0
+   :align: left
+
+   * - :ref:`code_reference/nn/padding:Padding Layer`
+     - N-dimensional, unbalanced padding.
+
+   * - :ref:`code_reference/nn/unpadding:Unpadding Layer`
+     - N-dimensional, unbalanced unpadding.
