@@ -70,7 +70,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
                                  kernel_size=[2],
                                  stride=[2])
 
-    x = zero_volume_tensor()
+    x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -80,7 +80,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = zero_volume_tensor()
+    dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 

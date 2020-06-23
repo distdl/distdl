@@ -82,7 +82,7 @@ def test_linear_adjoint_input(barrier_fence_fixture,
                               y_global_shape[1],
                               bias=False)
 
-    x = zero_volume_tensor()
+    x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -92,7 +92,7 @@ def test_linear_adjoint_input(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = zero_volume_tensor()
+    dy = zero_volume_tensor(x_global_shape[0])
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
@@ -156,7 +156,7 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
                               y_global_shape[1],
                               bias=False)
 
-    x = zero_volume_tensor()
+    x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -166,7 +166,7 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = zero_volume_tensor()
+    dy = zero_volume_tensor(x_global_shape[0])
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 
@@ -233,7 +233,7 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
                               y_global_shape[1],
                               bias=True)
 
-    x = zero_volume_tensor()
+    x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -248,7 +248,7 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
 
     y = layer(x)
 
-    dy = zero_volume_tensor()
+    dy = zero_volume_tensor(x_global_shape[0])
     if P_y.active:
         dy = torch.Tensor(np.random.randn(*y.shape))
 

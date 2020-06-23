@@ -108,7 +108,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     pad_layer = PadNd(halo_shape, value=0)
     halo_layer = HaloExchange(P_x, halo_shape, recv_buffer_shape, send_buffer_shape)
 
-    x = zero_volume_tensor()
+    x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
@@ -117,7 +117,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         x = pad_layer.forward(x)
     x.requires_grad = True
 
-    dy = zero_volume_tensor()
+    dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         dy = torch.tensor(np.random.randn(*x.shape))
 

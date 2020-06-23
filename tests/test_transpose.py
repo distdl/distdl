@@ -154,7 +154,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
     P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
 
     # The global tensor size is the same for x and y
-    layer = DistributedTranspose(P_x, P_y)
+    layer = DistributedTranspose(P_x, P_y, preserve_batch=False)
 
     # Forward Input
     x = zero_volume_tensor()

@@ -26,7 +26,7 @@ P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 
 x_global_shape = np.array([7, 5])
 
-layer = DistributedTranspose(P_x, P_y)
+layer = DistributedTranspose(P_x, P_y, preserve_batch=False)
 
 x = zero_volume_tensor()
 if P_x.active:
