@@ -169,7 +169,7 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     # we will have to get from `y` itself.
     x_local_shape = np.asarray(x_global_shape)
 
-    layer = SumReduce(P_x, P_y, transpose_src=transpose_src)
+    layer = SumReduce(P_x, P_y, transpose_src=transpose_src, preserve_batch=False)
 
     x = zero_volume_tensor()
     if P_x.active:
