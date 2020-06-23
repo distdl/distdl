@@ -5,13 +5,11 @@ Contents
 .. toctree::
    :maxdepth: 2
 
-   readme
-   installation
-   usage
-   reference/index
-   contributing
-   authors
-   changelog
+   user_guide/index
+   code_reference/index
+   developer_guide/index
+   release_history/index
+   acknowledgements
 
 Indices and tables
 ==================
@@ -19,4 +17,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
