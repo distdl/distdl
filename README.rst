@@ -18,9 +18,9 @@ Overview
     :target: https://readthedocs.org/projects/distdl
     :alt: Documentation Status
 
-.. |travis| image:: https://api.travis-ci.org/distdl/distdl.svg?branch=master
+.. |travis| image:: https://api.travis-ci.com/distdl/distdl.svg?branch=master
     :alt: Travis-CI Build Status
-    :target: https://travis-ci.org/distdl/distdl
+    :target: https://travis-ci.com/distdl/distdl
 
 .. |appveyor| image:: https://ci.appveyor.com/api/projects/status/github/distdl/distdl?branch=master&svg=true
     :alt: AppVeyor Build Status
