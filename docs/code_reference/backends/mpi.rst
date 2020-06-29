@@ -2,44 +2,15 @@
 MPI Backend
 ===========
 
+.. contents::
+    :local:
+    :depth: 3
+
 Overview
 ========
 
-.. All of these should be written directly here, not in the code doc string.
-.. This way, we can use automodule without extraneous crap.
-.. .. automodule:: distdl.backends.mpi
-
 Tensor Partitions
 =================
-
-.. .. automodule:: distdl.backends.mpi.partition
-
-Primitive Functionals
-=====================
-
-Broadcast
----------
-
-.. .. automodule:: distdl.backends.mpi.autograd.broadcast
-
-Halo Exchange
--------------
-
-.. .. automodule:: distdl.backends.mpi.autograd.halo_exchange
-
-Sum-Reduce
-----------
-
-.. .. automodule:: distdl.backends.mpi.autograd.sum_reduce
-
-Transpose
----------
-
-.. .. automodule:: distdl.backends.mpi.autograd.transpose
-
-
-API
-===
 
 .. currentmodule:: distdl.backends.mpi
 
@@ -51,26 +22,44 @@ API
     :members:
     :undoc-members:
 
-.. automodule:: distdl.backends.mpi.compare
-    :members:
-    :undoc-members:
-
 .. automodule:: distdl.backends.mpi.tensor_comm
     :members:
     :undoc-members:
 
-.. automodule:: distdl.backends.mpi.autograd.broadcast
+Primitive Functionals
+=====================
+
+Broadcast
+---------
+
+.. autoclass:: distdl.backends.mpi.autograd.BroadcastFunction
     :members:
     :undoc-members:
+
+Halo Exchange
+-------------
 
 .. automodule:: distdl.backends.mpi.autograd.halo_exchange
     :members:
     :undoc-members:
 
+Sum-Reduce
+----------
+
 .. automodule:: distdl.backends.mpi.autograd.sum_reduce
     :members:
     :undoc-members:
 
+Transpose
+---------
+
 .. automodule:: distdl.backends.mpi.autograd.transpose
+    :members:
+    :undoc-members:
+
+Misc
+====
+
+.. automodule:: distdl.backends.mpi.compare
     :members:
     :undoc-members:
