@@ -11,6 +11,7 @@ extensions = [
     'sphinx.ext.extlinks',
     'sphinx.ext.ifconfig',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
@@ -87,3 +88,78 @@ intersphinx_mapping = {
     'mpi4py': ('https://mpi4py.readthedocs.io/en/stable/',
                'https://mpi4py.readthedocs.io/en/stable/objects.inv'),
 }
+
+
+# monkey-patch napoleon to better handle optional parameters in numpydoc
+# docstrings; see https://github.com/sphinx-doc/sphinx/issues/6861
+
+def _fixup_napoleon_numpydoc():
+    from sphinx.locale import _
+    from sphinx.ext.napoleon import NumpyDocstring
+
+    def _process_optional_params(self, fields):
+        """
+        Split a fields list into separate lists of positional parameters and
+        keyword parameters.
+
+        Possibly moves some fields out of their original documented order,
+        though in practice, in most cases, optional/keyword parameters should
+        always be listed after positional parameters.
+
+        For Numpydoc, a parameter is treated as a keyword parameter if its type
+        list ends with the keyword "optional".  In this case, the "optional" is
+        removed from its type list, and instead the text "(optional)" is
+        prepended to the field description.
+        """
+
+        positional = []
+        keyword = []
+
+        for name, type_, desc in fields:
+            types = [t.strip() for t in type_.split(',')]
+            optional = types and types[-1].lower() == 'optional'
+            if optional:
+                type_ = ', '.join(types[:-1])
+
+                if not desc:
+                    desc = ['']
+                desc[0] = ('*(optional)* – ' + desc[0]).rstrip()
+
+            if optional or name.startswith(r'\*\*'):
+                keyword.append((name, type_, desc))
+            else:
+                positional.append((name, type_, desc))
+
+        return positional, keyword
+
+    def _parse_parameters_section(self, section):
+        fields = self._consume_fields()
+        pos_fields, kw_fields = self._process_optional_params(fields)
+        if self._config.napoleon_use_param:
+            lines = self._format_docutils_params(pos_fields)
+        else:
+            lines = self._format_fields(_('Parameters'), pos_fields)
+
+        if self._config.napoleon_use_keyword:
+            if self._config.napoleon_use_param:
+                lines = lines[:-1]
+            lines.extend(self._format_docutils_params(
+                kw_fields, field_role='keyword', type_role='kwtype'))
+        else:
+            lines.extend(self._format_fields(
+                _('Keyword Arguments'), kw_fields))
+
+        return lines
+
+    def _parse_other_parameters_section(self, section):
+        fields = self._consume_fields()
+        pos_fields, kw_fields = self._process_optional_params(fields)
+        return self.format_fields(
+                _('Other Parameters'), pos_fields + kw_fields)
+
+    NumpyDocstring._process_optional_params = _process_optional_params
+    NumpyDocstring._parse_parameters_section = _parse_parameters_section
+    NumpyDocstring._parse_other_parameters_section = _parse_other_parameters_section
+
+
+_fixup_napoleon_numpydoc()
