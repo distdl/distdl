@@ -20,6 +20,8 @@ extensions = [
     'sphinx_automodapi.smart_resolver',
 ]
 
+autodoc_member_order = "bysource"
+
 templates_path = ['_templates']
 autosummary_generate = True
 numpydoc_show_class_members = False
