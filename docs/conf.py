@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import sphinx_py3doc_enhanced_theme
-
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
@@ -42,33 +40,12 @@ extlinks = {
     'pr': ('https://github.com/distdl/distdl/pull/%s', 'PR #'),
 }
 
-
-# import sphinx_bootstrap_theme
-# html_theme = "bootstrap"
-# html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
-
+import sphinx_py3doc_enhanced_theme  # noqa: E402
 html_theme = "sphinx_py3doc_enhanced_theme"
 html_theme_path = [sphinx_py3doc_enhanced_theme.get_html_theme_path()]
 html_theme_options = {
     'githuburl': 'https://github.com/distdl/distdl/'
 }
-
-# import pytorch_sphinx_theme
-# html_theme = 'pytorch_sphinx_theme'
-# html_theme_path = [pytorch_sphinx_theme.get_html_theme_path()]
-
-# # Theme options are theme-specific and customize the look and feel of a theme
-# # further.  For a list of options available for each theme, see the
-# # documentation.
-
-# html_theme_options = {
-#     'pytorch_project': 'docs',
-#     'canonical_url': 'https://pytorch.org/docs/stable/',
-#     'collapse_navigation': False,
-#     'display_version': True,
-#     'logo_only': True,
-# }
-
 
 html_use_smartypants = True
 html_last_updated_fmt = '%b %d, %Y'
