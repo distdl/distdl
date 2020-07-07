@@ -2,7 +2,8 @@
 version: 2
 sphinx:
   configuration: docs/conf.py
-formats: all
+formats:
+    - htmlzip
 python:
   install:
     - requirements: docs/requirements.txt
