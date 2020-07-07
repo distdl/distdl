@@ -20,6 +20,8 @@ extensions = [
 
 autodoc_member_order = "bysource"
 
+autodoc_mock_imports = ["numpy", "torch", "mpi4py"]
+
 templates_path = ['_templates']
 autosummary_generate = True
 numpydoc_show_class_members = False
