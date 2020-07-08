@@ -10,7 +10,7 @@ Overview
 API
 ===
 
-.. currentmodule:: distdl.nn.transpose
+.. currentmodule:: distdl.nn
 
 .. autoclass:: DistributedTranspose
     :members:
