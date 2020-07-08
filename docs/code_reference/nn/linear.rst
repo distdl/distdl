@@ -10,7 +10,7 @@ Overview
 API
 ===
 
-.. currentmodule:: distdl.nn.linear
+.. currentmodule:: distdl.nn
 
 .. autoclass:: DistributedLinear
     :members:

@@ -15,7 +15,7 @@ Halo Mixin
 API
 ===
 
-.. currentmodule:: distdl.nn.halo_exchange
+.. currentmodule:: distdl.nn
 
 .. autoclass:: HaloExchange
     :members:
