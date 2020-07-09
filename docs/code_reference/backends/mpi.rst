@@ -32,6 +32,8 @@ Primitive Functionals
 Broadcast
 ---------
 
+.. automodule:: distdl.backends.mpi.autograd.broadcast
+
 .. autoclass:: distdl.backends.mpi.autograd.BroadcastFunction
     :members:
     :undoc-members:

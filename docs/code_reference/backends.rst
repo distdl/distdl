@@ -23,14 +23,168 @@ Overview
 Data Movement Backend Interface
 ===============================
 
+Each back-end will is responsible for providing the concrete definitions of
+partition classes and the functional interfaces for primitive data movement
+layers.
+
 Partitions
 ----------
+
+Currently, two partition classes must be provided for a fully compatible
+back-end: ``Partition`` for partitions with no topology and
+``CartesianPartition`` for partitions with a Cartesian topology.
+
+The partition classes serve as wrappers around the back-end data movement
+tool's interface.  Implementations are free to make use of any back-end
+specific API, but in general that API should not be explicitly exposed to
+DistDL users.
+
+The interfaces defined in these classes inherit a number of concepts from
+the MPI back-end.  As DistDL evolves, it is anticipated that these interfaces
+can become more generalized.
+
+Partition interfaces are explicitly for distributed communication and data
+movement, and as such they provide some interfaces for general parallel
+communication concepts (e.g., broadcasts and all-gathers) for use other than
+tensor data movement.  While much of the interface is inspired by MPI's API,
+MPI-specific terminology is avoided, e.g., we use ``broadcast_data``, not
+``bcast_data``.
 
 Partitions with No Topology
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Paritions with Cartesian Topology
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+   :align: left
+
+   * - Back-end
+     - Module
+     - Class Definition
+     - Public Alias
+   * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
+     - :any:`backends.mpi.partition <distdl.backends.mpi.partition>`
+     - :any:`MPIPartition <distdl.backends.mpi.partition.MPIPartition>`
+     - :any:`Partition <distdl.backends.mpi.Partition>`
+
+The partition with no topology, exposed from each back-end as ``Partition``,
+is the general container for an unstructured team of workers.  It must provide
+interfaces for creating teams of workers, creating sub-teams of workers,
+creating unions of teams of workers, etc.
+
+Regardless of back-end, a number of core partition concepts are to be exposed
+by a basic unstructured partition:
+
+* ``size``: The number of workers in the partition.
+* ``rank``: The lexicographic identifier of the current worker.
+* ``active``: The status of a worker in a partition.  An active member of a
+  partition has the ability to communicate with other workers.
+  An inactive member has no knowledge of the other workers and
+  is entirely disconnected from the set of active workers.
+
+For convenience, we also allow topology-free partitions to be treated as if
+they are endowed with a 1-dimensional Cartesian topology.  Consequently,
+they also have two further exposed concepts:
+
+* ``shape``: Always a 1-iterable with containing `size` as the value.
+* ``index``: Always the `rank`.
+
+
+A partition must also provide the following API for creating new partitions:
+
+* ``__init__()``: A partition is initialized using whatever back-end specific
+  information is required to determine the above properties.
+* ``create_partition_inclusive()``: Creates a subpartition of the current
+  partition inclusive of a specified subset of workers.
+* ``create_partition_union()``: Creates a new partition containing the union
+  of the workers in two different partitions.  Workers calling instance are
+  to be ordered before workers in the `other` instance and workers cannot
+  be repeated.
+* ``create_cartesian_topology_partition()``: Using the workers in the team
+  for the unstructured partition, create a partition endowed with a
+  Cartesian topology.
+* ``create_broadcast_partition_to()``: Following the DistDL
+  :ref:`code_reference/nn/broadcast:Broadcast Rules`, create the sending and
+  receiving partitions required to support the :ref:`Broadcast
+  <code_reference/nn/broadcast:Broadcast Layer>` operation between two
+  partitions.
+* ``create_reduction_partition_to()``: Following the DistDL
+  :ref:`code_reference/nn/broadcast:Broadcast Rules`, create the sending and
+  receiving partitions required to support the :ref:`Sum-reduce
+  <code_reference/nn/sum_reduce:Sum-reduce Layer>` operation between two
+  partitions.
+
+A partition must provide the following API for comparing partitions:
+
+* ``__eq__()``: Comparison for strict equality.  This means the same team,
+  ordered the same way.  If two partitions have similar structure, meaning the
+  same size and shape but have different team members or organization, the are
+  not equal.
+
+A partition must provide the following API for communicating within partitions:
+
+* ``broadcast_data()``: For sharing data from one worker to all workers in the
+  partition.  This is distinct from the tensor broadcast operation.  This
+  function does not require the receiving workers to have any knowledge of the
+  structure of the data they are to receive.  Any information required to store
+  this data (e.g., ``dtype`` or ``shape`` of an array) must be communicated in
+  the function.
+
+  This function supports two modes.  The first acts as a standard broadcast
+  within a partition. The second allows data from one worker in a partition
+  that is a *subpartition* of the calling partition to broadcast the data to
+  the calling partition.  This is useful when the structure of the data is
+  known only by workers on the subpartition but the data is needed on the
+  superpartition.
+
+* ``allgather_data()``: For sharing information on all workers in the partition
+  with all other workers in the partition.
+
+
+Partitions with Cartesian Topology
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+   :align: left
+
+   * - Back-end
+     - Module
+     - Class
+     - Alias
+   * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
+     - :any:`backends.mpi.partition <distdl.backends.mpi.partition>`
+     - :any:`MPICartesianPartition <distdl.backends.mpi.partition.MPICartesianPartition>`
+     - :any:`CartesianPartition <distdl.backends.mpi.CartesianPartition>`
+
+Partitions endowed with a Cartesian topology are themselves partitions, with
+additional ordering information that is useful, for example, when partitioning
+a tensor.
+
+In addition to the members required for
+:ref:`code_reference/backends:Partitions with No Topology`, Cartesian
+partitions also specify:
+
+* ``shape``: An iterable giving the number of workers in each dimension.
+* ``index``: An iterable with the lexicographic identifier of the worker in
+  each dimension.
+
+In addition to the API required for :ref:`code_reference/backends:Partitions
+with No Topology`, Cartesian partitions must also specify:
+
+* ``cartesian_index()``: A routine for obtaining the index of any worker
+  in the partition, from its `rank`.
+* ``neighbor_ranks()``: A routine for obtaining the ranks of neighboring
+  workers in all dimensions of the partition.
+
+In addition to the API required for :ref:`code_reference/backends:Partitions
+with No Topology`, Cartesian partitions may also specify:
+
+* ``create_cartesian_subtopology_partition()``: A routine for creating a
+  subtopology, following the MPI subtopology specification.
+
+
 
 Functional Primitives
 ---------------------
@@ -38,13 +192,25 @@ Functional Primitives
 Broadcast
 ~~~~~~~~~
 
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+   :align: left
+
+   * - Back-end
+     - Module
+     - Class
+   * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
+     - :any:`backends.mpi.autograd.broadcast <distdl.backends.mpi.autograd.broadcast>`
+     - :any:`BroadcastFunction <distdl.backends.mpi.autograd.BroadcastFunction>`
+
 The functional primitive for the Broadcast data movement operation does use
 the original tensor partitions :math:`P_x` (input) and :math:`P_y` (output)
 directly.  Instead, the calling class must create two new partitions to enable
 actual data movement.
 
 For the Broadcast operation, these are back-end specific implementations of
-:ref:`Partitions with No Topology <Partitions with No Topology>` and the data
+:ref:`code_reference/backends:Partitions with No Topology` and the data
 movement occurs *within* these partitions.
 
 The partitions are created using the ``create_broadcast_partition_to()``
