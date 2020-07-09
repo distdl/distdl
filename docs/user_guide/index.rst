@@ -152,6 +152,10 @@ interface are documented in the :ref:`Code Reference
 <code_reference/index:Code Reference>` and back-end specific details are
 documented with that :ref:`back-end <code_reference/backends:Backends>`.
 
+All layers are assumed to be inductively load-balanced.  That is, their output
+should be load balanced so that each worker does approximately equal work.
+Consequently, it is assumed that the inputs are also load balanced, as a load
+balanced output from one layer is the input to the next.
 
 Defining A Distributed Network
 ==============================
