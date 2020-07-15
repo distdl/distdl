@@ -1,3 +1,5 @@
+__all__ = ["SumReduceFunction"]
+
 import numpy as np
 import torch
 from mpi4py import MPI
@@ -6,10 +8,83 @@ from distdl.utilities.torch import zero_volume_tensor
 
 
 class SumReduceFunction(torch.autograd.Function):
+    r"""MPI-based functional implementation of a distributed sum-reduce layer.
+
+    Implements the required `forward()` and adjoint (`backward()`) operations
+    for a distributed SumReduce layer using the PyTorch autograd interface.
+
+    This implementation uses MPI for data movement, accessed through the
+    ``mpi4py`` MPI wrappers.
+
+    Warning
+    -------
+    This implementation currently requires that tensors have data stored in main
+    memory (CPU) only, not auxiliary memories such as those on GPUs.
+
+    Warning
+    -------
+    The ``mpi4py`` interface currently used requires NumPy views of the tensors.
+
+    """
 
     @staticmethod
     def forward(ctx, input, P_send, P_recv, preserve_batch,
                 input_tensor_structure, output_tensor_structure, dtype):
+        r"""Forward function of distributed sum-reduction layer.
+
+        This method implements the forward sum-reduction operation using the
+        ``MPI_Ireduce`` function.
+
+        Any given worker may participate in two MPI reductions, one on the
+        ``P_send`` partition and one on the ``P_recv`` partition.  The
+        communication pattern and function selection is to avoid potential
+        deadlocks due to potential overlaps in these partitions.
+
+        When the current worker is active in its ``P_send`` partition, it
+        *always* has data that must be reduced.  Therefore it will always send
+        data (through a sum-reduce) to the root of that partition.
+
+        If the current worker is active in ``P_recv`` then it is guaranteed to be the root
+        worker of ``P_recv`` and there are two potential scenerios.
+
+        1. If the ``P_send`` and ``P_recv`` partitions are distinct, the
+           current worker will receive reduced tensor data as the root of an
+           additional ``MPI_Ireduce``.
+        2. If the ``P_send`` and ``P_recv`` partitions are the same, the
+           reduction is completed by the *first* ``MPI_Ireduce`` and the second
+           is not necessary, and in fact will cause a deadlock.
+
+        When the current worker is inactive in the ``P_recv`` partition, it will
+        output a zero-volume tensor, potentially preserving a non-zero batch
+        size.
+
+        Parameters
+        ----------
+        ctx :
+            PyTorch context.
+        input : `torch.tensor`
+            Input tensor.
+        P_send : Partition
+            Sending partition current worker is a part of.
+        P_recv : Partition
+            Receiving partition current worker is a part of.
+        preserve_batch : bool
+            Indicates if batch size should be preserved for zero-volume outputs.
+        input_tensor_structure : tuple
+            Tuple containing properties of the input tensor (dimension, shape,
+            requires_grad).
+        output_tensor_structure : tuple
+            Tuple containing properties of the output tensor (dimension, shape,
+            requires_grad).
+        dtype : torch.dtype
+            Data type of the input/output tensor.
+
+        Returns
+        -------
+        output :
+            Output tensor.
+
+        """
 
         ctx.P_send = P_send
         ctx.P_recv = P_recv
@@ -63,6 +138,54 @@ class SumReduceFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        r"""Backward function of distributed sum-reduction layer.
+
+        This method implements the adjoint of the Jacobian of the sum-reduce
+        operation, a sum-reduce, using the ``MPI_Ibcast`` function.
+
+        The roles of the respective send and receive partitions are reversed in
+        the adjoint algorithm.  Any worker that was the source of reduced data
+        in the forward algorithm will be the destination of broadcast data in
+        the adjoint.
+
+        Any given worker may participate in two MPI broadcasts, one on the
+        ``P_recv`` partition and one on the ``P_send`` partition.  The
+        communication pattern and function selection is to avoid potential
+        deadlocks due to potential overlaps in these partitions.
+
+        When the current worker is active in its ``P_recv`` partition, it
+        *always* has data that it must share.  It will only be active in
+        ``P_recv`` if it is the root worker of that partition, therefore, it
+        will send tensor data as the root of an ``MPI_Ibcast``.
+
+        When the current worker is active in its ``P_send`` partition, there are
+        multiple potential scenerios.
+
+        1. If it is *active* in a ``P_recv`` partition and ``P_recv`` is the
+           *same* partition as ``P_send``, then the input subtensor can simply
+           be cloned for the output.
+        2. If it is *active* in a ``P_recv`` partition and ``P_recv`` is a
+           *different* partition from ``P_send``, then it will receive tensor
+           data from the root of an ``MPI_Ibcast``.
+        3. If it is *inactive* in a ``P_recv`` partition, then it will receive
+           tensor data from the root of an ``MPI_Ibcast``.
+
+        When the current worker is inactive in the ``P_send`` partition, it will
+        output a zero-volume tensor, potentially preserving a non-zero batch
+        size.
+
+        Parameters
+        ----------
+        ctx :
+            PyTorch context.
+        grad_output : `torch.tensor`
+            Input tensor.
+
+        Returns
+        -------
+        grad_input :
+            Output tensor.
+        """
 
         P_send = ctx.P_send
         P_recv = ctx.P_recv

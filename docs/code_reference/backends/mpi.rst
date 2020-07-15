@@ -49,6 +49,8 @@ Sum-Reduce
 ----------
 
 .. automodule:: distdl.backends.mpi.autograd.sum_reduce
+
+.. autoclass:: distdl.backends.mpi.autograd.SumReduceFunction
     :members:
     :undoc-members:
 
