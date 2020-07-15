@@ -12,18 +12,79 @@ from distdl.utilities.index_tricks import cartesian_index_f
 
 
 class MPIPartition:
+    r"""MPI-based implementation of unstructured tensor partition.
+
+    This class provides the user interface for the MPI-based implementation of
+    tensor partitions.  The MPI interface is provided by ``mpi4py``.
+
+    Teams of workers are managed using MPI Groups and communication and data
+    movement occurs within the MPI Communicator associated with that group.
+
+    To handle situations where data movement occurs between two partitions, a
+    ``root`` MPI Communicator is stored.  This communicator allows the
+    creation of a union of the two partitions, so that collectives can be used
+    across that union without impacting other workers in the root
+    communicator.
+
+    Most MPI-based tools work based on communicators, so the communicator is
+    the primary object used to create the partition from the user perspective,
+    but internally the group is the important object.
+
+    If the communicator is a null communicator, a nullified partition is
+    created, which is indicated by the ``active`` member.  Workers with
+    ``active`` set to ``False`` have no mechanism to communicate with the rest
+    of the team, except through the ``root`` communicator.  The ``active``
+    flag is used within layers to determine which work and data movement needs
+    to be performed by the current worker.
+
+    Parameters
+    ----------
+    comm : MPI communicator, optional
+        MPI Communicator to create the partition from.
+    group : MPI group, optional
+        MPI Group associated with ``comm``.
+    root : MPI communicator, optional
+        MPI communicator tracking the original communicator used to create
+        all ancestors of this partition.
+
+    Attributes
+    ----------
+    comm : MPI communicator
+        MPI Communicator for this partition.
+    root : MPI communicator
+        MPI communicator tracking the original communicator used to create
+        all ancestors of this partition.
+    active : boolean
+        Indicates if the worker participated in work and data movement for
+        the partition.
+    group : MPI group, optional
+        MPI Group associated with ``comm``.
+    rank :
+        Lexicographic identifier for the worker in the partition.
+    size :
+        Number of workers active in this team for this partition.
+    shape :
+        Number of workers in each Cartesian dimension.
+    index :
+        Lexicographic identifiers in each Cartesian dimension.
+    """
 
     def __init__(self, comm=MPI.COMM_NULL, group=MPI.GROUP_NULL, root=None):
 
+        # MPI communicator to communicate within
         self.comm = comm
 
         # root tracks a root communicator: any subpartition from this one
         # will have the same root as this one.
+        # If it is not specified, take the current communicator to be the root.
         if root is None:
             self.root = comm
         else:
             self.root = root
 
+        # If the communicator is not null, this worker is active and can
+        # gather remaining information.  Otherwise, the worker is inactive
+        # and members should be nullified.
         if self.comm != MPI.COMM_NULL:
             self.active = True
             if group == MPI.GROUP_NULL:
@@ -38,10 +99,25 @@ class MPIPartition:
             self.rank = MPI.PROC_NULL
             self.size = -1
 
+        # For convenience, sometimes unstructured partitions can be treated
+        # like Cartesian partitions, so we need to give a shape and index.
         self.shape = [1]
         self.index = self.rank
 
     def __eq__(self, other):
+        r"""Equality comparator for partitions.
+
+        Parameters
+        ----------
+        other : MPIPartition
+            Partition to compare with.
+
+        Returns
+        -------
+        ``True`` if ``group`` and ``comm`` are *identical*, in the sense of
+        ``MPI_IDENT``, otherwise ``False``.
+
+        """
 
         # MPI_COMM_NULL is not a valid argument to MPI_Comm_compare, per the
         # MPI spec.  Because reasons.
@@ -65,6 +141,26 @@ class MPIPartition:
             print_sequential(self.comm, val)
 
     def create_partition_inclusive(self, ranks):
+        r"""Creates new partition from a subset of workers in this Partition.
+
+        Uses the iterable set of ``ranks``, the lexicographic identifiers of
+        the workers *in the current partition* to include in the new
+        partition, to create a new partition, ordered as the ranks is ordered.
+
+        This uses ``MPI_Group_incl`` which does not invoke collectives, and
+        ``MPI_Comm_create_group`` which is only collective across the workers
+        *in the new group*.
+
+        Parameters
+        ----------
+        ranks : iterable
+            The ranks of the workers in this partition
+
+        Returns
+        -------
+        A new :any:`MPIPartition` instance.
+
+        """
 
         ranks = np.asarray(ranks)
         group = self.group.Incl(ranks)
@@ -74,6 +170,27 @@ class MPIPartition:
         return MPIPartition(comm, group, root=self.root)
 
     def create_partition_union(self, other):
+        r"""Creates new partition from the union of two partitions.
+
+        The new partition is the union of the current and ``other`` partitions.
+        The worker's ordering uses the current partition first, in their rank
+        order.  Any worker in both partitions is included in the first set and
+        is not repeated.
+
+        This uses ``MPI_Group_union`` which does not invoke collectives and
+        ``MPI_Comm_create_group`` which is only collective across the workers
+        *in the new group*.
+
+        Parameters
+        ----------
+        other : MPIPartition
+            The partition to union with.
+
+        Returns
+        -------
+        A new :any:`MPIPartition` instance.
+
+        """
 
         # Cannot make a union if the two partitions do not share a root
         if not check_identical_comm(self.root, other.root):
@@ -86,6 +203,28 @@ class MPIPartition:
         return MPIPartition(comm, group, root=self.root)
 
     def create_cartesian_topology_partition(self, shape, **options):
+        r"""Creates new partition with Cartesian topology.
+
+        The new partition is a remapping of the current partition to a Cartesian
+        topology with the given ``shape``.
+
+        Warning
+        -------
+        Currently, all workers in the ``self`` Partition must be included in the
+        new Cartesian partition.
+
+        Parameters
+        ----------
+        shape : iterable
+            Iterable containing the shape of the new Cartesian partition.
+        options : dict, optional
+            Options to pass along to ``MPI_Comm_create_cart``.
+
+        Returns
+        -------
+        A new :any:`MPICartesianPartition` instance.
+
+        """
 
         shape = np.asarray(shape)
         if self.active:
@@ -102,16 +241,51 @@ class MPIPartition:
             comm = MPI.COMM_NULL
             return MPIPartition(comm, self.group, root=self.root)
 
-    # P: Partition containing root index (cartesian)
-    # P_union: Partition that all ranks are a member of
-    # root_index: (cartesian) index of the root of the communication.
-    #             This is either the current index if it is the send
-    #             group, or it is the index the current index receives
-    #             from if this is the receive group.
-    # src_indices: All cartesian indices in the entire source partition.
-    # dest_indices: All cartesian indices in the entire destination partition
     def _build_cross_partition_groups(self, P, P_union,
                                       root_index, src_indices, dest_indices):
+        r"""Builds list of ranks and MPI group for communicating across partitions.
+
+        Some partition building functions need to be able to create new
+        partitions, with one worker a member of a Cartesian partition and the
+        other a general partition.  Here, this is to support the DistDL
+        broadcasting rules.
+
+        A worker with the given ``root_index`` will be the root worker in a
+        new partition.  That partition is constructed from that worker, plus
+        all other workers in the ``P_union`` partition who's color matches the
+        root index.
+
+        The ``root_index`` is either the index of the current worker if it is
+        in the send group or it is the index that the current index will
+        receive from if it is in the receive group.
+
+        Colors are found in ``src_indices`` and ``dest_indices``, which are
+        NumPy arrays of the same size as ``P_union``, with locations
+        corresponding to workers' ranks in ``P_union``.
+
+        This operation is collective across ``P`` and ``P_union``.
+
+        Parameters
+        ----------
+        P : MPICartesianPartition
+            Partition containing root index.
+        P_union : MPIPartition
+            Partition that all ranks are a member of.
+        root_index : int
+            Cartesian index (color) of the root of the new partition.
+        src_indices : numpy.ndarray
+            All Cartesian indices (colors) in the entire source partition.
+        dest_indices : numpy.ndarray
+            All Cartesian indices (colors) in the entire destination partition.
+
+        Returns
+        -------
+        ranks : list
+            The list of ranks in the new partition, ordered with the root rank first.
+        group : MPI_group
+            An MPI group containing ``ranks``.
+
+        """
 
         root_rank = MPI.PROC_NULL
         if P.active:
@@ -119,7 +293,7 @@ class MPIPartition:
             # receive data from (reduction), if this is the "send" group.
             # The ranks ranks in the union that will receive data from the
             # same place as me (broadcast) or send data to the same place as
-            # me (reduction).
+            # me (reduction) if this is the "receive" group.
             dest_ranks = np.where(dest_indices == root_index)[0]
             # My rank in the union (send group for broadcast or receive group
             # for reduction) or the rank in the union I will receive data from
@@ -142,6 +316,37 @@ class MPIPartition:
     def _create_send_recv_partitions(self, P_union,
                                      send_ranks, group_send,
                                      recv_ranks, group_recv):
+        r"""Creates the send and receive partitions for broadcasts and reductions.
+
+        Uses ``MPI_Comm_create_group`` which is only collective across the
+        workers *in the new group*.
+
+        The output ``P_send`` for the current worker may be ``P_recv`` for another
+        worker, and vice versa.  A worker may have either, both, or neither.  They
+        may also be the same.
+
+        Parameters
+        ----------
+        P_union : MPIPartition
+            Partition that all ranks are a member of.
+        send_ranks : iterable
+            Set of ranks for new partition current worker sends to.
+        group_send : MPI_Group
+            MPI_Group containing the ``send_ranks`` workers.
+        recv_ranks : iterable
+            Set of ranks for new partition current worker receives within.
+        group_recv : MPI_Group
+            MPI_Group containing the ``recv_ranks`` workers.
+
+        Returns
+        -------
+        P_send : MPIPartition
+            The send partition for the current worker.
+        P_recv : MPIPartition
+            The receive partition for the current worker.
+
+        """
+
         # We will only do certain work if certain groups were created.
         has_send_group = not check_null_group(group_send)
         has_recv_group = not check_null_group(group_recv)
@@ -150,7 +355,8 @@ class MPIPartition:
         P_send = MPIPartition()
         P_recv = MPIPartition()
 
-        # Brute force the four cases, don't try to be elegant...
+        # Brute force the four cases, don't try to be elegant...this pattern
+        # is prone to deadlock if we are not careful.
         if has_send_group and has_recv_group and not same_send_recv_group:
 
             # If we have to both send and receive, it is possible to deadlock
@@ -192,6 +398,29 @@ class MPIPartition:
     def create_broadcast_partition_to(self, P_dest,
                                       transpose_src=False,
                                       transpose_dest=False):
+        r"""Creates the send and receive partitions for broadcasts.
+
+        Creates the send and receive partitions from the current partition to
+        the ``P_dest`` partition, following the DistDL broadcast rules
+        (:ref:`code_reference/nn/broadcast:Broadcast Rules`).
+
+        The order and layout of the broadcast can be somewhat fluid, so support
+        for treating the source and destination partitions is supported.
+
+        Parameters
+        ----------
+        P_dest : MPICartesianPartition
+            Destination partition for the broadcast operation.
+        transpose_src : bool, optional
+            Flag to transpose the source partition.
+        transpose_dest : bool, optional
+            Flag to transpose the destination partition.
+
+        Returns
+        -------
+        Tuple containing the send and receive partitions for this worker.
+
+        """
 
         P_src = self
 
@@ -303,6 +532,29 @@ class MPIPartition:
     def create_reduction_partition_to(self, P_dest,
                                       transpose_src=False,
                                       transpose_dest=False):
+        r"""Creates the send and receive partitions for reductions.
+
+        Creates the send and receive partitions from the current partition to
+        the ``P_dest`` partition, following the DistDL broadcast rules
+        (:ref:`code_reference/nn/broadcast:Broadcast Rules`), in reverse.
+
+        The order and layout of the reduction can be somewhat fluid, so support
+        for treating the source and destination partitions is supported.
+
+        Parameters
+        ----------
+        P_dest : MPICartesianPartition
+            Destination partition for the reduction operation.
+        transpose_src : bool, optional
+            Flag to transpose the source partition.
+        transpose_dest : bool, optional
+            Flag to transpose the destination partition.
+
+        Returns
+        -------
+        Tuple containing the send and receive partitions for this worker.
+
+        """
 
         P_src = self
 
@@ -410,6 +662,32 @@ class MPIPartition:
                                                  recv_ranks, group_recv)
 
     def broadcast_data(self, data, root=0, P_data=None):
+        r"""Copy arbitrary data from one worker to all workers in a partition.
+
+        Note
+        ----
+        This is a general broadcast in the sense of traditional parallelism.
+        This is not the broadcast in the context of partitioned tensors.
+
+        The data *can* be broadcast within a partition that is a superset of
+        one containing the data, as long as ``P_data`` is both a subset of the
+        current partition and contains the root worker.  If ``P_data`` is not
+        specified, it is assumed to be the current partition.
+
+        Parameters
+        ----------
+        data :
+            The data to be broadcast.
+        root :
+            The lexicographic identifier of the source worker for the broadcast.
+        P_data : MPIPartition
+            The partition that contains the data.
+
+        Returns
+        -------
+        The broadcast data.
+
+        """
 
         # If the data is coming from a different partition
         if not self.active:
@@ -448,6 +726,23 @@ class MPIPartition:
         return out_data
 
     def allgather_data(self, data):
+        r"""Gather information from all workers to all workers.
+
+        Note
+        ----
+        This is a general all-gather in the sense of traditional parallelism.
+
+        Parameters
+        ----------
+        data :
+            The data to be gathered.
+
+        Returns
+        -------
+        The output data, as a NumPy array, where the location of the entry
+        corresponds to the rank of the worker that has that data.
+
+        """
 
         data = np.atleast_1d(data)
         sz = len(data)
@@ -460,6 +755,47 @@ class MPIPartition:
 
 
 class MPICartesianPartition(MPIPartition):
+    r"""MPI-based implementation of Cartesian tensor partition.
+
+    This class provides the user interface for the MPI-based implementation of
+    tensor partitions with Cartesian topologies.  The MPI interface is
+    provided by ``mpi4py``.
+
+    Teams of workers are managed using MPI Groups and communication and data
+    movement occurs within the MPI Cartesian Communicator associated with that
+    group.
+
+    To handle situations where data movement occurs between two partitions, a
+    ``root`` MPI Communicator is stored.  This communicator allows the
+    creation of a union of the two partitions, so that collectives can be used
+    across that union without impacting other workers in the root
+    communicator.  The root communicator is *not* necessarily a Cartesian
+    communicator.
+
+    The number of workers in each dimension of the partition is specified by
+    the ``shape``.
+
+    Parameters
+    ----------
+    comm : MPI Cartesian communicator
+        MPI Cartesian Communicator describing partition.
+    group : MPI group
+        MPI Group associated with ``comm``.
+    root : MPI communicator, optional
+        MPI communicator tracking the original communicator used to create
+        all ancestors of this partition.
+    shape : iterable
+        Number of workers in each dimension of the Cartesian partition.
+
+    Attributes
+    ----------
+    shape :
+        Number of workers in each Cartesian dimension.
+    dim :
+        Number of dimensions in the partition.
+    index :
+        Lexicographic identifiers in each Cartesian dimension.
+    """
 
     def __init__(self, comm, group, root, shape):
 
@@ -473,6 +809,25 @@ class MPICartesianPartition(MPIPartition):
             self.index = self.cartesian_index(self.rank)
 
     def create_cartesian_subtopology_partition(self, remain_shape):
+        r"""Creates new partition with Cartesian topology in specific
+        sub-dimensions.
+
+        The new partition is a subset of the dimensions of the current
+        Cartesian partition, following the behavior of ``MPI_Comm_sub``.
+
+        This uses the ``MPI_Comm_sub`` routine to create the subpartition.
+
+        Parameters
+        ----------
+        remain_shape : iterable
+            Iterable containing boolean flags indicating if the dimension is
+            to be preserved.
+
+        Returns
+        -------
+        A new :any:`MPICartesianPartition` instance.
+
+        """
 
         # remain_shape = np.asarray(remain_shape)
         if self.active:
@@ -488,6 +843,18 @@ class MPICartesianPartition(MPIPartition):
             return MPIPartition(comm, root=self.root)
 
     def cartesian_index(self, rank):
+        r"""Given the rank, returns the Cartesian coordinates of the worker.
+
+        Parameters
+        ----------
+        rank :
+            Lexicographic identifier of the desired worker.
+
+        Returns
+        -------
+        Cartesian lexicographic identifier of the desired worker.
+
+        """
 
         if not self.active:
             raise Exception()
@@ -495,6 +862,20 @@ class MPICartesianPartition(MPIPartition):
         return np.asarray(self.comm.Get_coords(rank))
 
     def neighbor_ranks(self, rank):
+        r"""Given the rank, returns the ranks of the Cartesian neighboring
+        workers.
+
+        Parameters
+        ----------
+        rank :
+            Lexicographic identifier of the desired worker.
+
+        Returns
+        -------
+        neighbor_ranks :
+            List of (left, right) pairs of ranks in each dimension.
+
+        """
 
         if not self.active:
             raise Exception()
