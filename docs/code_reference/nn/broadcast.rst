@@ -156,6 +156,11 @@ however, it is required that :math:`\text{dim}(P_x) \le \text{dim}(P_y)`.
 When the dimensions do not match, :math:`P_x` is implicitly extended *to the
 left* with ones until the dimension does match.
 
+In the following examples, subtensors are defined by the black partition
+borders.  There is one worker per subtensor in each partition.  Like colors
+indicate subtensors that interact in the broadcast.  For example, the blue
+subtensor in :math:`P_x` broadcasts to the blue subtensors in :math:`P_y`.
+
 Standard Broadcasts
 -------------------
 
@@ -250,7 +255,7 @@ Example 8
 ~~~~~~~~~
 
 A partition with shape :math:`4 \times 1` broadcasts to a partition with shape
-:math:`3 \times 4` if ``transpose_src = True``.
+:math:`3 \times 4` if ``transpose_dest = True``.
 
 .. figure:: /_images/broadcast_4x1_to_3x4.png
     :alt: Image of 1x3 to 3x4 broadcast using transpose_dest.
@@ -267,7 +272,7 @@ onto a ``4 x 3`` partition:
 >>> P_y_base = P_world.create_partition_inclusive(np.arange(0, 12))
 >>> P_y = P_y_base.create_cartesian_topology_partition([4, 3])
 >>>
->>> x_global_shape = np.array([7, 5])
+>>> x_local_shape = np.array([7, 5])
 >>>
 >>> layer = Broadcast(P_x, P_y, preserve_batch=False)
 >>>

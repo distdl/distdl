@@ -44,7 +44,7 @@ We implement a number of primitives.
      - Performs a broadcast of a tensor from one partition to another.
    * - :ref:`code_reference/nn/halo_exchange:Halo Exchange Layer`
      - Performs the halo exchange operation of a tensor on a partition.
-   * - :ref:`code_reference/nn/sum_reduce:Sum-Reduce Layer`
+   * - :ref:`code_reference/nn/sum_reduce:SumReduce Layer`
      - Performs a sum-reduction of a tensor from one partition to another.
    * - :ref:`code_reference/nn/transpose:Transpose Layer`
      - Performs a transpose or a tensor from one partition to another.

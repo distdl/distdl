@@ -107,7 +107,7 @@ class Broadcast(Module):
                 self.identity = True
 
     def _distdl_module_setup(self, input):
-        """Broadcast module setup function.
+        r"""Broadcast module setup function.
 
         Constructs the necessary partition functions to implement the above
         described broadcast pattern.  This function performs collective
@@ -147,7 +147,7 @@ class Broadcast(Module):
         self._input_requires_grad = input[0].requires_grad
 
     def _distdl_module_teardown(self, input):
-        """Broadcast module teardown function.
+        r"""Broadcast module teardown function.
 
         Nullifies the necessary partition functions.
 
@@ -176,7 +176,7 @@ class Broadcast(Module):
         self._input_requires_grad = None
 
     def _distdl_input_changed(self, input):
-        """Determine if the structure of inputs has changed.
+        r"""Determine if the structure of inputs has changed.
 
         Parameters
         ----------
