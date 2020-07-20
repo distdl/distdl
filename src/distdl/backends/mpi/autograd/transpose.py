@@ -1,3 +1,5 @@
+__all__ = ["DistributedTransposeFunction"]
+
 import numpy as np
 import torch
 from mpi4py import MPI
@@ -7,11 +9,81 @@ from distdl.utilities.torch import zero_volume_tensor
 
 
 class DistributedTransposeFunction(torch.autograd.Function):
+    r"""MPI-based functional implementation of a distributed transpose layer.
+
+    Implements the required `forward()` and adjoint (`backward()`) operations
+    for a distributed Transpose layer using the PyTorch autograd interface.
+
+    This implementation uses MPI for data movement, accessed through the
+    ``mpi4py`` MPI wrappers.
+
+    Warning
+    -------
+    This implementation currently requires that tensors have data stored in main
+    memory (CPU) only, not auxiliary memories such as those on GPUs.
+
+    Warning
+    -------
+    The ``mpi4py`` interface currently used requires NumPy views of the tensors.
+
+    """
 
     @staticmethod
     def forward(ctx, input, P_union, x_global_shape,
                 P_x, in_data, in_buffers,
                 P_y, out_data, out_buffers, preserve_batch, dtype):
+        r"""Forward function of distributed transpose layer.
+
+        This method implements the forward transpose operation using MPI
+        immediate-mode, non-blocking communication.
+
+        Any given worker may send data to multiple workers in ``P_y`` and
+        receive data from multiple workers in ``P_x``.  All communication
+        across partitions occurs through the ``P_union`` partition.
+
+        Data is copied using ``MPI_Irecv`` and ``MPI_Isend``. As is standard
+        procedure, the receives are posted first, allowing them to complete as
+        they can.  Then, buffers are packed and sent.  Once all sends have
+        been posted, received data is unpacked in the order that the receives
+        complete.
+
+        When the current worker is inactive in the ``P_y`` partition, it will
+        output a zero-volume tensor, potentially preserving a non-zero batch
+        size.
+
+        Parameters
+        ----------
+        ctx :
+            PyTorch context.
+        input : `torch.tensor`
+            Input tensor.
+        P_union : Partition
+            Partition through which all communication occurs.
+        x_global_shape :
+            Shape if the global input tensor.
+        P_x : Partition
+            Input partition.
+        in_data : list
+            List of tuples (sz, sl, partner) for each send current worker must perform.
+        in_buffers : list
+            List of pre-allocated send buffers for each send current worker must perform.
+        P_y : Partition
+            Input partition.
+        out_data : list
+            List of tuples (sz, sl, partner) for each receive current worker must perform.
+        out_buffers : list
+            List of pre-allocated send buffers for each receive current worker must perform.
+        preserve_batch : bool
+            Indicates if batch size should be preserved for zero-volume outputs.
+        dtype : torch.dtype
+            Data type of the input/output tensor.
+
+        Returns
+        -------
+        output :
+            Output tensor.
+
+        """
 
         ctx.P_union = P_union
         ctx.x_global_shape = x_global_shape
@@ -29,8 +101,12 @@ class DistributedTransposeFunction(torch.autograd.Function):
         ctx.dtype = dtype
 
         input_requires_grad = False
-        # By design, P_x is always first in the union
+
+        # Share the requires-grad status, so that it is preserved across the
+        # transpose
         if P_union.active:
+            # By design, P_x is always first in the union, so we can just take
+            # rank 0's status to send
             if P_x.rank == 0:
                 input_requires_grad = input.requires_grad
                 P_union.comm.Bcast(np.array([1 if input_requires_grad else 0]),
@@ -113,6 +189,37 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        r"""Forward function of distributed transpose layer.
+
+        This method implements the adjoint of the Jacobian of the transpose
+        operation using MPI immediate-mode, non-blocking communication.
+
+        The roles of the ``P_x`` and ``P_y`` partitions are reversed, but all
+        communication across partitions occurs through the ``P_union``
+        partition.
+
+        Data is copied using ``MPI_Irecv`` and ``MPI_Isend``. As is standard
+        procedure, the receives are posted first, allowing them to complete as
+        they can.  Then, buffers are packed and sent.  Once all sends have
+        been posted, received data is unpacked in the order that the receives
+        complete.
+
+        When the current worker is inactive in the ``P_x`` partition, it will
+        output a zero-volume tensor, potentially preserving a non-zero batch
+
+        Parameters
+        ----------
+        ctx :
+            PyTorch context.
+        grad_output : `torch.tensor`
+            Input tensor.
+
+        Returns
+        -------
+        output :
+            Output tensor.
+
+        """
 
         P_union = ctx.P_union
         x_global_shape = ctx.x_global_shape
