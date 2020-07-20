@@ -42,6 +42,8 @@ Halo Exchange
 -------------
 
 .. automodule:: distdl.backends.mpi.autograd.halo_exchange
+
+.. autoclass:: distdl.backends.mpi.autograd.HaloExchangeFunction
     :members:
     :undoc-members:
 
@@ -58,6 +60,8 @@ Transpose
 ---------
 
 .. automodule:: distdl.backends.mpi.autograd.transpose
+
+.. autoclass:: distdl.backends.mpi.autograd.DistributedTransposeFunction
     :members:
     :undoc-members:
 

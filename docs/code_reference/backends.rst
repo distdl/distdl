@@ -545,6 +545,65 @@ sum-reduced.
 Transpose
 ~~~~~~~~~
 
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+   :align: left
+
+   * - Back-end
+     - Module
+     - Class
+   * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
+     - :any:`backends.mpi.autograd.transpose <distdl.backends.mpi.autograd.transpose>`
+     - :any:`BroadcastFunction <distdl.backends.mpi.autograd.DistributedTransposeFunction>`
+
+The functional primitive for the Transpose data movement operation does not
+use the original tensor partitions :math:`P_x` (input) and :math:`P_y`
+(output) directly.  Instead, the calling class creates a new union partition,
+within which data is moved.
+
+Within this union, workers either share data with other workers, receive
+shared data from other workers, or keep subsets of their own data.  All
+sharing of data occurs through intermediate buffers.
+
+.. warning::
+   Currently, these buffers are allocated by the calling class.  In the future
+   these should still be pre-allocated, but the allocator will need to be
+   specified in the back-end.
+
+The calling class provides two sets of meta information and buffers, one for
+any sending and one for any receiving a worker has to do.  The meta
+information is a triplet, ``(slice, size, partner)``.  When the worker must
+send data, ``slice`` is a Python ``Slice`` object describing the indices of
+the input tensor that it must copy to worker ``partner``.  ``size`` is the
+volume of ``slice`` and ``partner`` is the lexicographic identifier (or rank)
+of the partner worker.  The associated send buffer will be of size ``size``,
+specified in records, not bytes.  Meta information for the receive is
+essentially the same, except ``slice`` describes the slice of the output
+tensor the data will go to and ``partner`` is the source the data.
+
+While most operations can be completed using information about the local
+subtensor only, this operation requires the global input tensor size.  This is
+because we do not require the global tensor size to be specified when the
+layer is instantiated.  Instead, the layer determines that size when it is
+called.  Consequently, the shape of the local output subtensor tensor cannot
+be known until then, either.
+
+A worker may be part of either :math:`P_x`, :math:`P_y`, or both. If it is
+part of :math:`P_x`, then it will only need to share parts of its local input
+subtensor with other workers.  If it is not part of :math:`P_x`, it will take
+a zero-volume tensor as input.  If it is part of :math:`P_y`, its output
+subtensor will be formed by receiving copies of parts of other workers' local
+input subtensors.  If it is not part of :math:`P_y`, then its output will be a
+zero-volume tensor. If a worker is part of both, its output may be a direct
+copy of part of its own input.
+
+The adjoint phase works the same way, but in reverse.  However, as
+demonstrated in the `motivating paper <https://arxiv.org/abs/2006.03108>`_,
+the subtensors on :math:`P_y` are summed back to :math:`P_x`, rather than
+copied.  However, because there are no overlaps in the local scatters, this
+sum can safely be replaced with a copy.
+
 Backends
 ========
 
