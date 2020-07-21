@@ -30,8 +30,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_union, x_global_shape,
-                P_x, in_data, in_buffers,
-                P_y, out_data, out_buffers, preserve_batch, dtype):
+                P_x, P_x_to_y_overlaps, P_x_to_y_buffers,
+                P_y, P_y_to_x_overlaps, P_y_to_x_buffers, preserve_batch, dtype):
         r"""Forward function of distributed transpose layer.
 
         This method implements the forward transpose operation using MPI
@@ -63,16 +63,20 @@ class DistributedTransposeFunction(torch.autograd.Function):
             Shape if the global input tensor.
         P_x : Partition
             Input partition.
-        in_data : list
-            List of tuples (sz, sl, partner) for each send current worker must perform.
-        in_buffers : list
-            List of pre-allocated send buffers for each send current worker must perform.
+        P_x_to_y_overlaps : list
+            List of tuples (sz, sl, partner) for each send current worker must
+            perform.
+        P_x_to_y_buffers : list
+            List of pre-allocated send buffers for each send current worker
+            must perform.
         P_y : Partition
             Input partition.
-        out_data : list
-            List of tuples (sz, sl, partner) for each receive current worker must perform.
-        out_buffers : list
-            List of pre-allocated send buffers for each receive current worker must perform.
+        P_y_to_x_overlaps : list
+            List of tuples (sz, sl, partner) for each receive current worker
+            must perform.
+        P_y_to_x_buffers : list
+            List of pre-allocated send buffers for each receive current worker
+            must perform.
         preserve_batch : bool
             Indicates if batch size should be preserved for zero-volume outputs.
         dtype : torch.dtype
@@ -89,12 +93,12 @@ class DistributedTransposeFunction(torch.autograd.Function):
         ctx.x_global_shape = x_global_shape
 
         ctx.P_x = P_x
-        ctx.in_data = in_data
-        ctx.in_buffers = in_buffers
+        ctx.P_x_to_y_overlaps = P_x_to_y_overlaps
+        ctx.P_x_to_y_buffers = P_x_to_y_buffers
 
         ctx.P_y = P_y
-        ctx.out_data = out_data
-        ctx.out_buffers = out_buffers
+        ctx.P_y_to_x_overlaps = P_y_to_x_overlaps
+        ctx.P_y_to_x_buffers = P_y_to_x_buffers
 
         ctx.preserve_batch = preserve_batch
 
@@ -129,14 +133,14 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # If I am getting data, recv my output parts
         recv_count = 0
         if P_y.active:
-            for (sl, sz, partner), buff in zip(out_data, out_buffers):
+            for (sl, sz, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
                     req = P_union.comm.Irecv(buff, source=partner, tag=111)
                     requests.append(req)
                 else:
                     # We add this if there is no recv so that the indices of
-                    # the requests array match the indices of out_data and
-                    # out_buffers.
+                    # the requests array match the indices of
+                    # P_y_to_x_overlaps and P_y_to_x_buffers.
                     requests.append(MPI.REQUEST_NULL)
                 recv_count += 1
 
@@ -144,7 +148,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         send_count = 0
         if P_x.active:
             input_numpy = input.detach().numpy()
-            for (sl, sz, partner), buff in zip(in_data, in_buffers):
+            for (sl, sz, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
                     np.copyto(buff, input_numpy[tuple(sl)].ravel())
                     req = P_union.comm.Isend(buff, dest=partner, tag=111)
@@ -173,8 +177,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
             # instance of MPI.REQUEST_NULL, instead MPI.UNDEFINED is returned.
             if P_y.active and index < recv_count and index != MPI.UNDEFINED:
                 # Unpack my output parts
-                sl, sz, partner = out_data[index]
-                buff = out_buffers[index]
+                sl, sz, partner = P_y_to_x_overlaps[index]
+                buff = P_y_to_x_buffers[index]
                 if buff is not None:
                     sh = output[tuple(sl)].shape
                     np.copyto(output[tuple(sl)], buff.reshape(sh))
@@ -225,12 +229,12 @@ class DistributedTransposeFunction(torch.autograd.Function):
         x_global_shape = ctx.x_global_shape
 
         P_x = ctx.P_x
-        in_data = ctx.in_data
-        in_buffers = ctx.in_buffers
+        P_x_to_y_overlaps = ctx.P_x_to_y_overlaps
+        P_x_to_y_buffers = ctx.P_x_to_y_buffers
 
         P_y = ctx.P_y
-        out_data = ctx.out_data
-        out_buffers = ctx.out_buffers
+        P_y_to_x_overlaps = ctx.P_y_to_x_overlaps
+        P_y_to_x_buffers = ctx.P_y_to_x_buffers
 
         preserve_batch = ctx.preserve_batch
 
@@ -249,14 +253,14 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # Recv my input parts
         recv_count = 0
         if P_x.active:
-            for (sl, sz, partner), buff in zip(in_data, in_buffers):
+            for (sl, sz, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
                     req = P_union.comm.Irecv(buff, source=partner, tag=113)
                     requests.append(req)
                 else:
                     # We add this if there is no recv so that the indices of
-                    # the requests array match the indices of in_data and
-                    # in_buffers.
+                    # the requests array match the indices of
+                    # P_x_to_y_overlaps and P_x_to_y_buffers.
                     requests.append(MPI.REQUEST_NULL)
                 recv_count += 1
 
@@ -264,7 +268,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         send_count = 0
         if P_y.active:
             grad_output_numpy = grad_output.detach().numpy()
-            for (sl, sz, partner), buff in zip(out_data, out_buffers):
+            for (sl, sz, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
                     np.copyto(buff, grad_output_numpy[tuple(sl)].ravel())
                     req = P_union.comm.Isend(buff, dest=partner, tag=113)
@@ -291,8 +295,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
             # instance of MPI.REQUEST_NULL, instead MPI.UNDEFINED is returned.
             if P_x.active and index < recv_count and index != MPI.UNDEFINED:
                 # Unpack my output parts
-                sl, sz, partner = in_data[index]
-                buff = in_buffers[index]
+                sl, sz, partner = P_x_to_y_overlaps[index]
+                buff = P_x_to_y_buffers[index]
                 if buff is not None:
                     sh = grad_input[tuple(sl)].shape
                     # This would normally be an add into the grad_input tensor
