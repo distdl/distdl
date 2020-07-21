@@ -211,12 +211,10 @@ class BroadcastFunction(torch.autograd.Function):
             requests.append(req)
 
         # If I sent data in the forward, I have to receive it here.  Unless I
-        # also received that data, then I already have it from abive.  mpi4py
-        # does not allow aliasing of the input, so we have to make a copy of
-        # nothing, unfortunately.
+        # also received that data, then I already have it from above.
         if P_send != P_recv and P_send.active:
             reduced_data_send = np.zeros(input_tensor_shape, dtype=dtype)
-            req = P_send.comm.Ireduce(reduced_data_send.copy(), reduced_data_send, root=0, op=MPI.SUM)
+            req = P_send.comm.Ireduce(MPI.IN_PLACE, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
         MPI.Request.Waitall(requests)
