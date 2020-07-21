@@ -1,7 +1,4 @@
-import numpy as np
-
 from distdl.nn.module import Module
-from distdl.utilities.slicing import compute_nd_slice_volume
 
 
 class HaloExchange(Module):
@@ -26,6 +23,9 @@ class HaloExchange(Module):
         self._distdl_is_setup = False
         self._input_shape = None
         self._input_requires_grad = None
+
+        # Get some types and functions from the back-end
+        self.allocate_halo_exchange_buffers = self._distdl_backend.halo_exchange.allocate_halo_exchange_buffers
 
     def _assemble_slices(self, x_local_shape, recv_buffer_shape, send_buffer_shape):
 
@@ -91,29 +91,14 @@ class HaloExchange(Module):
 
         return slices
 
-    def _allocate_buffers(self, slices, recv_buffer_shape, send_buffer_shape):
-
-        dim = len(slices)
-
-        buffers = []
-
-        for i in range(dim):
-            lbb_len = compute_nd_slice_volume(slices[i][0]) if send_buffer_shape[i, 0] > 0 else 0
-            lgb_len = compute_nd_slice_volume(slices[i][1]) if recv_buffer_shape[i, 0] > 0 else 0
-            rbb_len = compute_nd_slice_volume(slices[i][2]) if send_buffer_shape[i, 1] > 0 else 0
-            rgb_len = compute_nd_slice_volume(slices[i][3]) if recv_buffer_shape[i, 1] > 0 else 0
-
-            buffers_i = [np.zeros(shape=x) if x > 0 else None for x in [lbb_len, lgb_len, rbb_len, rgb_len]]
-            buffers.append(buffers_i)
-
-        return buffers
-
     def _distdl_module_setup(self, input):
 
         if self.P_x.active:
             x_local_shape = input[0].shape
             self.slices = self._assemble_slices(x_local_shape, self.recv_buffer_shape, self.send_buffer_shape)
-            self.buffers = self._allocate_buffers(self.slices, self.recv_buffer_shape, self.send_buffer_shape)
+            self.buffers = self.allocate_halo_exchange_buffers(self.slices,
+                                                               self.recv_buffer_shape,
+                                                               self.send_buffer_shape)
 
         self._distdl_is_setup = True
         self._input_shape = input[0].shape
