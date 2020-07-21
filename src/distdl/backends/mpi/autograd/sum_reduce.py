@@ -117,12 +117,10 @@ class SumReduceFunction(torch.autograd.Function):
             req = P_send.comm.Ireduce(input_numpy, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
-        # If I sent data in the forward, I have to receive it here.  mpi4py
-        # does not allow aliasing of the input, so we have to make a copy of
-        # nothing, unfortunately.
+        # If I sent data in the forward, I have to receive it here.
         if P_send != P_recv and P_recv.active:
             reduced_data_recv = np.zeros(output_tensor_shape, dtype=dtype)
-            req = P_recv.comm.Ireduce(reduced_data_recv.copy(), reduced_data_recv, root=0, op=MPI.SUM)
+            req = P_recv.comm.Ireduce(MPI.IN_PLACE, reduced_data_recv, root=0, op=MPI.SUM)
             requests.append(req)
 
         MPI.Request.Waitall(requests)
