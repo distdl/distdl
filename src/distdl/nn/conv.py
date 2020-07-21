@@ -39,7 +39,7 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         self.P_wb_cart = self.P_wb.create_cartesian_topology_partition([1])
 
         # We want only the root rank of the broadcast to have a weight and a bias parameter.
-        # Every other rank gets a NoneTensor.
+        # Every other rank gets a zero-volume tensor.
         if self.P_wb_cart.active:
             self.weight = torch.nn.Parameter(self.conv_layer.weight.detach())
 
