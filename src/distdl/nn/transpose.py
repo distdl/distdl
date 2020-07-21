@@ -123,6 +123,9 @@ class DistributedTranspose(Module):
         data = np.array([P_y.rank if P_y.active else -1], dtype=np.int)
         self.P_y_ranks = P_union.allgather_data(data)
 
+        # Get some types and functions from the back-end
+        self.allocate_transpose_buffers = self._distdl_backend.transpose.allocate_transpose_buffers
+
     def _distdl_module_setup(self, input):
         r"""Transpose module setup function.
 
@@ -210,7 +213,9 @@ class DistributedTranspose(Module):
                 else:
                     self.P_y_to_x_overlaps.append((None, None, None))
 
-        buffs = self._allocate_buffers(self.dtype)
+        buffs = self.allocate_transpose_buffers(self.P_x_to_y_overlaps,
+                                                self.P_y_to_x_overlaps,
+                                                self.dtype)
         self.P_x_to_y_buffers = buffs[0]
         self.P_y_to_x_buffers = buffs[1]
 
@@ -260,37 +265,6 @@ class DistributedTranspose(Module):
             return True
 
         return False
-
-    def _allocate_buffers(self, dtype):
-        r"""Allocator for data movement buffers.
-
-        Parameters
-        ----------
-        input :
-            Tuple of forward inputs.  See
-            `torch.nn.Module.register_forward_pre_hook` for more details.
-
-        """
-
-        # For each necessary copy, allocate send buffers.
-        P_x_to_y_buffers = []
-        for sl, sz, r in self.P_x_to_y_overlaps:
-            buff = None
-            if sz is not None:
-                buff = np.zeros(sz, dtype=dtype)
-
-            P_x_to_y_buffers.append(buff)
-
-        # For each necessary copy, allocate receive buffers.
-        P_y_to_x_buffers = []
-        for sl, sz, r in self.P_y_to_x_overlaps:
-            buff = None
-            if sz is not None:
-                buff = np.zeros(sz, dtype=dtype)
-
-            P_y_to_x_buffers.append(buff)
-
-        return P_x_to_y_buffers, P_y_to_x_buffers
 
     def forward(self, input):
         """Forward function interface.

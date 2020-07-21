@@ -566,10 +566,9 @@ Within this union, workers either share data with other workers, receive
 shared data from other workers, or keep subsets of their own data.  All
 sharing of data occurs through intermediate buffers.
 
-.. warning::
-   Currently, these buffers are allocated by the calling class.  In the future
-   these should still be pre-allocated, but the allocator will need to be
-   specified in the back-end.
+.. note::
+   These buffers are allocated by the calling class, using a helper function
+   that must be specified by the back-end.
 
 The calling class provides two sets of meta information and buffers, one for
 any sending and one for any receiving a worker has to do.  The meta
