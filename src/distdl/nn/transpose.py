@@ -52,17 +52,17 @@ class DistributedTranspose(Module):
 
         # List of meta data describing copies of subvolumes of input tensor
         # out of the current worker
-        self.in_data = []
+        self.P_x_to_y_overlaps = []
 
         # List of meta data describing copies of subvolumes of output tensor
         # into the current worker
-        self.out_data = []
+        self.P_y_to_x_overlaps = []
 
         # List of buffers for copying data to other workers
-        self.in_buffers = None
+        self.P_x_to_y_buffers = None
 
         # List of buffers for copying data from other workers
-        self.out_buffers = None
+        self.P_y_to_x_buffers = None
 
         # TODO(#25): The dtype should not be fixed, but correcting this is
         #            a thing that needs to be resolved globally.
@@ -187,9 +187,9 @@ class DistributedTranspose(Module):
                     # Reverse the mapping to get the output partner's rank in
                     # the common partition.
                     partner = np.where(self.P_y_ranks == rank)[0][0]
-                    self.in_data.append((sl, sz, partner))
+                    self.P_x_to_y_overlaps.append((sl, sz, partner))
                 else:
-                    self.in_data.append((None, None, None))
+                    self.P_x_to_y_overlaps.append((None, None, None))
 
         # We only need to obtain data from the input partition if we actually
         # have output data.
@@ -206,13 +206,13 @@ class DistributedTranspose(Module):
                     # Reverse the mapping to get the input partner's rank in
                     # the common partition.
                     partner = np.where(self.P_x_ranks == rank)[0][0]
-                    self.out_data.append((sl, sz, partner))
+                    self.P_y_to_x_overlaps.append((sl, sz, partner))
                 else:
-                    self.out_data.append((None, None, None))
+                    self.P_y_to_x_overlaps.append((None, None, None))
 
         buffs = self._allocate_buffers(self.dtype)
-        self.in_buffers = buffs[0]
-        self.out_buffers = buffs[1]
+        self.P_x_to_y_buffers = buffs[0]
+        self.P_y_to_x_buffers = buffs[1]
 
     def _distdl_module_teardown(self, input):
         r"""Transpose module teardown function.
@@ -231,11 +231,11 @@ class DistributedTranspose(Module):
         """
 
         # Reset all of the buffers and communication objects
-        self.in_data = []
-        self.out_data = []
+        self.P_x_to_y_overlaps = []
+        self.P_y_to_x_overlaps = []
 
-        self.in_buffers = None
-        self.out_buffers = None
+        self.P_x_to_y_buffers = None
+        self.P_y_to_x_buffers = None
 
         # Reset any info about the input
         self._distdl_is_setup = False
@@ -273,24 +273,24 @@ class DistributedTranspose(Module):
         """
 
         # For each necessary copy, allocate send buffers.
-        in_buffers = []
-        for sl, sz, r in self.in_data:
+        P_x_to_y_buffers = []
+        for sl, sz, r in self.P_x_to_y_overlaps:
             buff = None
             if sz is not None:
                 buff = np.zeros(sz, dtype=dtype)
 
-            in_buffers.append(buff)
+            P_x_to_y_buffers.append(buff)
 
         # For each necessary copy, allocate receive buffers.
-        out_buffers = []
-        for sl, sz, r in self.out_data:
+        P_y_to_x_buffers = []
+        for sl, sz, r in self.P_y_to_x_overlaps:
             buff = None
             if sz is not None:
                 buff = np.zeros(sz, dtype=dtype)
 
-            out_buffers.append(buff)
+            P_y_to_x_buffers.append(buff)
 
-        return in_buffers, out_buffers
+        return P_x_to_y_buffers, P_y_to_x_buffers
 
     def forward(self, input):
         """Forward function interface.
@@ -318,10 +318,10 @@ class DistributedTranspose(Module):
                               self.P_union,
                               self.x_global_shape,
                               self.P_x,
-                              self.in_data,
-                              self.in_buffers,
+                              self.P_x_to_y_overlaps,
+                              self.P_x_to_y_buffers,
                               self.P_y,
-                              self.out_data,
-                              self.out_buffers,
+                              self.P_y_to_x_overlaps,
+                              self.P_y_to_x_buffers,
                               self.preserve_batch,
                               self.dtype)
