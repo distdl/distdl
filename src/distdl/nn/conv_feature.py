@@ -12,13 +12,13 @@ from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.torch import zero_volume_tensor
 
 
-class DistributedConvBase(Module, HaloMixin, ConvMixin):
+class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
     TorchConvType = None
 
     def __init__(self, P_x, *args, **kwargs):
 
-        super(DistributedConvBase, self).__init__()
+        super(DistributedFeatureConvBase, self).__init__()
 
         self.P_x = P_x
 
@@ -196,16 +196,16 @@ class DistributedConvBase(Module, HaloMixin, ConvMixin):
         return self.unpad_layer(conv_output)
 
 
-class DistributedConv1d(DistributedConvBase):
+class DistributedFeatureConv1d(DistributedFeatureConvBase):
 
     TorchConvType = torch.nn.Conv1d
 
 
-class DistributedConv2d(DistributedConvBase):
+class DistributedFeatureConv2d(DistributedFeatureConvBase):
 
     TorchConvType = torch.nn.Conv2d
 
 
-class DistributedConv3d(DistributedConvBase):
+class DistributedFeatureConv3d(DistributedFeatureConvBase):
 
     TorchConvType = torch.nn.Conv3d

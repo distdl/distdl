@@ -31,7 +31,7 @@ def test_simple_conv3d_adjoint_input(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.conv_feature import DistributedConv3d
+    from distdl.nn.conv_feature import DistributedFeatureConv3d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -47,10 +47,10 @@ def test_simple_conv3d_adjoint_input(barrier_fence_fixture,
 
     x_global_shape = np.asarray(x_global_shape)
 
-    layer = DistributedConv3d(P_x,
-                              in_channels=x_global_shape[1],
-                              out_channels=10,
-                              kernel_size=[3, 3, 3], bias=False)
+    layer = DistributedFeatureConv3d(P_x,
+                                     in_channels=x_global_shape[1],
+                                     out_channels=10,
+                                     kernel_size=[3, 3, 3], bias=False)
 
     x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
@@ -92,7 +92,7 @@ def test_simple_conv3d_adjoint_weight(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.conv_feature import DistributedConv3d
+    from distdl.nn.conv_feature import DistributedFeatureConv3d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -108,10 +108,10 @@ def test_simple_conv3d_adjoint_weight(barrier_fence_fixture,
 
     x_global_shape = np.asarray(x_global_shape)
 
-    layer = DistributedConv3d(P_x,
-                              in_channels=x_global_shape[1],
-                              out_channels=10,
-                              kernel_size=[3, 3, 3], bias=False)
+    layer = DistributedFeatureConv3d(P_x,
+                                     in_channels=x_global_shape[1],
+                                     out_channels=10,
+                                     kernel_size=[3, 3, 3], bias=False)
 
     x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
@@ -156,7 +156,7 @@ def test_simple_conv3d_adjoint_bias(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.conv_feature import DistributedConv3d
+    from distdl.nn.conv_feature import DistributedFeatureConv3d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -172,10 +172,10 @@ def test_simple_conv3d_adjoint_bias(barrier_fence_fixture,
 
     x_global_shape = np.asarray(x_global_shape)
 
-    layer = DistributedConv3d(P_x,
-                              in_channels=x_global_shape[1],
-                              out_channels=10,
-                              kernel_size=[3, 3, 3], bias=True)
+    layer = DistributedFeatureConv3d(P_x,
+                                     in_channels=x_global_shape[1],
+                                     out_channels=10,
+                                     kernel_size=[3, 3, 3], bias=True)
 
     x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:

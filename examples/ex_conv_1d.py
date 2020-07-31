@@ -3,7 +3,7 @@ import torch
 from mpi4py import MPI
 
 from distdl.backends.mpi.partition import MPIPartition
-from distdl.nn.conv_feature import DistributedConv1d
+from distdl.nn.conv_feature import DistributedFeatureConv1d
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import zero_volume_tensor
@@ -16,7 +16,7 @@ P_x = P.create_cartesian_topology_partition([1, 1, 3])
 
 x_global_shape = np.array([1, 1, 10])
 
-layer = DistributedConv1d(P_x, in_channels=1, out_channels=1, kernel_size=[3])
+layer = DistributedFeatureConv1d(P_x, in_channels=1, out_channels=1, kernel_size=[3])
 
 x = zero_volume_tensor()
 if P_x.active:
