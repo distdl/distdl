@@ -85,7 +85,7 @@ def test_channel_conv2d_adjoint_input(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.channel_conv import DistributedChannelConv2d
+    from distdl.nn.conv_channel import DistributedChannelConv2d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -156,7 +156,7 @@ def test_channel_conv2d_adjoint_weight(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.channel_conv import DistributedChannelConv2d
+    from distdl.nn.conv_channel import DistributedChannelConv2d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -230,7 +230,7 @@ def test_channel_conv2d_adjoint_bias(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.channel_conv import DistributedChannelConv2d
+    from distdl.nn.conv_channel import DistributedChannelConv2d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 

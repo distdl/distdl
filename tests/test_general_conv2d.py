@@ -61,7 +61,7 @@ def test_general_conv2d_adjoint_input(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.general_conv import DistributedGeneralConv2d
+    from distdl.nn.conv_general import DistributedGeneralConv2d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -132,7 +132,7 @@ def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.general_conv import DistributedGeneralConv2d
+    from distdl.nn.conv_general import DistributedGeneralConv2d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -206,7 +206,7 @@ def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.general_conv import DistributedGeneralConv2d
+    from distdl.nn.conv_general import DistributedGeneralConv2d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
