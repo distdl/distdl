@@ -1,11 +1,14 @@
 from . import mixins  # noqa: F401
 from .broadcast import Broadcast  # noqa: F401
-from .conv import DistributedConv1d  # noqa: F401
-from .conv import DistributedConv2d  # noqa: F401
-from .conv import DistributedConv3d  # noqa: F401
-from .general_conv import DistributedGeneralConv1d  # noqa: F401
-from .general_conv import DistributedGeneralConv2d  # noqa: F401
-from .general_conv import DistributedGeneralConv3d  # noqa: F401
+from .conv_channel import DistributedChannelConv1d  # noqa: F401
+from .conv_channel import DistributedChannelConv2d  # noqa: F401
+from .conv_channel import DistributedChannelConv3d  # noqa: F401
+from .conv_feature import DistributedConv1d  # noqa: F401
+from .conv_feature import DistributedConv2d  # noqa: F401
+from .conv_feature import DistributedConv3d  # noqa: F401
+from .conv_general import DistributedGeneralConv1d  # noqa: F401
+from .conv_general import DistributedGeneralConv2d  # noqa: F401
+from .conv_general import DistributedGeneralConv3d  # noqa: F401
 from .halo_exchange import HaloExchange  # noqa: F401
 from .linear import DistributedLinear  # noqa: F401
 from .module import Module  # noqa: F401
@@ -21,6 +24,9 @@ from .transpose import DistributedTranspose  # noqa: F401
 from .unpadnd import UnpadNd  # noqa: F401
 
 __all__ = ["Broadcast",
+           "DistributedChannelConv1d",
+           "DistributedChannelConv2d",
+           "DistributedChannelConv3d",
            "DistributedConv1d",
            "DistributedConv2d",
            "DistributedConv3d",

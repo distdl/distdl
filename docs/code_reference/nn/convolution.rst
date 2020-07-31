@@ -11,12 +11,12 @@ Overview
 Simple Convolution
 ------------------
 
-.. automodule:: distdl.nn.conv
+.. automodule:: distdl.nn.conv_feature
 
 General Convolution
 -------------------
 
-.. automodule:: distdl.nn.general_conv
+.. automodule:: distdl.nn.conv_general
 
 Convolution Mixin
 -----------------
@@ -27,7 +27,7 @@ Convolution Mixin
 API
 ===
 
-.. currentmodule:: distdl.nn.conv
+.. currentmodule:: distdl.nn.conv_feature
 
 .. autoclass:: DistributedConvBase
     :members:
@@ -46,7 +46,7 @@ API
     :exclude-members: forward
 
 
-.. currentmodule:: distdl.nn.general_conv
+.. currentmodule:: distdl.nn.conv_general
 
 .. autoclass:: DistributedGeneralConvBase
     :members:

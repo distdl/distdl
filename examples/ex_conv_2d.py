@@ -3,7 +3,7 @@ import torch
 from mpi4py import MPI
 
 from distdl.backends.mpi.partition import MPIPartition
-from distdl.nn.conv import DistributedConv2d
+from distdl.nn.conv_feature import DistributedConv2d
 from distdl.utilities.debug import print_sequential
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import zero_volume_tensor
