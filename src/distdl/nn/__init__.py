@@ -3,9 +3,9 @@ from .broadcast import Broadcast  # noqa: F401
 from .conv_channel import DistributedChannelConv1d  # noqa: F401
 from .conv_channel import DistributedChannelConv2d  # noqa: F401
 from .conv_channel import DistributedChannelConv3d  # noqa: F401
-from .conv_feature import DistributedConv1d  # noqa: F401
-from .conv_feature import DistributedConv2d  # noqa: F401
-from .conv_feature import DistributedConv3d  # noqa: F401
+from .conv_feature import DistributedFeatureConv1d  # noqa: F401
+from .conv_feature import DistributedFeatureConv2d  # noqa: F401
+from .conv_feature import DistributedFeatureConv3d  # noqa: F401
 from .conv_general import DistributedGeneralConv1d  # noqa: F401
 from .conv_general import DistributedGeneralConv2d  # noqa: F401
 from .conv_general import DistributedGeneralConv3d  # noqa: F401
@@ -27,9 +27,9 @@ __all__ = ["Broadcast",
            "DistributedChannelConv1d",
            "DistributedChannelConv2d",
            "DistributedChannelConv3d",
-           "DistributedConv1d",
-           "DistributedConv2d",
-           "DistributedConv3d",
+           "DistributedFeatureConv1d",
+           "DistributedFeatureConv2d",
+           "DistributedFeatureConv3d",
            "DistributedGeneralConv1d",
            "DistributedGeneralConv2d",
            "DistributedGeneralConv3d",

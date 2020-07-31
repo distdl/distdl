@@ -29,19 +29,19 @@ API
 
 .. currentmodule:: distdl.nn.conv_feature
 
-.. autoclass:: DistributedConvBase
+.. autoclass:: DistributedFeatureConvBase
     :members:
     :exclude-members: forward
 
-.. autoclass:: DistributedConv1d
+.. autoclass:: DistributedFeatureConv1d
     :members:
     :exclude-members: forward
 
-.. autoclass:: DistributedConv2d
+.. autoclass:: DistributedFeatureConv2d
     :members:
     :exclude-members: forward
 
-.. autoclass:: DistributedConv3d
+.. autoclass:: DistributedFeatureConv3d
     :members:
     :exclude-members: forward
 
