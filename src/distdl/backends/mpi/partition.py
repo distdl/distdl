@@ -239,7 +239,7 @@ class MPIPartition:
 
         else:
             comm = MPI.COMM_NULL
-            return MPIPartition(comm, self.group, root=self.root)
+            return MPICartesianPartition(comm, self.group, self.root, shape)
 
     def _build_cross_partition_groups(self, P, P_union,
                                       root_index, src_indices, dest_indices):
