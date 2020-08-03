@@ -1,5 +1,8 @@
 from . import mixins  # noqa: F401
 from .broadcast import Broadcast  # noqa: F401
+from .conv import DistributedConv1d  # noqa: F401
+from .conv import DistributedConv2d  # noqa: F401
+from .conv import DistributedConv3d  # noqa: F401
 from .conv_channel import DistributedChannelConv1d  # noqa: F401
 from .conv_channel import DistributedChannelConv2d  # noqa: F401
 from .conv_channel import DistributedChannelConv3d  # noqa: F401
@@ -24,6 +27,9 @@ from .transpose import DistributedTranspose  # noqa: F401
 from .unpadnd import UnpadNd  # noqa: F401
 
 __all__ = ["Broadcast",
+           "DistributedConv1d",
+           "DistributedConv2d",
+           "DistributedConv3d",
            "DistributedChannelConv1d",
            "DistributedChannelConv2d",
            "DistributedChannelConv3d",
