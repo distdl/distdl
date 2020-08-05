@@ -9,7 +9,51 @@ from distdl.utilities.slicing import compute_subshape
 
 
 class DistributedChannelConvBase(Module, ConvMixin):
+    r"""A channel-space partitioned distributed convolutional layer.
 
+    This class provides the user interface to a distributed convolutional
+    layer, where the input (and output) tensors are partitioned in the
+    channel-dimension only.
+
+    The base unit of work is given by the weight tensor partition.  The
+    pattern is similar to that of the :class:`DistributedLinear layer
+    <distdl.nn.DistributedLinear>`.  This class requires the following of the
+    tensor partitions:
+
+    1. :math:`P_x` over input tensor :math:`x` has shape :math:`1 \times
+       P_{\text{c_in}} \times 1 \times \dots \times 1`.
+    2. :math:`P_y` over input tensor :math:`y` has shape :math:`1 \times
+       P_{\text{c_out}} \times 1 \times \dots \times 1`.
+    3. :math:`P_W` over weight tensor :math:`W` has shape
+       :math:`P_{\text{c_out}} \times P_{\text{c_in}}  \times 1 \times \dots
+       \times 1`.
+
+    The first dimension of the input and output partitions is the batch
+    dimension,the second is the channel dimension, and remaining dimensions
+    are feature dimensions.
+
+    The bias term does not have its own partition.  It is stored in the first
+    "column" of :math:`P_w`, that is a :math:`P_{\text{c_out}} \times 1`
+    subpartition.
+
+    Parameters
+    ----------
+    P_x :
+        Partition of input tensor.
+    P_y :
+        Partition of output tensor.
+    P_w :
+        Partition of the weight tensor.
+    in_channels :
+        Number of channels in the *global* input tensor.
+    out_channels :
+        Number of channels in the *global* output tensor.
+    bias : bool
+        Indicates if a bias term should be used.
+
+    """
+
+    # Convolution class for base unit of work.
     TorchConvType = None
 
     def __init__(self, P_x, P_y, P_w,
@@ -24,10 +68,11 @@ class DistributedChannelConvBase(Module, ConvMixin):
         # P_y is 1    x P_co x 1 x ... x 1
         self.P_y = P_y
         # P_w is P_co x P_ci x 1 x ... x 1
-        # Or starts as P_co x P_ci and cast to the above?
         self.P_w = P_w
 
+        # Even inactive workers need some partition union
         self.P_union = self._distdl_backend.Partition()
+
         if not (self.P_x.active or
                 self.P_y.active or
                 self.P_w.active):
@@ -39,6 +84,7 @@ class DistributedChannelConvBase(Module, ConvMixin):
         P_union = P_union.create_partition_union(P_y)
         self.P_union = P_union
 
+        # Ensure that all workers have the full size and structure of P_w
         P_w_shape = None
         if P_union.rank == 0:
             P_w_shape = np.array(P_w.shape, dtype=np.int)
@@ -48,6 +94,9 @@ class DistributedChannelConvBase(Module, ConvMixin):
         P_ci = P_w_shape[1]
         P_channels = [P_co, P_ci]
 
+        # Ensure that P_x and P_w are correctly aligned.  We also produce a
+        # new P_x that is shaped like 1 x P_ci x 1 x ... x 1, to assist with
+        # broadcasts.
         P_x_new_shape = []
         if self.P_x.active:
             if(np.any(P_x.shape[2:] != P_w_shape[2:])):
@@ -67,6 +116,9 @@ class DistributedChannelConvBase(Module, ConvMixin):
         # dimension.  This has no impact outside of the layer or on the results.
         self.P_x = self.P_x.create_cartesian_topology_partition(P_x_new_shape)
 
+        # Ensure that P_y and P_w are correctly aligned.  We also produce a
+        # new P_y that is shaped like P_co x 1 x 1 x ... x 1, to assist with
+        # broadcasts.
         P_y_new_shape = []
         if self.P_y.active:
             if(np.any(P_y.shape[2:] != P_w_shape[2:])):
@@ -92,17 +144,16 @@ class DistributedChannelConvBase(Module, ConvMixin):
             self.conv_layer = self.TorchConvType(*args, **kwargs)
             return
 
-        self.receives_weight = False
-        self.receives_bias = False
-        self.stores_bias = False
-
+        # Flag if the global bias is set
         self.global_bias = bias
 
-        # Determine P_r, initialize weights there
+        # Flags if current worker stores (part of) the bias locally.
+        self.local_bias = False
+
         if self.P_w.active:
 
             # Let the P_co column store the bias if it is to be used
-            self.stores_bias = self.global_bias if (self.P_w.index[1] == 0) else False
+            self.local_bias = self.global_bias and (self.P_w.index[1] == 0)
 
             # Correct the input arguments based on local properties
             local_kwargs = {}
@@ -110,12 +161,13 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
             # Do this before checking serial so that the layer works properly
             # in the serial case
-            local_channels = compute_subshape(P_channels, P_w.index[0:2], [out_channels, in_channels])
-            local_out_channels, local_in_channels = local_channels
+            local_out_channels, local_in_channels = compute_subshape(P_channels,
+                                                                     P_w.index[0:2],
+                                                                     [out_channels, in_channels])
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels
+            local_kwargs["bias"] = self.local_bias
 
-            local_kwargs["bias"] = self.stores_bias
             self.conv_layer = self.TorchConvType(*args, **local_kwargs)
 
         # Variables for tracking input changes and buffer construction
@@ -127,7 +179,21 @@ class DistributedChannelConvBase(Module, ConvMixin):
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y, preserve_batch=True)
 
     def _distdl_module_setup(self, input):
+        r"""Distributed (channel) convolution module setup function.
 
+        This function is called every time something changes in the input
+        tensor structure.  It should not be called manually.
+
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
+
+        """
+
+        # No setup is needed if the worker is not doing anything for this
+        # layer.
         if not (self.P_x.active or
                 self.P_y.active or
                 self.P_w.active):
@@ -141,6 +207,18 @@ class DistributedChannelConvBase(Module, ConvMixin):
         self._input_requires_grad = input[0].requires_grad
 
     def _distdl_module_teardown(self, input):
+        r"""Distributed (channel) convolution module teardown function.
+
+        This function is called every time something changes in the input
+        tensor structure.  It should not be called manually.
+
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
+
+        """
 
         # Reset any info about the input
         self._distdl_is_setup = False
@@ -148,6 +226,15 @@ class DistributedChannelConvBase(Module, ConvMixin):
         self._input_requires_grad = None
 
     def _distdl_input_changed(self, input):
+        r"""Determine if the structure of inputs has changed.
+
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
+
+        """
 
         if input[0].requires_grad != self._input_requires_grad:
             return True
@@ -158,6 +245,14 @@ class DistributedChannelConvBase(Module, ConvMixin):
         return False
 
     def forward(self, input):
+        r"""Forward function interface.
+
+        Parameters
+        ----------
+        input :
+            Input tensor to be broadcast.
+
+        """
 
         if not (self.P_x.active or
                 self.P_y.active or
@@ -178,15 +273,24 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
 
 class DistributedChannelConv1d(DistributedChannelConvBase):
+    r"""A channel-partitioned distributed 1d convolutional layer.
+
+    """
 
     TorchConvType = torch.nn.Conv1d
 
 
 class DistributedChannelConv2d(DistributedChannelConvBase):
+    r"""A channel-partitioned distributed 2d convolutional layer.
+
+    """
 
     TorchConvType = torch.nn.Conv2d
 
 
 class DistributedChannelConv3d(DistributedChannelConvBase):
+    r"""A channel-partitioned distributed 3d convolutional layer.
+
+    """
 
     TorchConvType = torch.nn.Conv3d

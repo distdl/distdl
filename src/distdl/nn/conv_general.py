@@ -16,7 +16,49 @@ from distdl.utilities.torch import zero_volume_tensor
 
 
 class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
+    r"""A generally partitioned distributed convolutional layer.
 
+    This class provides the user interface to a distributed convolutional
+    layer, where the input (and output) tensors are partitioned in both the
+    channel and feature dimensions.
+
+    The base unit of work is given by the weight tensor partition.  This class
+    requires the following of the tensor partitions:
+
+    1. :math:`P_x` over input tensor :math:`x` has shape :math:`1 \times
+       P_{\text{c_in}} \times P_{d-1} \times \dots \times P_0`.
+    2. :math:`P_y` over input tensor :math:`y` has shape :math:`1 \times
+       P_{\text{c_out}} \times P_{d-1} \times \dots \times P_0`.
+    3. :math:`P_W` over weight tensor :math:`W` has shape
+       :math:`P_{\text{c_out}} \times P_{\text{c_in}}  \times P_{d-1} \times
+       \dots \times P_0`.
+
+    The first dimension of the input and output partitions is the batch
+    dimension,the second is the channel dimension, and remaining dimensions
+    are feature dimensions.
+
+    The bias term does not have its own partition.  It is stored in the first
+    "column" of :math:`P_w`, that is a :math:`P_{\text{c_out}} \times 1`
+    subpartition.
+
+    Parameters
+    ----------
+    P_x :
+        Partition of input tensor.
+    P_y :
+        Partition of output tensor.
+    P_w :
+        Partition of the weight tensor.
+    in_channels :
+        Number of channels in the *global* input tensor.
+    out_channels :
+        Number of channels in the *global* output tensor.
+    bias : bool
+        Indicates if a bias term should be used.
+
+    """
+
+    # Convolution class for base unit of work.
     TorchConvType = None
 
     def __init__(self, P_x, P_y, P_w,
@@ -33,6 +75,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         # P_w is P_co x P_ci x P_d-1 x ... x P_0
         self.P_w = P_w
 
+        # Even inactive workers need some partition union
         self.P_union = self._distdl_backend.Partition()
         if not (self.P_x.active or
                 self.P_y.active or
@@ -45,6 +88,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         P_union = P_union.create_partition_union(P_y)
         self.P_union = P_union
 
+        # Ensure that all workers have the full size and structure of P_w
         P_w_shape = None
         if P_union.rank == 0:
             P_w_shape = np.array(P_w.shape, dtype=np.int)
@@ -54,6 +98,9 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         P_ci = P_w_shape[1]
         P_channels = [P_co, P_ci]
 
+        # Ensure that P_x and P_w are correctly aligned.  We also produce a
+        # new P_x that is shaped like 1 x P_ci x P_d-1 x ... x P_0, to assist
+        # with broadcasts.
         P_x_new_shape = []
         if self.P_x.active:
             if(np.any(P_x.shape[2:] != P_w_shape[2:])):
@@ -71,6 +118,9 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         # dimension.  This has no impact outside of the layer or on the results.
         self.P_x = self.P_x.create_cartesian_topology_partition(P_x_new_shape)
 
+        # Ensure that P_y and P_w are correctly aligned.  We also produce a
+        # new P_y that is shaped like 1 x P_ci x P_d-1 x ... x P_0, to assist
+        # with broadcasts.
         P_y_new_shape = []
         if self.P_y.active:
             if(np.any(P_y.shape[2:] != P_w_shape[2:])):
@@ -96,12 +146,17 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.conv_layer = self.TorchConvType(*args, **kwargs)
             return
 
+        # Workers can either store the learnable weight, or they need copies
+        # of it.
         self.receives_weight = False
         self.stores_weight = False
+
+        # Workers can either store the learnable bias, or they need copies of
+        # it.
         self.receives_bias = False
         self.stores_bias = False
 
-        # Determine P_r, initialize weights there
+        # Determine root partitions, initialize weights there
         if self.P_w.active:
             # All of P_w always receives the weight
             self.receives_weight = True
@@ -122,8 +177,9 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             b_subset = []
             for i, c in enumerate(range_index(P_w.shape)):
                 c = np.asarray(c)
-                # Find the P_co x 1 x P_0 x ... x P_D-1 subset that needs biases in its calculation.
-                # This is everywhere that the input channels is rank 0.
+                # Find the P_co x 1 x P_0 x ... x P_D-1 subset that needs
+                # biases in its calculation. This is everywhere that the input
+                # channels is rank 0.
                 if c[1] == 0:
                     b_subset.append(i)
 
@@ -131,7 +187,8 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.P_b = self.P_b_base.create_cartesian_topology_partition([P_co] + [1] + list(P_spatial))
             self.receives_bias = self.P_b.active and bias
 
-            # Now find the subset of _that_ which actually stores the learnable parameter.
+            # Now find the subset of _that_ which actually stores the
+            # learnable parameter.
             b_root_subset = []
             for i, c in enumerate(range_index(P_w.shape)):
                 c = np.asarray(c)
@@ -150,12 +207,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             # Do this before checking serial so that the layer works properly
             # in the serial case
-            local_channels = compute_subshape(P_channels, P_w.index[0:2], [out_channels, in_channels])
-            local_out_channels, local_in_channels = local_channels
+            local_out_channels, local_in_channels = compute_subshape(P_channels,
+                                                                     P_w.index[0:2],
+                                                                     [out_channels, in_channels])
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels
-
             local_kwargs["bias"] = self.receives_bias
+
             self.conv_layer = self.TorchConvType(*args, **local_kwargs)
 
             # If we store the weight it is a learnable parameter iff it is
@@ -197,6 +255,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self.conv_stride = None
         self.conv_padding = None
         self.conv_dilation = None
+
+        # By construction, rank 0 of the union should always have all of this
+        # information, because it will always construct a local conv layer. We
+        # rely on the local conv layer to properly fill out this information
+        # from the defaults.  This info is required for all workers on the
+        # input and output partitions because it is needed to construct the
+        # halos.  Rank 0 in the union shares it with everyone.
         if P_union.rank == 0:
             self.conv_kernel_size = np.array(self.conv_layer.kernel_size, dtype=np.int)
             self.conv_stride = np.array(self.conv_layer.stride, dtype=np.int)
@@ -210,19 +275,17 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         # We need the halo shape, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their
         # construction to the pre-forward hook.
-
         self.pad_layer = None
         self.unpad_layer = None
 
         # We need to be able to remove some data from the input to the conv
-        # layer.
+        # layer but again need to defer.
         self.needed_slices = None
 
         # For the halo layer we also defer construction, so that we can have
         # the halo shape for the input.  The halo will allocate its own
         # buffers, but it needs this information at construction to be able
         # to do this in the pre-forward hook.
-
         self.halo_layer = None
 
         # Variables for tracking input changes and buffer construction
@@ -230,6 +293,8 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self._input_shape = None
         self._input_requires_grad = None
 
+        # Some layers, those that require no information about the input
+        # tensor to setup, can be built now.
         if P_w.active:
             self.w_broadcast = Broadcast(self.P_wr, self.P_w, preserve_batch=False)
 
@@ -240,6 +305,18 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y, preserve_batch=True)
 
     def _distdl_module_setup(self, input):
+        r"""Distributed (general) convolution module setup function.
+
+        This function is called every time something changes in the input
+        tensor structure.  It should not be called manually.
+
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
+
+        """
 
         if not (self.P_x.active or
                 self.P_y.active or
@@ -249,10 +326,15 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         if self.serial:
             return
 
+        # To compute the halo regions, we need the global tensor shape.  This
+        # is not available until when the input is provided.
         x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
                                                                           self.P_x,
                                                                           self.P_union)
+
         if self.P_x.active:
+            # Using that information, we can get there rest of the halo
+            # information
             exchange_info = self._compute_exchange_info(x_global_shape,
                                                         self.conv_kernel_size,
                                                         self.conv_stride,
@@ -285,7 +367,8 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             # This is safe because there are never halos on the channel or batch
             # dimensions.  Therefore, because we assume that the spatial partition
             # of P_x and P_y is the same, then the halo shape this will
-            # compute will also be the same.
+            # compute will also be the same, even though the output feature
+            # shape may be different.
             exchange_info = self._compute_exchange_info(x_global_shape,
                                                         self.conv_kernel_size,
                                                         self.conv_stride,
@@ -311,6 +394,18 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self._input_requires_grad = input[0].requires_grad
 
     def _distdl_module_teardown(self, input):
+        r"""Distributed (channel) convolution module teardown function.
+
+        This function is called every time something changes in the input
+        tensor structure.  It should not be called manually.
+
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
+
+        """
 
         # Reset all sub_layers
         self.pad_layer = None
@@ -326,6 +421,15 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self._input_requires_grad = None
 
     def _distdl_input_changed(self, input):
+        r"""Determine if the structure of inputs has changed.
+
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
+
+        """
 
         if input[0].requires_grad != self._input_requires_grad:
             return True
@@ -336,6 +440,14 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         return False
 
     def forward(self, input):
+        r"""Forward function interface.
+
+        Parameters
+        ----------
+        input :
+            Input tensor to be broadcast.
+
+        """
 
         if not (self.P_x.active or
                 self.P_y.active or
@@ -375,15 +487,24 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
 
 class DistributedGeneralConv1d(DistributedGeneralConvBase):
+    r"""A general distributed 1d convolutional layer.
+
+    """
 
     TorchConvType = torch.nn.Conv1d
 
 
 class DistributedGeneralConv2d(DistributedGeneralConvBase):
+    r"""A general distributed 2d convolutional layer.
+
+    """
 
     TorchConvType = torch.nn.Conv2d
 
 
 class DistributedGeneralConv3d(DistributedGeneralConvBase):
+    r"""A general distributed 3d convolutional layer.
+
+    """
 
     TorchConvType = torch.nn.Conv3d

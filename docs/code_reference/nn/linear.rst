@@ -88,7 +88,7 @@ Assumptions
 Forward
 -------
 
-Under the above assumptions, the forward algorithm is quite simple:
+Under the above assumptions, the forward algorithm is:
 
 1. Use a :ref:`code_reference/nn/broadcast:Broadcast Layer` to broadcast
    subtensors of :math:`x` from :math:`P_x` over the columns of :math:`P_W`.
@@ -131,7 +131,7 @@ The adjoint algorithm is not explicitly implemented.  PyTorch's ``autograd``
 feature automatically builds the adjoint of the Jacobian of the distributed
 linear forward application.  Essentially, the algorithm is as follows:
 
-1. Broadcast the subtensors of the gradient input, :math:`\delta y` from
+1. Broadcast the subtensors of the gradient output, :math:`\delta y` from
    :math:`P_y` along the rows of :math:`P_W`.
 
 .. figure:: /_images/linear_example_05.png
@@ -151,7 +151,7 @@ linear forward application.  Essentially, the algorithm is as follows:
    Local computation of subtensors of :math:`\delta x`, :math:`\delta W`, and
    :math:`\delta b`.
 
-3. Sum-reduce the subtensors of the gradient output, :math:`\delta x`, along
+3. Sum-reduce the subtensors of the gradient input, :math:`\delta x`, along
    the rows of :math:`P_W` into :math:`P_x`.
 
 .. figure:: /_images/linear_example_07.png
