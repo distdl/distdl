@@ -15,7 +15,7 @@ class DistributedLinear(Module):
     It utlizes back-end specific parallel data movement primitives but
     does not require its own back-end implementation.
 
-    The base unit of work is given by the parition over the weight tensor.
+    The base unit of work is given by the partition over the weight tensor.
     This class requires the following of the tensor partitions:
 
     1. :math:`P_x` over input tensor :math:`x` has shape :math:`1 \times
@@ -25,8 +25,9 @@ class DistributedLinear(Module):
     3. :math:`P_W` over weight tensor :math:`W` has shape
        :math:`P_{\text{f_out}} \times P_{\text{f_in}}`.
 
-    The bias term does not have its own partition.  The first dimension of the input and output partitions
-    is the batch dimension and the second is the feature dimension.
+    The bias term does not have its own partition.  The first dimension of the
+    input and output partitions is the batch dimension and the second is the
+    feature dimension.
 
     .. warning::
        This departs from PyTorch Linear layers, which allow intermediate
