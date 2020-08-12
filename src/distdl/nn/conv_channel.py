@@ -148,12 +148,12 @@ class DistributedChannelConvBase(Module, ConvMixin):
         self.global_bias = bias
 
         # Flags if current worker stores (part of) the bias locally.
-        self.local_bias = False
+        self.stores_bias = False
 
         if self.P_w.active:
 
             # Let the P_co column store the bias if it is to be used
-            self.local_bias = self.global_bias and (self.P_w.index[1] == 0)
+            self.stores_bias = self.global_bias and (self.P_w.index[1] == 0)
 
             # Correct the input arguments based on local properties
             local_kwargs = {}
@@ -166,7 +166,7 @@ class DistributedChannelConvBase(Module, ConvMixin):
                                                                      [out_channels, in_channels])
             local_kwargs["in_channels"] = local_in_channels
             local_kwargs["out_channels"] = local_out_channels
-            local_kwargs["bias"] = self.local_bias
+            local_kwargs["bias"] = self.stores_bias
 
             self.conv_layer = self.TorchConvType(*args, **local_kwargs)
 
