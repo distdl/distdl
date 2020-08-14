@@ -548,7 +548,7 @@ Assumptions
 
 .. warning::
    Current calculations of the subtensor index ranges required do not correctly
-   take strike and dilation into account.
+   take stride and dilation into account.
 
 
 Examples
