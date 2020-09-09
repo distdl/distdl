@@ -1,4 +1,5 @@
 from . import mixins  # noqa: F401
+from .batchnorm import DistributedBatchNorm  # noqa: F401
 from .broadcast import Broadcast  # noqa: F401
 from .conv import DistributedConv1d  # noqa: F401
 from .conv import DistributedConv2d  # noqa: F401
@@ -27,6 +28,7 @@ from .transpose import DistributedTranspose  # noqa: F401
 from .unpadnd import UnpadNd  # noqa: F401
 
 __all__ = ["Broadcast",
+           "DistributedBatchNorm",
            "DistributedConv1d",
            "DistributedConv2d",
            "DistributedConv3d",
