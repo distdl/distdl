@@ -4,6 +4,7 @@ from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
 from distdl.utilities.slicing import compute_partition_intersection
 from distdl.utilities.slicing import range_index
+from distdl.utilities.torch import TensorStructure
 
 
 class DistributedTranspose(Module):
@@ -38,8 +39,8 @@ class DistributedTranspose(Module):
     def __init__(self, P_x, P_y, preserve_batch=True):
         super(DistributedTranspose, self).__init__()
 
-        # Global shape of the input tensor, computed when layer is called
-        self.x_global_shape = None
+        # Global structure of the input tensor, assembled when layer is called
+        self.global_input_tensor_structure = TensorStructure()
 
         # Partition of input tensor.
         self.P_x = P_x
@@ -64,18 +65,12 @@ class DistributedTranspose(Module):
         # List of buffers for copying data from other workers
         self.P_y_to_x_buffers = None
 
-        # TODO(#25): The dtype should not be fixed, but correcting this is
-        #            a thing that needs to be resolved globally.
-        # Data type of the input.
-        self.dtype = np.float32
-
         # Indicates if transpose requires any data movement.
         self.identity = False
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
         # If the two partitions are the same, no further information is
         # required.
@@ -144,8 +139,7 @@ class DistributedTranspose(Module):
         """
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure.fill_from_tensor(input[0])
 
         # If we are not an active worker, do nothing.
         if not self.P_union.active:
@@ -154,10 +148,12 @@ class DistributedTranspose(Module):
         P_in_shape = self.P_x_shape
         P_out_shape = self.P_y_shape
 
-        x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
-                                                                          self.P_x,
-                                                                          self.P_union)
-        self.x_global_shape = x_global_shape
+        self.global_input_tensor_structure = \
+            self._distdl_backend.assemble_global_tensor_structure(self._input_tensor_structure,
+                                                                  self.P_x,
+                                                                  self.P_union)
+
+        x_global_shape = self.global_input_tensor_structure.shape
 
         tensor_dim = len(x_global_shape)
 
@@ -215,7 +211,7 @@ class DistributedTranspose(Module):
 
         buffs = self.allocate_transpose_buffers(self.P_x_to_y_overlaps,
                                                 self.P_y_to_x_overlaps,
-                                                self.dtype)
+                                                self.global_input_tensor_structure.dtype)
         self.P_x_to_y_buffers = buffs[0]
         self.P_y_to_x_buffers = buffs[1]
 
@@ -244,8 +240,7 @@ class DistributedTranspose(Module):
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
@@ -258,13 +253,9 @@ class DistributedTranspose(Module):
 
         """
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        new_tensor_structure = TensorStructure(input[0])
 
-        if input[0].shape != self._input_shape:
-            return True
-
-        return False
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
         """Forward function interface.
@@ -290,12 +281,11 @@ class DistributedTranspose(Module):
 
         return Function.apply(input,
                               self.P_union,
-                              self.x_global_shape,
+                              self.global_input_tensor_structure,
                               self.P_x,
                               self.P_x_to_y_overlaps,
                               self.P_x_to_y_buffers,
                               self.P_y,
                               self.P_y_to_x_overlaps,
                               self.P_y_to_x_buffers,
-                              self.preserve_batch,
-                              self.dtype)
+                              self.preserve_batch)
