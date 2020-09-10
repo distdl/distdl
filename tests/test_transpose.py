@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 from adjoint_test import check_adjoint_test_tight
 
 adjoint_parametrizations = []
@@ -363,3 +364,117 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         x.requires_grad = True
 
         layer(x)
+
+
+dtype_parametrizations = []
+
+
+# Main functionality
+dtype_parametrizations.append(
+    pytest.param(
+        torch.float32, True,  # dtype, test_backward,
+        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 4), [2, 2],  # P_y_ranks, P_y_shape
+        [77, 55],  # x_global_shape
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed-dtype-float32",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+
+# Test that it works with ints as well, can't compute gradient here
+dtype_parametrizations.append(
+    pytest.param(
+        torch.int32, False,  # dtype, test_backward,
+        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 4), [2, 2],  # P_y_ranks, P_y_shape
+        [77, 55],  # x_global_shape
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed-dtype-int32",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+
+# Also test doubles
+dtype_parametrizations.append(
+    pytest.param(
+        torch.float64, True,  # dtype, test_backward,
+        np.arange(0, 4), [4, 1],  # P_x_ranks, P_x_shape
+        np.arange(0, 4), [2, 2],  # P_y_ranks, P_y_shape
+        [77, 55],  # x_global_shape
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed-dtype-float64",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+
+
+# For example of indirect, see https://stackoverflow.com/a/28570677
+@pytest.mark.parametrize("dtype, test_backward,"
+                         "P_x_ranks, P_x_shape,"
+                         "P_y_ranks, P_y_shape,"
+                         "x_global_shape,"
+                         "comm_split_fixture",
+                         dtype_parametrizations,
+                         indirect=["comm_split_fixture"])
+def test_transpose_dtype(barrier_fence_fixture,
+                         comm_split_fixture,
+                         dtype, test_backward,
+                         P_x_ranks, P_x_shape,
+                         P_y_ranks, P_y_shape,
+                         x_global_shape):
+
+    import numpy as np
+    import torch
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.transpose import DistributedTranspose
+    from distdl.utilities.slicing import compute_subshape
+    from distdl.utilities.torch import zero_volume_tensor
+
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
+
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
+
+    P_y_base = P_world.create_partition_inclusive(P_y_ranks)
+    P_y = P_y_base.create_cartesian_topology_partition(P_y_shape)
+
+    # The global tensor size is the same for x and y
+    layer = DistributedTranspose(P_x, P_y, preserve_batch=False)
+
+    # Forward Input
+    x = zero_volume_tensor(dtype=dtype)
+    if P_x.active:
+        x_local_shape = compute_subshape(P_x.shape,
+                                         P_x.index,
+                                         x_global_shape)
+        x = torch.Tensor(np.random.randn(*x_local_shape))
+        x = 10*x
+        x = x.to(dtype)
+
+    x.requires_grad = test_backward
+    # y = F @ x
+    y = layer(x)
+    assert y.dtype == dtype
+
+    if test_backward:
+        # Adjoint Input
+        dy = zero_volume_tensor(dtype=dtype)
+        if P_y.active:
+            y_local_shape = compute_subshape(P_y.shape,
+                                             P_y.index,
+                                             x_global_shape)
+            dy = torch.Tensor(np.random.randn(*y_local_shape))
+            dy = 10*dy
+            dy = dy.to(dtype)
+
+        # dx = F* @ dy
+        y.backward(dy)
+        dx = x.grad
+        assert dx.dtype == dtype
