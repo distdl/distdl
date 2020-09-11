@@ -1,8 +1,7 @@
 __all__ = ["Broadcast"]
 
-import numpy as np
-
 from distdl.nn.module import Module
+from distdl.utilities.torch import TensorStructure
 
 
 class Broadcast(Module):
@@ -71,10 +70,6 @@ class Broadcast(Module):
         # Indicates if batch size should be preserved for zero-volume outputs.
         self.preserve_batch = preserve_batch
 
-        # TODO: #25  Make selection of dtype more sensible.
-        # Data type of the input.
-        self.dtype = np.float32
-
         # Indicates if broadcast requires any data movement.
         self.identity = False
 
@@ -86,15 +81,14 @@ class Broadcast(Module):
 
         # Other info needed by the functions
 
-        # Structure of the input tensor (dimension, shape, requires_grad).
-        self.input_tensor_structure = None
-        # Structure of the output tensor (dimension, shape, requires_grad).
-        self.output_tensor_structure = None
+        # Structure of the input tensor (shape, dtype, requires_grad, etc).
+        self.input_tensor_structure = TensorStructure()
+        # Structure of the output tensor (shape, dtype, requires_grad, etc).
+        self.output_tensor_structure = TensorStructure()
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
         # The identity case is if the partitions are of size 1,
         # or they are the same partition and neither is tranposed,
@@ -135,16 +129,14 @@ class Broadcast(Module):
             self.P_send = bcast_partitions[0]
             self.P_recv = bcast_partitions[1]
 
-            self.input_tensor_structure = (input[0].requires_grad,
-                                           len(input[0].shape),
-                                           np.array(input[0].shape, dtype=np.int))
-            self.output_tensor_structure = self._distdl_backend.compute_output_tensor_structure(input[0],
-                                                                                                self.P_send,
-                                                                                                self.P_recv)
+            self.input_tensor_structure = TensorStructure(input[0])
+            self.output_tensor_structure = \
+                self._distdl_backend.broadcast_tensor_structure(self.input_tensor_structure,
+                                                                self.P_send,
+                                                                self.P_recv)
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure = TensorStructure(input[0])
 
     def _distdl_module_teardown(self, input):
         r"""Broadcast module teardown function.
@@ -167,13 +159,12 @@ class Broadcast(Module):
         self.P_recv = self._distdl_backend.Partition()
 
         # Reset any data stored about the tensor
-        self.input_tensor_structure = None
-        self.output_tensor_structure = None
+        self.input_tensor_structure = TensorStructure()
+        self.output_tensor_structure = TensorStructure()
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
@@ -186,13 +177,9 @@ class Broadcast(Module):
 
         """
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        new_tensor_structure = TensorStructure(input[0])
 
-        if input[0].shape != self._input_shape:
-            return True
-
-        return False
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
         """Forward function interface.
@@ -221,5 +208,4 @@ class Broadcast(Module):
                               self.P_recv,
                               self.preserve_batch,
                               self.input_tensor_structure,
-                              self.output_tensor_structure,
-                              self.dtype)
+                              self.output_tensor_structure)
