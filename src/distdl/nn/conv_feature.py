@@ -157,11 +157,11 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         # To compute the halo regions, we need the global tensor shape.  This
         # is not available until when the input is provided.
-        x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
-                                                                          self.P_x)
+        x_global_structure = \
+            self._distdl_backend.assemble_global_tensor_structure(input[0], self.P_x)
 
         # Using that information, we can get there rest of the halo information
-        exchange_info = self._compute_exchange_info(x_global_shape,
+        exchange_info = self._compute_exchange_info(x_global_structure.shape,
                                                     self.conv_layer.kernel_size,
                                                     self.conv_layer.stride,
                                                     self.conv_layer.padding,
