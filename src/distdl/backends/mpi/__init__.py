@@ -10,4 +10,5 @@ from .partition import MPIPartition as Partition  # noqa: F401
 #
 #
 from .tensor_comm import assemble_global_tensor_structure  # noqa: F401
+from .tensor_comm import broadcast_tensor_structure  # noqa: F401
 from .tensor_comm import compute_output_tensor_structure  # noqa: F401
