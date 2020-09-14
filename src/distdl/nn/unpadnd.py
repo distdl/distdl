@@ -20,7 +20,7 @@ class UnpadNdFunction(torch.autograd.Function):
 
         result = input_numpy[tuple(slices)]
 
-        return torch.tensor(result, requires_grad=input.requires_grad).float()
+        return torch.tensor(result, requires_grad=input.requires_grad)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -32,7 +32,7 @@ class UnpadNdFunction(torch.autograd.Function):
 
         result = np.pad(grad_output_numpy, pad_width, mode='constant', constant_values=value)
 
-        return torch.tensor(result, requires_grad=grad_output.requires_grad).float(), None, None, None
+        return torch.tensor(result, requires_grad=grad_output.requires_grad), None, None, None
 
 
 class UnpadNd(torch.nn.Module):
