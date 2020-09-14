@@ -1,4 +1,5 @@
 from distdl.nn.module import Module
+from distdl.utilities.torch import TensorStructure
 
 
 class HaloExchange(Module):
@@ -21,8 +22,7 @@ class HaloExchange(Module):
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
         # Get some types and functions from the back-end
         self.allocate_halo_exchange_buffers = self._distdl_backend.halo_exchange.allocate_halo_exchange_buffers
@@ -98,11 +98,11 @@ class HaloExchange(Module):
             self.slices = self._assemble_slices(x_local_shape, self.recv_buffer_shape, self.send_buffer_shape)
             self.buffers = self.allocate_halo_exchange_buffers(self.slices,
                                                                self.recv_buffer_shape,
-                                                               self.send_buffer_shape)
+                                                               self.send_buffer_shape,
+                                                               input[0].dtype)
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure = TensorStructure(input[0])
 
     def _distdl_module_teardown(self, input):
 
@@ -112,18 +112,22 @@ class HaloExchange(Module):
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
+        r"""Determine if the structure of inputs has changed.
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        Parameters
+        ----------
+        input :
+            Tuple of forward inputs.  See
+            `torch.nn.Module.register_forward_pre_hook` for more details.
 
-        if input[0].shape != self._input_shape:
-            return True
+        """
 
-        return False
+        new_tensor_structure = TensorStructure(input[0])
+
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
 
