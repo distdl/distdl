@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.utilities.dtype import torch_to_numpy_dtype_dict
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -29,7 +30,7 @@ class SumReduceFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_send, P_recv, preserve_batch,
-                input_tensor_structure, output_tensor_structure, dtype):
+                input_tensor_structure, output_tensor_structure):
         r"""Forward function of distributed sum-reduction layer.
 
         This method implements the forward sum-reduction operation using the
@@ -76,8 +77,6 @@ class SumReduceFunction(torch.autograd.Function):
         output_tensor_structure : tuple
             Tuple containing properties of the output tensor (dimension, shape,
             requires_grad).
-        dtype : torch.dtype
-            Data type of the input/output tensor.
 
         Returns
         -------
@@ -91,11 +90,6 @@ class SumReduceFunction(torch.autograd.Function):
         ctx.preserve_batch = preserve_batch
         ctx.input_tensor_structure = input_tensor_structure
         ctx.output_tensor_structure = output_tensor_structure
-        ctx.dtype = dtype
-
-        input_tensor_shape = input_tensor_structure[2]
-        output_requires_grad = output_tensor_structure[0]
-        output_tensor_shape = output_tensor_structure[2]
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -112,14 +106,16 @@ class SumReduceFunction(torch.autograd.Function):
         # is OK, as the reduction accounts for the copy, unlike the broadcast
         # below.
         if P_send.active:
-            reduced_data_send = np.zeros(input_tensor_shape, dtype=dtype)
+            numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
+            reduced_data_send = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
             input_numpy = input.detach().numpy()
             req = P_send.comm.Ireduce(input_numpy, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
         # If I sent data in the forward, I have to receive it here.
         if P_send != P_recv and P_recv.active:
-            reduced_data_recv = np.zeros(output_tensor_shape, dtype=dtype)
+            numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
+            reduced_data_recv = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
             req = P_recv.comm.Ireduce(MPI.IN_PLACE, reduced_data_recv, root=0, op=MPI.SUM)
             requests.append(req)
 
@@ -128,9 +124,11 @@ class SumReduceFunction(torch.autograd.Function):
         # If we had to receive data, we need to tensorify it.
         if P_recv.active:
             if P_send == P_recv:
-                output = torch.tensor(reduced_data_send, requires_grad=output_requires_grad)
+                output = torch.tensor(reduced_data_send,
+                                      requires_grad=output_tensor_structure.requires_grad)
             else:
-                output = torch.tensor(reduced_data_recv, requires_grad=output_requires_grad)
+                output = torch.tensor(reduced_data_recv,
+                                      requires_grad=output_tensor_structure.requires_grad)
 
         return output
 
@@ -189,10 +187,6 @@ class SumReduceFunction(torch.autograd.Function):
         P_recv = ctx.P_recv
         preserve_batch = ctx.preserve_batch
         input_tensor_structure = ctx.input_tensor_structure
-        dtype = ctx.dtype
-
-        input_requires_grad = input_tensor_structure[0]
-        input_tensor_shape = input_tensor_structure[2]
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -215,13 +209,14 @@ class SumReduceFunction(torch.autograd.Function):
             if P_send == P_recv:
                 grad_input = grad_output.clone()
             else:
-                grad_input = np.zeros(input_tensor_shape, dtype=dtype)
+                numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
+                grad_input = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
 
                 req = P_send.comm.Ibcast(grad_input, root=0)
                 req.Wait()
                 grad_input = torch.tensor(grad_input,
-                                          requires_grad=input_requires_grad)
+                                          requires_grad=input_tensor_structure.requires_grad)
 
         MPI.Request.Waitall(requests)
 
-        return grad_input, None, None, None, None, None, None
+        return grad_input, None, None, None, None, None
