@@ -1,12 +1,15 @@
 import torch
 
 
-def zero_volume_tensor(b=None):
+def zero_volume_tensor(b=None, dtype=None):
+
+    if dtype is None:
+        dtype = torch.get_default_dtype()
 
     if b is None:
-        return torch.empty((0,))
+        return torch.empty((0,), dtype=dtype)
 
-    return torch.empty((b, 0))
+    return torch.empty((b, 0), dtype=dtype)
 
 
 class TensorStructure:
