@@ -30,7 +30,7 @@ class PadNdFunction(torch.autograd.Function):
 
         result = grad_output_numpy[tuple(slices)]
 
-        return torch.tensor(result, requires_grad=grad_output.requires_grad).float(), None, None, None
+        return torch.tensor(result, requires_grad=grad_output.requires_grad), None, None, None
 
 
 class PadNd(torch.nn.Module):
