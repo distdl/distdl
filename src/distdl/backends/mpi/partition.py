@@ -101,7 +101,8 @@ class MPIPartition:
 
         # For convenience, sometimes unstructured partitions can be treated
         # like Cartesian partitions, so we need to give a shape and index.
-        self.shape = [1]
+        self.shape = np.array([self.size], dtype=np.int)
+        self.dim = len(self.shape)
         self.index = self.rank
 
     def __eq__(self, other):
