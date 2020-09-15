@@ -80,12 +80,10 @@ def test_padnd_adjoint(barrier_fence_fixture,
 
     layer = PadNd(padding, value=0)
 
-    x = torch.randn(*x_local_shape)
-    x = x.to(dtype)
+    x = torch.randn(*x_local_shape).to(dtype)
     x.requires_grad = True
 
-    dy = torch.randn(*padded_shape)
-    dy = dy.to(dtype)
+    dy = torch.randn(*padded_shape).to(dtype)
 
     y = layer(x)
     assert y.dtype == dtype
