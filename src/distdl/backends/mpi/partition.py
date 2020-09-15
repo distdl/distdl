@@ -49,7 +49,7 @@ class MPIPartition:
 
     Attributes
     ----------
-    comm : MPI communicator
+    _comm : MPI communicator
         MPI Communicator for this partition.
     root : MPI communicator
         MPI communicator tracking the original communicator used to create
@@ -72,7 +72,7 @@ class MPIPartition:
     def __init__(self, comm=MPI.COMM_NULL, group=MPI.GROUP_NULL, root=None):
 
         # MPI communicator to communicate within
-        self.comm = comm
+        self._comm = comm
 
         # root tracks a root communicator: any subpartition from this one
         # will have the same root as this one.
@@ -85,14 +85,14 @@ class MPIPartition:
         # If the communicator is not null, this worker is active and can
         # gather remaining information.  Otherwise, the worker is inactive
         # and members should be nullified.
-        if self.comm != MPI.COMM_NULL:
+        if self._comm != MPI.COMM_NULL:
             self.active = True
             if group == MPI.GROUP_NULL:
                 self.group = comm.Get_group()
             else:
                 self.group = group
-            self.rank = self.comm.Get_rank()
-            self.size = self.comm.Get_size()
+            self.rank = self._comm.Get_rank()
+            self.size = self._comm.Get_size()
         else:
             self.active = False
             self.group = group
@@ -124,22 +124,22 @@ class MPIPartition:
         # MPI spec.  Because reasons.
         # We will require two partitions to have MPI_IDENT communicators to
         # consider them to be equal.
-        if (check_null_comm(self.comm) or
-            check_null_comm(other.comm) or
+        if (check_null_comm(self._comm) or
+            check_null_comm(other._comm) or
             check_null_group(self.group) or
             check_null_group(other.group) or
             check_null_rank(self.rank) or
             check_null_rank(other.rank)): # noqa E129
             return False
 
-        return (check_identical_comm(self.comm, other.comm) and
+        return (check_identical_comm(self._comm, other._comm) and
                 check_identical_group(self.group, other.group) and
                 self.rank == other.rank)
 
     def print_sequential(self, val):
 
         if self.active:
-            print_sequential(self.comm, val)
+            print_sequential(self._comm, val)
 
     def create_partition_inclusive(self, ranks):
         r"""Creates new partition from a subset of workers in this Partition.
@@ -166,7 +166,7 @@ class MPIPartition:
         ranks = np.asarray(ranks)
         group = self.group.Incl(ranks)
 
-        comm = self.comm.Create_group(group)
+        comm = self._comm.Create_group(group)
 
         return MPIPartition(comm, group, root=self.root)
 
@@ -229,7 +229,7 @@ class MPIPartition:
 
         shape = np.asarray(shape)
         if self.active:
-            comm = self.comm.Create_cart(shape, **options)
+            comm = self._comm.Create_cart(shape, **options)
             group = comm.Get_group()
 
             if not check_identical_group(self.group, group):
@@ -367,29 +367,29 @@ class MPIPartition:
             # cannot happen.  It may be linear time, but this is part of the
             # setup phase anyway.
             if recv_ranks[0] < send_ranks[0]:
-                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+                comm_recv = P_union._comm.Create_group(group_recv, tag=recv_ranks[0])
                 P_recv = MPIPartition(comm_recv, group_recv,
                                       root=P_union.root)
-                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+                comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
                 P_send = MPIPartition(comm_send, group_send,
                                       root=P_union.root)
             else:
-                comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+                comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
                 P_send = MPIPartition(comm_send, group_send,
                                       root=P_union.root)
-                comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+                comm_recv = P_union._comm.Create_group(group_recv, tag=recv_ranks[0])
                 P_recv = MPIPartition(comm_recv, group_recv,
                                       root=P_union.root)
         elif has_send_group and not has_recv_group and not same_send_recv_group:
-            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+            comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
             P_send = MPIPartition(comm_send, group_send,
                                   root=P_union.root)
         elif not has_send_group and has_recv_group and not same_send_recv_group:
-            comm_recv = P_union.comm.Create_group(group_recv, tag=recv_ranks[0])
+            comm_recv = P_union._comm.Create_group(group_recv, tag=recv_ranks[0])
             P_recv = MPIPartition(comm_recv, group_recv,
                                   root=P_union.root)
         else:  # if has_send_group and has_recv_group and same_send_recv_group
-            comm_send = P_union.comm.Create_group(group_send, tag=send_ranks[0])
+            comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
             P_send = MPIPartition(comm_send, group_send,
                                   root=P_union.root)
             P_recv = P_send
@@ -703,7 +703,7 @@ class MPIPartition:
             rank_map_data = np.array([-1], dtype=np.int)
             if P_data.active:
                 rank_map_data[0] = P_data.rank
-            self.comm.Allgather(rank_map_data, rank_map)
+            self._comm.Allgather(rank_map_data, rank_map)
 
             if root in rank_map:
                 data_root = np.where(rank_map == root)[0][0]
@@ -716,13 +716,13 @@ class MPIPartition:
             # Ensure that data is a numpy array
             data = np.atleast_1d(data)
             data_dim[0] = len(data)
-        self.comm.Bcast(data_dim, root=data_root)
+        self._comm.Bcast(data_dim, root=data_root)
 
         out_data = np.ones(data_dim, dtype=np.int)
         if P_data.active and P_data.rank == root:
             out_data = data
 
-        self.comm.Bcast(out_data, root=data_root)
+        self._comm.Bcast(out_data, root=data_root)
 
         return out_data
 
@@ -749,7 +749,7 @@ class MPIPartition:
         sz = len(data)
 
         out_data = -1*np.ones(sz*self.size, dtype=np.int)
-        self.comm.Allgather(data, out_data)
+        self._comm.Allgather(data, out_data)
         out_data.shape = -1, sz
 
         return out_data
@@ -832,7 +832,7 @@ class MPICartesianPartition(MPIPartition):
 
         # remain_shape = np.asarray(remain_shape)
         if self.active:
-            comm = self.comm.Sub(remain_shape)
+            comm = self._comm.Sub(remain_shape)
             group = comm.Get_group()
 
             return MPICartesianPartition(comm, group,
@@ -860,7 +860,7 @@ class MPICartesianPartition(MPIPartition):
         if not self.active:
             raise Exception()
 
-        return np.asarray(self.comm.Get_coords(rank))
+        return np.asarray(self._comm.Get_coords(rank))
 
     def neighbor_ranks(self, rank):
         r"""Given the rank, returns the ranks of the Cartesian neighboring
@@ -890,8 +890,8 @@ class MPICartesianPartition(MPIPartition):
         for i in range(self.dim):
             lindex = [x-1 if j == i else x for j, x in enumerate(index)]
             rindex = [x+1 if j == i else x for j, x in enumerate(index)]
-            lrank = MPI.PROC_NULL if -1 == lindex[i] else self.comm.Get_cart_rank(lindex)
-            rrank = MPI.PROC_NULL if self.shape[i] == rindex[i] else self.comm.Get_cart_rank(rindex)
+            lrank = MPI.PROC_NULL if -1 == lindex[i] else self._comm.Get_cart_rank(lindex)
+            rrank = MPI.PROC_NULL if self.shape[i] == rindex[i] else self._comm.Get_cart_rank(rindex)
             neighbor_ranks.append((lrank, rrank))
 
         return neighbor_ranks

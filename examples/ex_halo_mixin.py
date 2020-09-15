@@ -21,7 +21,7 @@ use_ranks = ranks[:P_size]
 P = P_world.create_subpartition(use_ranks)
 P_x = P.create_cartesian_subpartition(shape)
 rank = P_x.rank
-cart_comm = P_x.comm
+cart_comm = P_x._comm
 
 layer = MockPoolLayer()
 
