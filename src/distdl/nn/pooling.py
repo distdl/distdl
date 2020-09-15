@@ -6,6 +6,7 @@ from distdl.nn.mixins.pooling_mixin import PoolingMixin
 from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.utilities.slicing import assemble_slices
+from distdl.utilities.torch import TensorStructure
 
 
 class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
@@ -74,8 +75,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_module_setup(self, input):
         r"""Distributed (feature) pooling module setup function.
@@ -92,8 +92,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         """
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure = TensorStructure(input[0])
 
         if not self.P_x.active:
             return
@@ -152,8 +151,7 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
@@ -166,13 +164,9 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
 
         """
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        new_tensor_structure = TensorStructure(input[0])
 
-        if input[0].shape != self._input_shape:
-            return True
-
-        return False
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
         r"""Forward function interface.
