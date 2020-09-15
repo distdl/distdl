@@ -51,7 +51,7 @@ class MPIPartition:
     ----------
     _comm : MPI communicator
         MPI Communicator for this partition.
-    root : MPI communicator
+    _root : MPI communicator
         MPI communicator tracking the original communicator used to create
         all ancestors of this partition.
     active : boolean
@@ -78,9 +78,9 @@ class MPIPartition:
         # will have the same root as this one.
         # If it is not specified, take the current communicator to be the root.
         if root is None:
-            self.root = comm
+            self._root = comm
         else:
-            self.root = root
+            self._root = root
 
         # If the communicator is not null, this worker is active and can
         # gather remaining information.  Otherwise, the worker is inactive
@@ -168,7 +168,7 @@ class MPIPartition:
 
         comm = self._comm.Create_group(group)
 
-        return MPIPartition(comm, group, root=self.root)
+        return MPIPartition(comm, group, root=self._root)
 
     def create_partition_union(self, other):
         r"""Creates new partition from the union of two partitions.
@@ -194,14 +194,14 @@ class MPIPartition:
         """
 
         # Cannot make a union if the two partitions do not share a root
-        if not check_identical_comm(self.root, other.root):
+        if not check_identical_comm(self._root, other._root):
             raise Exception()
 
         group = MPI.Group.Union(self.group, other.group)
 
-        comm = self.root.Create_group(group)
+        comm = self._root.Create_group(group)
 
-        return MPIPartition(comm, group, root=self.root)
+        return MPIPartition(comm, group, root=self._root)
 
     def create_cartesian_topology_partition(self, shape, **options):
         r"""Creates new partition with Cartesian topology.
@@ -236,11 +236,11 @@ class MPIPartition:
                 raise Exception()
 
             # group = self.group
-            return MPICartesianPartition(comm, group, self.root, shape)
+            return MPICartesianPartition(comm, group, self._root, shape)
 
         else:
             comm = MPI.COMM_NULL
-            return MPICartesianPartition(comm, self.group, self.root, shape)
+            return MPICartesianPartition(comm, self.group, self._root, shape)
 
     def _build_cross_partition_groups(self, P, P_union,
                                       root_index, src_indices, dest_indices):
@@ -369,29 +369,29 @@ class MPIPartition:
             if recv_ranks[0] < send_ranks[0]:
                 comm_recv = P_union._comm.Create_group(group_recv, tag=recv_ranks[0])
                 P_recv = MPIPartition(comm_recv, group_recv,
-                                      root=P_union.root)
+                                      root=P_union._root)
                 comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
                 P_send = MPIPartition(comm_send, group_send,
-                                      root=P_union.root)
+                                      root=P_union._root)
             else:
                 comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
                 P_send = MPIPartition(comm_send, group_send,
-                                      root=P_union.root)
+                                      root=P_union._root)
                 comm_recv = P_union._comm.Create_group(group_recv, tag=recv_ranks[0])
                 P_recv = MPIPartition(comm_recv, group_recv,
-                                      root=P_union.root)
+                                      root=P_union._root)
         elif has_send_group and not has_recv_group and not same_send_recv_group:
             comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
             P_send = MPIPartition(comm_send, group_send,
-                                  root=P_union.root)
+                                  root=P_union._root)
         elif not has_send_group and has_recv_group and not same_send_recv_group:
             comm_recv = P_union._comm.Create_group(group_recv, tag=recv_ranks[0])
             P_recv = MPIPartition(comm_recv, group_recv,
-                                  root=P_union.root)
+                                  root=P_union._root)
         else:  # if has_send_group and has_recv_group and same_send_recv_group
             comm_send = P_union._comm.Create_group(group_send, tag=send_ranks[0])
             P_send = MPIPartition(comm_send, group_send,
-                                  root=P_union.root)
+                                  root=P_union._root)
             P_recv = P_send
 
         return P_send, P_recv
@@ -836,12 +836,12 @@ class MPICartesianPartition(MPIPartition):
             group = comm.Get_group()
 
             return MPICartesianPartition(comm, group,
-                                         self.root,
+                                         self._root,
                                          self.shape[remain_shape == True]) # noqa E712
 
         else:
             comm = MPI.COMM_NULL
-            return MPIPartition(comm, root=self.root)
+            return MPIPartition(comm, root=self._root)
 
     def cartesian_index(self, rank):
         r"""Given the rank, returns the Cartesian coordinates of the worker.
