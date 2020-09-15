@@ -6,6 +6,7 @@ from distdl.nn.mixins.conv_mixin import ConvMixin
 from distdl.nn.module import Module
 from distdl.nn.sum_reduce import SumReduce
 from distdl.utilities.slicing import compute_subshape
+from distdl.utilities.torch import TensorStructure
 
 
 class DistributedChannelConvBase(Module, ConvMixin):
@@ -172,8 +173,7 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
         self.x_broadcast = Broadcast(self.P_x, self.P_w, preserve_batch=True)
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y, preserve_batch=True)
@@ -203,8 +203,7 @@ class DistributedChannelConvBase(Module, ConvMixin):
             return
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure = TensorStructure(input[0])
 
     def _distdl_module_teardown(self, input):
         r"""Distributed (channel) convolution module teardown function.
@@ -222,8 +221,7 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
@@ -236,13 +234,9 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
         """
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        new_tensor_structure = TensorStructure(input[0])
 
-        if input[0].shape != self._input_shape:
-            return True
-
-        return False
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
         r"""Forward function interface.

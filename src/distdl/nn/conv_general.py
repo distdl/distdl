@@ -12,6 +12,7 @@ from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.slicing import range_index
+from distdl.utilities.torch import TensorStructure
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -290,8 +291,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
         # Some layers, those that require no information about the input
         # tensor to setup, can be built now.
@@ -391,8 +391,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.unpad_layer = UnpadNd(unpad_shape, value=0)
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure = TensorStructure(input[0])
 
     def _distdl_module_teardown(self, input):
         r"""Distributed (channel) convolution module teardown function.
@@ -416,8 +415,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
@@ -430,13 +428,9 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         """
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        new_tensor_structure = TensorStructure(input[0])
 
-        if input[0].shape != self._input_shape:
-            return True
-
-        return False
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
         r"""Forward function interface.
