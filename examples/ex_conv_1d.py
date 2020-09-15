@@ -23,7 +23,7 @@ if P_x.active:
     x_local_shape = compute_subshape(P_x.shape,
                                      P_x.index,
                                      x_global_shape)
-    x = torch.Tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1))
+    x = torch.ones(*x_local_shape) * (P_x.rank + 1)
 x.requires_grad = True
 
 print_sequential(P_world.comm, f'rank = {P_world.rank}, input =\n{x}')
