@@ -57,14 +57,14 @@ def test_simple_conv3d_adjoint_input(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
     x.requires_grad = True
 
     y = layer(x)
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
-        dy = torch.tensor(np.random.randn(*y.shape))
+        dy = torch.randn(*y.shape)
 
     y.backward(dy)
     dx = x.grad
@@ -118,14 +118,14 @@ def test_simple_conv3d_adjoint_weight(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
     x.requires_grad = True
 
     y = layer(x)
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
-        dy = torch.tensor(np.random.randn(*y.shape))
+        dy = torch.randn(*y.shape)
 
     y.backward(dy)
 
@@ -189,7 +189,7 @@ def test_simple_conv3d_adjoint_bias(barrier_fence_fixture,
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
-        dy = torch.tensor(np.random.randn(*y.shape))
+        dy = torch.randn(*y.shape)
 
     y.backward(dy)
 
