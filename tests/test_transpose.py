@@ -452,9 +452,7 @@ def test_transpose_dtype(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.randn(*x_local_shape)
-        x = 10*x
-        x = x.to(dtype)
+        x = 10*torch.randn(*x_local_shape).to(dtype)
 
     x.requires_grad = test_backward
     # y = F @ x
@@ -468,9 +466,7 @@ def test_transpose_dtype(barrier_fence_fixture,
             y_local_shape = compute_subshape(P_y.shape,
                                              P_y.index,
                                              x_global_shape)
-            dy = torch.randn(*y_local_shape)
-            dy = 10*dy
-            dy = dy.to(dtype)
+            dy = 10*torch.randn(*y_local_shape).to(dtype)
 
         # dx = F* @ dy
         y.backward(dy)
