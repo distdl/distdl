@@ -82,7 +82,7 @@ def test_average_pooling_adjoint_input(barrier_fence_fixture,
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
-        dy = torch.Tensor(np.random.randn(*y.shape))
+        dy = torch.tensor(np.random.randn(*y.shape))
 
     y.backward(dy)
     dx = x.grad
