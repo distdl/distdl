@@ -88,14 +88,14 @@ class MPIPartition:
         if self._comm != MPI.COMM_NULL:
             self.active = True
             if group == MPI.GROUP_NULL:
-                self.group = comm.Get_group()
+                self._group = comm.Get_group()
             else:
-                self.group = group
+                self._group = group
             self.rank = self._comm.Get_rank()
             self.size = self._comm.Get_size()
         else:
             self.active = False
-            self.group = group
+            self._group = group
             self.rank = MPI.PROC_NULL
             self.size = -1
 
@@ -126,14 +126,14 @@ class MPIPartition:
         # consider them to be equal.
         if (check_null_comm(self._comm) or
             check_null_comm(other._comm) or
-            check_null_group(self.group) or
-            check_null_group(other.group) or
+            check_null_group(self._group) or
+            check_null_group(other._group) or
             check_null_rank(self.rank) or
             check_null_rank(other.rank)): # noqa E129
             return False
 
         return (check_identical_comm(self._comm, other._comm) and
-                check_identical_group(self.group, other.group) and
+                check_identical_group(self._group, other._group) and
                 self.rank == other.rank)
 
     def print_sequential(self, val):
@@ -164,7 +164,7 @@ class MPIPartition:
         """
 
         ranks = np.asarray(ranks)
-        group = self.group.Incl(ranks)
+        group = self._group.Incl(ranks)
 
         comm = self._comm.Create_group(group)
 
@@ -197,7 +197,7 @@ class MPIPartition:
         if not check_identical_comm(self._root, other._root):
             raise Exception()
 
-        group = MPI.Group.Union(self.group, other.group)
+        group = MPI.Group.Union(self._group, other._group)
 
         comm = self._root.Create_group(group)
 
@@ -232,15 +232,15 @@ class MPIPartition:
             comm = self._comm.Create_cart(shape, **options)
             group = comm.Get_group()
 
-            if not check_identical_group(self.group, group):
+            if not check_identical_group(self._group, group):
                 raise Exception()
 
-            # group = self.group
+            # group = self._group
             return MPICartesianPartition(comm, group, self._root, shape)
 
         else:
             comm = MPI.COMM_NULL
-            return MPICartesianPartition(comm, self.group, self._root, shape)
+            return MPICartesianPartition(comm, self._group, self._root, shape)
 
     def _build_cross_partition_groups(self, P, P_union,
                                       root_index, src_indices, dest_indices):
@@ -310,7 +310,7 @@ class MPIPartition:
             # new communicator and that ranks are not repeated in the union
             ranks = [root_rank] + [rank for rank in dest_ranks if rank != root_rank]
             ranks = np.array(ranks)
-            group = P_union.group.Incl(ranks)
+            group = P_union._group.Incl(ranks)
 
         return ranks, group
 
