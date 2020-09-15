@@ -9,6 +9,7 @@ from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.nn.unpadnd import UnpadNd
 from distdl.utilities.slicing import assemble_slices
+from distdl.utilities.torch import TensorStructure
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -128,8 +129,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_module_setup(self, input):
         r"""Distributed (feature) convolution module setup function.
@@ -146,8 +146,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         """
 
         self._distdl_is_setup = True
-        self._input_shape = input[0].shape
-        self._input_requires_grad = input[0].requires_grad
+        self._input_tensor_structure = TensorStructure(input[0])
 
         if not self.P_x.active:
             return
@@ -157,11 +156,11 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         # To compute the halo regions, we need the global tensor shape.  This
         # is not available until when the input is provided.
-        x_global_shape = self._distdl_backend.compute_global_tensor_shape(input[0],
-                                                                          self.P_x)
+        x_global_structure = \
+            self._distdl_backend.assemble_global_tensor_structure(input[0], self.P_x)
 
         # Using that information, we can get there rest of the halo information
-        exchange_info = self._compute_exchange_info(x_global_shape,
+        exchange_info = self._compute_exchange_info(x_global_structure.shape,
                                                     self.conv_layer.kernel_size,
                                                     self.conv_layer.stride,
                                                     self.conv_layer.padding,
@@ -221,8 +220,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         # Reset any info about the input
         self._distdl_is_setup = False
-        self._input_shape = None
-        self._input_requires_grad = None
+        self._input_tensor_structure = TensorStructure()
 
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
@@ -235,13 +233,9 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         """
 
-        if input[0].requires_grad != self._input_requires_grad:
-            return True
+        new_tensor_structure = TensorStructure(input[0])
 
-        if input[0].shape != self._input_shape:
-            return True
-
-        return False
+        return self._input_tensor_structure != new_tensor_structure
 
     def forward(self, input):
         r"""Forward function interface.

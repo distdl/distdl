@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 from adjoint_test import check_adjoint_test_tight
 
 from distdl.nn.mixins.conv_mixin import ConvMixin
@@ -22,13 +23,31 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_shape
         [1, 1, 10, 7],  # x_global_shape
+        torch.float32,  # dtype
         [1, 1, 3, 3],  # kernel_size
         [1, 1, 1, 1],  # stride
         [0, 0, 0, 0],  # padding
         [1, 1, 1, 1],  # dilation
         MockConvLayer,  # MockKernelStyle
         9,  # passed to comm_split_fixture, required MPI ranks
-        id="conv-same_padding",
+        id="conv-same_padding-float32",
+        marks=[pytest.mark.mpi(min_size=9)]
+        )
+    )
+
+# Main functionality
+adjoint_parametrizations.append(
+    pytest.param(
+        np.arange(0, 9), [1, 1, 3, 3],  # P_x_ranks, P_x_shape
+        [1, 1, 10, 7],  # x_global_shape
+        torch.float64,  # dtype
+        [1, 1, 3, 3],  # kernel_size
+        [1, 1, 1, 1],  # stride
+        [0, 0, 0, 0],  # padding
+        [1, 1, 1, 1],  # dilation
+        MockConvLayer,  # MockKernelStyle
+        9,  # passed to comm_split_fixture, required MPI ranks
+        id="conv-same_padding-float64",
         marks=[pytest.mark.mpi(min_size=9)]
         )
     )
@@ -37,13 +56,30 @@ adjoint_parametrizations.append(
     pytest.param(
         np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_shape
         [1, 1, 10],  # x_global_shape
+        torch.float32,  # dtype
         [2],  # kernel_size
         [2],  # stride
         [0],  # padding
         [1],  # dilation
         MockConvLayer,  # MockKernelStyle
         3,  # passed to comm_split_fixture, required MPI ranks
-        id="conv-same_padding",
+        id="conv-same_padding-float32",
+        marks=[pytest.mark.mpi(min_size=3)]
+        )
+    )
+
+adjoint_parametrizations.append(
+    pytest.param(
+        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_shape
+        [1, 1, 10],  # x_global_shape
+        torch.float64,  # dtype
+        [2],  # kernel_size
+        [2],  # stride
+        [0],  # padding
+        [1],  # dilation
+        MockConvLayer,  # MockKernelStyle
+        3,  # passed to comm_split_fixture, required MPI ranks
+        id="conv-same_padding-float64",
         marks=[pytest.mark.mpi(min_size=3)]
         )
     )
@@ -51,6 +87,7 @@ adjoint_parametrizations.append(
 
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
+                         "dtype,"
                          "kernel_size,"
                          "stride,"
                          "padding,"
@@ -63,6 +100,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
                                P_x_ranks, P_x_shape,
                                x_global_shape,
+                               dtype,
                                kernel_size, stride, padding, dilation,
                                MockKernelStyle):
     import numpy as np
@@ -114,12 +152,14 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                          P_x.index,
                                          x_global_shape)
         x = torch.tensor(np.random.randn(*x_local_shape))
+        x = x.to(dtype)
         x = pad_layer.forward(x)
     x.requires_grad = True
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
         dy = torch.tensor(np.random.randn(*x.shape))
+        dy = dy.to(dtype)
 
     x_clone = x.clone()
     dy_clone = dy.clone()

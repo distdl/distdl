@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.utilities.dtype import torch_to_numpy_dtype_dict
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -29,7 +30,7 @@ class BroadcastFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_send, P_recv, preserve_batch,
-                input_tensor_structure, output_tensor_structure, dtype):
+                input_tensor_structure, output_tensor_structure):
         r"""Forward function of distributed broadcast layer.
 
         This method implements the forward broadcast operation using the
@@ -79,8 +80,6 @@ class BroadcastFunction(torch.autograd.Function):
         output_tensor_structure : tuple
             Tuple containing properties of the output tensor (dimension, shape,
             requires_grad).
-        dtype : torch.dtype
-            Data type of the input/output tensor.
 
         Returns
         -------
@@ -94,10 +93,6 @@ class BroadcastFunction(torch.autograd.Function):
         ctx.preserve_batch = preserve_batch
         ctx.input_tensor_structure = input_tensor_structure
         ctx.output_tensor_structure = output_tensor_structure
-        ctx.dtype = dtype
-
-        output_requires_grad = output_tensor_structure[0]
-        output_tensor_shape = output_tensor_structure[2]
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -121,11 +116,12 @@ class BroadcastFunction(torch.autograd.Function):
                 output = input.clone()
             # If I just receive, receive the broadcast
             else:
-                output = np.zeros(output_tensor_shape, dtype=dtype)
+                numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
+                output = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
 
                 req = P_recv.comm.Ibcast(output, root=0)
                 req.Wait()
-                output = torch.tensor(output, requires_grad=output_requires_grad)
+                output = torch.tensor(output, requires_grad=output_tensor_structure.requires_grad)
 
         # Complete all broadcast operations.
         MPI.Request.Waitall(requests)
@@ -185,11 +181,6 @@ class BroadcastFunction(torch.autograd.Function):
         preserve_batch = ctx.preserve_batch
         input_tensor_structure = ctx.input_tensor_structure
         output_tensor_structure = ctx.output_tensor_structure
-        dtype = ctx.dtype
-
-        input_requires_grad = input_tensor_structure[0]
-        input_tensor_shape = input_tensor_structure[2]
-        output_tensor_shape = output_tensor_structure[2]
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
@@ -205,7 +196,8 @@ class BroadcastFunction(torch.autograd.Function):
         # is OK, as the reduction accounts for the copy, unlike the broadcast
         # above.
         if P_recv.active:
-            reduced_data_recv = np.zeros(output_tensor_shape, dtype=dtype)
+            numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
+            reduced_data_recv = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
             grad_output_numpy = grad_output.detach().numpy()
             req = P_recv.comm.Ireduce(grad_output_numpy, reduced_data_recv, root=0, op=MPI.SUM)
             requests.append(req)
@@ -213,7 +205,8 @@ class BroadcastFunction(torch.autograd.Function):
         # If I sent data in the forward, I have to receive it here.  Unless I
         # also received that data, then I already have it from above.
         if P_send != P_recv and P_send.active:
-            reduced_data_send = np.zeros(input_tensor_shape, dtype=dtype)
+            numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
+            reduced_data_send = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
             req = P_send.comm.Ireduce(MPI.IN_PLACE, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
@@ -222,8 +215,10 @@ class BroadcastFunction(torch.autograd.Function):
         # If we had to receive data, we need to tensorify it.
         if P_send.active:
             if P_send == P_recv:
-                grad_input = torch.tensor(reduced_data_recv, requires_grad=input_requires_grad)
+                grad_input = torch.tensor(reduced_data_recv,
+                                          requires_grad=input_tensor_structure.requires_grad)
             else:
-                grad_input = torch.tensor(reduced_data_send, requires_grad=input_requires_grad)
+                grad_input = torch.tensor(reduced_data_send,
+                                          requires_grad=input_tensor_structure.requires_grad)
 
-        return grad_input, None, None, None, None, None, None
+        return grad_input, None, None, None, None, None

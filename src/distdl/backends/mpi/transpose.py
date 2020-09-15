@@ -1,5 +1,7 @@
 import numpy as np
 
+from distdl.utilities.dtype import torch_to_numpy_dtype_dict
+
 
 def allocate_transpose_buffers(P_x_to_y_overlaps, P_y_to_x_overlaps, dtype):
     r"""Allocator for data movement buffers.
@@ -17,12 +19,14 @@ def allocate_transpose_buffers(P_x_to_y_overlaps, P_y_to_x_overlaps, dtype):
 
     """
 
+    numpy_dtype = torch_to_numpy_dtype_dict[dtype]
+
     # For each necessary copy, allocate send buffers.
     P_x_to_y_buffers = []
     for sl, sz, r in P_x_to_y_overlaps:
         buff = None
         if sz is not None:
-            buff = np.zeros(sz, dtype=dtype)
+            buff = np.zeros(sz, dtype=numpy_dtype)
 
         P_x_to_y_buffers.append(buff)
 
@@ -31,7 +35,7 @@ def allocate_transpose_buffers(P_x_to_y_overlaps, P_y_to_x_overlaps, dtype):
     for sl, sz, r in P_y_to_x_overlaps:
         buff = None
         if sz is not None:
-            buff = np.zeros(sz, dtype=dtype)
+            buff = np.zeros(sz, dtype=numpy_dtype)
 
         P_y_to_x_buffers.append(buff)
 

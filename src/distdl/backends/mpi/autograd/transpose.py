@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.utilities.dtype import torch_to_numpy_dtype_dict
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import zero_volume_tensor
 
@@ -29,9 +30,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, input, P_union, x_global_shape,
+    def forward(ctx, input, P_union, x_global_structure,
                 P_x, P_x_to_y_overlaps, P_x_to_y_buffers,
-                P_y, P_y_to_x_overlaps, P_y_to_x_buffers, preserve_batch, dtype):
+                P_y, P_y_to_x_overlaps, P_y_to_x_buffers, preserve_batch):
         r"""Forward function of distributed transpose layer.
 
         This method implements the forward transpose operation using MPI
@@ -59,8 +60,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
             Input tensor.
         P_union : Partition
             Partition through which all communication occurs.
-        x_global_shape :
-            Shape if the global input tensor.
+        x_global_structure :
+            Structure of the global input tensor.
         P_x : Partition
             Input partition.
         P_x_to_y_overlaps : list
@@ -79,8 +80,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
             must perform.
         preserve_batch : bool
             Indicates if batch size should be preserved for zero-volume outputs.
-        dtype : torch.dtype
-            Data type of the input/output tensor.
 
         Returns
         -------
@@ -90,7 +89,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         """
 
         ctx.P_union = P_union
-        ctx.x_global_shape = x_global_shape
+        ctx.x_global_structure = x_global_structure
 
         ctx.P_x = P_x
         ctx.P_x_to_y_overlaps = P_x_to_y_overlaps
@@ -101,8 +100,6 @@ class DistributedTransposeFunction(torch.autograd.Function):
         ctx.P_y_to_x_buffers = P_y_to_x_buffers
 
         ctx.preserve_batch = preserve_batch
-
-        ctx.dtype = dtype
 
         input_requires_grad = False
 
@@ -126,9 +123,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         # Default everyone to output nothing
         if preserve_batch:
-            output = zero_volume_tensor(input.shape[0])
+            output = zero_volume_tensor(input.shape[0],
+                                        dtype=x_global_structure.dtype)
         else:
-            output = zero_volume_tensor()
+            output = zero_volume_tensor(dtype=x_global_structure.dtype)
 
         # If I am getting data, recv my output parts
         recv_count = 0
@@ -162,10 +160,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # allocations.
         if P_y.active:
             index = P_y.index
-            y_local_shape = compute_subshape(P_y.shape, index, x_global_shape)
+            y_local_shape = compute_subshape(P_y.shape, index, x_global_structure.shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
-            output = np.zeros(y_local_shape, dtype=dtype)
+            numpy_dtype = torch_to_numpy_dtype_dict[x_global_structure.dtype]
+            output = np.zeros(y_local_shape, dtype=numpy_dtype)
 
         # Unpack the received data as it arrives
         completed_count = 0
@@ -226,7 +225,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         """
 
         P_union = ctx.P_union
-        x_global_shape = ctx.x_global_shape
+        x_global_structure = ctx.x_global_structure
 
         P_x = ctx.P_x
         P_x_to_y_overlaps = ctx.P_x_to_y_overlaps
@@ -238,17 +237,16 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         preserve_batch = ctx.preserve_batch
 
-        dtype = ctx.dtype
-
         input_requires_grad = ctx.input_requires_grad
 
         requests = []
 
         # Default everyone to output None
         if preserve_batch:
-            grad_input = zero_volume_tensor(grad_output.shape[0])
+            grad_input = zero_volume_tensor(grad_output.shape[0],
+                                            dtype=x_global_structure.dtype)
         else:
-            grad_input = zero_volume_tensor()
+            grad_input = zero_volume_tensor(dtype=x_global_structure.dtype)
 
         # Recv my input parts
         recv_count = 0
@@ -280,10 +278,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         if P_x.active:
             index = P_x.index
-            x_local_shape = compute_subshape(P_x.shape, index, x_global_shape)
+            x_local_shape = compute_subshape(P_x.shape, index, x_global_structure.shape)
             # TODO(#25): The dtype should not be fixed, but correcting this is
             #            a thing that needs to be resolved globally.
-            grad_input = np.zeros(x_local_shape, dtype=dtype)
+            numpy_dtype = torch_to_numpy_dtype_dict[x_global_structure.dtype]
+            grad_input = np.zeros(x_local_shape, dtype=numpy_dtype)
 
         # Unpack the received data as it arrives
         completed_count = 0
@@ -309,4 +308,4 @@ class DistributedTransposeFunction(torch.autograd.Function):
             grad_input = torch.from_numpy(grad_input)
             grad_input.requires_grad = input_requires_grad
 
-        return grad_input, None, None, None, None, None, None, None, None, None, None
+        return grad_input, None, None, None, None, None, None, None, None, None

@@ -1,4 +1,5 @@
 import pytest
+import torch
 from adjoint_test import check_adjoint_test_tight
 
 adjoint_parametrizations = []
@@ -6,9 +7,10 @@ adjoint_parametrizations = []
 adjoint_parametrizations.append(
     pytest.param(
         [3, 4, 5],  # x_local_shape
+        torch.float32,  # dtype
         [[1, 2], [1, 2], [1, 2]],  # padding
         1,  # passed to comm_split_fixture, required MPI ranks
-        id="positive_padding",
+        id="positive_padding-float32",
         marks=[pytest.mark.mpi(min_size=1)]
         )
     )
@@ -16,15 +18,39 @@ adjoint_parametrizations.append(
 adjoint_parametrizations.append(
     pytest.param(
         [3, 4, 5],  # x_local_shape
+        torch.float64,  # dtype
+        [[1, 2], [1, 2], [1, 2]],  # padding
+        1,  # passed to comm_split_fixture, required MPI ranks
+        id="positive_padding-float64",
+        marks=[pytest.mark.mpi(min_size=1)]
+        )
+    )
+
+adjoint_parametrizations.append(
+    pytest.param(
+        [3, 4, 5],  # x_local_shape
+        torch.float32,  # dtype
         [[1, 0], [0, 2], [0, 0]],  # padding
         1,  # passed to comm_split_fixture, required MPI ranks
-        id="nonnegative_padding",
+        id="nonnegative_padding-float32",
+        marks=[pytest.mark.mpi(min_size=1)]
+        )
+    )
+
+adjoint_parametrizations.append(
+    pytest.param(
+        [3, 4, 5],  # x_local_shape
+        torch.float64,  # dtype
+        [[1, 0], [0, 2], [0, 0]],  # padding
+        1,  # passed to comm_split_fixture, required MPI ranks
+        id="nonnegative_padding-float64",
         marks=[pytest.mark.mpi(min_size=1)]
         )
     )
 
 
 @pytest.mark.parametrize("x_local_shape,"
+                         "dtype,"
                          "padding,"
                          "comm_split_fixture",
                          adjoint_parametrizations,
@@ -32,6 +58,7 @@ adjoint_parametrizations.append(
 def test_padnd_adjoint(barrier_fence_fixture,
                        comm_split_fixture,
                        x_local_shape,
+                       dtype,
                        padding):
 
     import numpy as np
@@ -54,13 +81,18 @@ def test_padnd_adjoint(barrier_fence_fixture,
     layer = PadNd(padding, value=0)
 
     x = torch.tensor(np.random.randn(*x_local_shape))
+    x = x.to(dtype)
     x.requires_grad = True
 
     dy = torch.tensor(np.random.randn(*padded_shape))
+    dy = dy.to(dtype)
 
     y = layer(x)
+    assert y.dtype == dtype
+
     y.backward(dy)
     dx = x.grad
+    assert dx.dtype == dtype
 
     x = x.detach()
     dx = dx.detach()
