@@ -174,13 +174,13 @@ def test_broadcast_adjoint(barrier_fence_fixture,
 
     x = zero_volume_tensor()
     if P_x.active:
-        x = torch.tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
     x.requires_grad = True
 
     dy = zero_volume_tensor()
     if P_y.active:
         # Adjoint Input
-        dy = torch.tensor(np.random.randn(*x_local_shape))
+        dy = torch.randn(*x_local_shape)
 
     # y = F @ x
     y = layer(x)
@@ -351,7 +351,7 @@ def test_broadcast_dtype(barrier_fence_fixture,
 
     x = zero_volume_tensor()
     if P_x.active:
-        x = torch.tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
         x = 10*x
         x = x.to(dtype)
 
@@ -369,7 +369,7 @@ def test_broadcast_dtype(barrier_fence_fixture,
         dy = zero_volume_tensor()
         if P_y.active:
             # Adjoint Input
-            dy = torch.tensor(np.random.randn(*x_local_shape))
+            dy = torch.randn(*x_local_shape)
             dy = 10*dy
             dy = dy.to(dtype)
 
