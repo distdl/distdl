@@ -461,7 +461,8 @@ def test_transpose_dtype(barrier_fence_fixture,
     x.requires_grad = test_backward
     # y = F @ x
     y = layer(x)
-    assert y.dtype == dtype
+    if P_y.active:
+        assert y.dtype == dtype
 
     if test_backward:
         # Adjoint Input
@@ -477,4 +478,5 @@ def test_transpose_dtype(barrier_fence_fixture,
         # dx = F* @ dy
         y.backward(dy)
         dx = x.grad
-        assert dx.dtype == dtype
+        if P_x.active:
+            assert dx.dtype == dtype
