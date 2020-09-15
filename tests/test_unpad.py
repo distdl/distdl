@@ -78,15 +78,13 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
 
     layer = UnpadNd(padding, value=0)
 
-    x = torch.randn(*x_local_shape)
-    x = x.to(dtype)
+    x = torch.randn(*x_local_shape).to(dtype)
     x.requires_grad = True
 
     y = layer(x)
     assert y.dtype == dtype
 
-    dy = torch.randn(*y.shape)
-    dy = dy.to(dtype)
+    dy = torch.randn(*y.shape).to(dtype)
 
     y.backward(dy)
     dx = x.grad
