@@ -28,7 +28,7 @@ def check_adjoint_test_tight(P, x1, x2, y1, y2):
     local_results[5] = np.array([torch.sum(torch.mul(y1, y2))])
 
     # Reduce the norms and inner products
-    P.comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
+    P._comm.Reduce(local_results, global_results, op=MPI.SUM, root=0)
 
     # Because this is being computed in parallel, we risk that these norms
     # and inner products are not exactly equal, because the floating point

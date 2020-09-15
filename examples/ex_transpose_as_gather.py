@@ -11,7 +11,7 @@ from distdl.utilities.torch import zero_volume_tensor
 # Set up MPI cartesian communicator
 
 P_world = MPIPartition(MPI.COMM_WORLD)
-P_world.comm.Barrier()
+P_world._comm.Barrier()
 
 in_shape = (2, 2)
 out_shape = (1, 1)
@@ -36,10 +36,10 @@ if P_x.active:
     x = np.zeros(x_local_shape) + P_x.rank + 1
     x = torch.from_numpy(x)
 x.requires_grad = True
-print_sequential(P_world.comm, f"x_{P_world.rank}: {x}")
+print_sequential(P_world._comm, f"x_{P_world.rank}: {x}")
 
 y = layer(x)
-print_sequential(P_world.comm, f"y_{P_world.rank}: {y}")
+print_sequential(P_world._comm, f"y_{P_world.rank}: {y}")
 
 dy = zero_volume_tensor()
 if P_y.active:
@@ -49,8 +49,8 @@ if P_y.active:
     dy = np.zeros(y_local_shape) + P_y.rank + 1
     dy = torch.from_numpy(dy)
 
-print_sequential(P_world.comm, f"dy_{P_world.rank}: {dy}")
+print_sequential(P_world._comm, f"dy_{P_world.rank}: {dy}")
 
 y.backward(dy)
 dx = x.grad
-print_sequential(P_world.comm, f"dx_{P_world.rank}: {dx}")
+print_sequential(P_world._comm, f"dx_{P_world.rank}: {dx}")

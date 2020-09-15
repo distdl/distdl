@@ -107,7 +107,7 @@ class BroadcastFunction(torch.autograd.Function):
         # Send all of the data
         if P_send.active:
             input_numpy = input.detach().numpy()
-            req = P_send.comm.Ibcast(input_numpy, root=0)
+            req = P_send._comm.Ibcast(input_numpy, root=0)
             requests.append(req)
 
         if P_recv.active:
@@ -119,7 +119,7 @@ class BroadcastFunction(torch.autograd.Function):
                 numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
                 output = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
 
-                req = P_recv.comm.Ibcast(output, root=0)
+                req = P_recv._comm.Ibcast(output, root=0)
                 req.Wait()
                 output = torch.tensor(output, requires_grad=output_tensor_structure.requires_grad)
 
@@ -199,7 +199,7 @@ class BroadcastFunction(torch.autograd.Function):
             numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
             reduced_data_recv = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
             grad_output_numpy = grad_output.detach().numpy()
-            req = P_recv.comm.Ireduce(grad_output_numpy, reduced_data_recv, root=0, op=MPI.SUM)
+            req = P_recv._comm.Ireduce(grad_output_numpy, reduced_data_recv, root=0, op=MPI.SUM)
             requests.append(req)
 
         # If I sent data in the forward, I have to receive it here.  Unless I
@@ -207,7 +207,7 @@ class BroadcastFunction(torch.autograd.Function):
         if P_send != P_recv and P_send.active:
             numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
             reduced_data_send = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
-            req = P_send.comm.Ireduce(MPI.IN_PLACE, reduced_data_send, root=0, op=MPI.SUM)
+            req = P_send._comm.Ireduce(MPI.IN_PLACE, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
         MPI.Request.Waitall(requests)

@@ -28,7 +28,7 @@ use_ranks = ranks[:P_size]
 P_x_base = P_world.create_partition_inclusive(use_ranks)
 P_x = P_x_base.create_cartesian_topology_partition(shape)
 rank = P_x.rank
-cart_comm = P_x.comm
+cart_comm = P_x._comm
 
 x_global_shape = np.array([1, 1, 10, 12])
 

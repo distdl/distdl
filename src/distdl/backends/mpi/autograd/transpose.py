@@ -110,11 +110,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
             # rank 0's status to send
             if P_x.rank == 0:
                 input_requires_grad = input.requires_grad
-                P_union.comm.Bcast(np.array([1 if input_requires_grad else 0]),
-                                   root=0)
+                P_union._comm.Bcast(np.array([1 if input_requires_grad else 0]),
+                                    root=0)
             else:
                 irg = np.array([0], dtype=np.int)
-                P_union.comm.Bcast(irg, root=0)
+                P_union._comm.Bcast(irg, root=0)
                 input_requires_grad = bool(irg[0] == 1)
 
         ctx.input_requires_grad = input_requires_grad
@@ -133,7 +133,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         if P_y.active:
             for (sl, sz, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
-                    req = P_union.comm.Irecv(buff, source=partner, tag=111)
+                    req = P_union._comm.Irecv(buff, source=partner, tag=111)
                     requests.append(req)
                 else:
                     # We add this if there is no recv so that the indices of
@@ -149,7 +149,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
             for (sl, sz, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
                     np.copyto(buff, input_numpy[tuple(sl)].ravel())
-                    req = P_union.comm.Isend(buff, dest=partner, tag=111)
+                    req = P_union._comm.Isend(buff, dest=partner, tag=111)
                     requests.append(req)
                 else:
                     # We add this for symmetry, but don't really need it.
@@ -253,7 +253,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         if P_x.active:
             for (sl, sz, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
-                    req = P_union.comm.Irecv(buff, source=partner, tag=113)
+                    req = P_union._comm.Irecv(buff, source=partner, tag=113)
                     requests.append(req)
                 else:
                     # We add this if there is no recv so that the indices of
@@ -269,7 +269,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
             for (sl, sz, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
                     np.copyto(buff, grad_output_numpy[tuple(sl)].ravel())
-                    req = P_union.comm.Isend(buff, dest=partner, tag=113)
+                    req = P_union._comm.Isend(buff, dest=partner, tag=113)
                     requests.append(req)
                 else:
                     # We add this for symmetry, but don't really need it.
