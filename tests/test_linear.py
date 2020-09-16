@@ -87,14 +87,14 @@ def test_linear_adjoint_input(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.Tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
     x.requires_grad = True
 
     y = layer(x)
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_y.active:
-        dy = torch.Tensor(np.random.randn(*y.shape))
+        dy = torch.randn(*y.shape)
 
     y.backward(dy)
     dx = x.grad
@@ -161,14 +161,14 @@ def test_linear_adjoint_weight(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.Tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
     x.requires_grad = True
 
     y = layer(x)
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_y.active:
-        dy = torch.Tensor(np.random.randn(*y.shape))
+        dy = torch.randn(*y.shape)
 
     y.backward(dy)
 
@@ -250,7 +250,7 @@ def test_linear_adjoint_bias(barrier_fence_fixture,
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_y.active:
-        dy = torch.Tensor(np.random.randn(*y.shape))
+        dy = torch.randn(*y.shape)
 
     y.backward(dy)
 

@@ -151,15 +151,13 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.tensor(np.random.randn(*x_local_shape))
-        x = x.to(dtype)
+        x = torch.randn(*x_local_shape).to(dtype)
         x = pad_layer.forward(x)
     x.requires_grad = True
 
     dy = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
-        dy = torch.tensor(np.random.randn(*x.shape))
-        dy = dy.to(dtype)
+        dy = torch.randn(*x.shape).to(dtype)
 
     x_clone = x.clone()
     dy_clone = dy.clone()

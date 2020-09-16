@@ -9,7 +9,7 @@ from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import zero_volume_tensor
 
 P_world = MPIPartition(MPI.COMM_WORLD)
-P_world.comm.Barrier()
+P_world._comm.Barrier()
 
 P_x_base = P_world.create_partition_inclusive(np.arange(4))
 P_x = P_x_base.create_cartesian_topology_partition([1, 1, 2, 2])
@@ -26,8 +26,8 @@ if P_x.active:
     x = torch.tensor(np.ones(shape=x_local_shape) * (P_x.rank + 1), dtype=float)
 x.requires_grad = True
 
-print_sequential(P_world.comm, f'rank = {P_world.rank}, input =\n{x}')
+print_sequential(P_world._comm, f'rank = {P_world.rank}, input =\n{x}')
 
 y = layer(x)
 
-print_sequential(P_world.comm, f'rank = {P_world.rank}, output =\n{y}')
+print_sequential(P_world._comm, f'rank = {P_world.rank}, output =\n{y}')

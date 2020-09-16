@@ -133,7 +133,6 @@ def test_transpose_adjoint(barrier_fence_fixture,
                            P_y_ranks, P_y_shape,
                            x_global_shape):
 
-    import numpy as np
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
@@ -163,7 +162,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.Tensor(np.random.randn(*x_local_shape))
+        x = torch.randn(*x_local_shape)
     x.requires_grad = True
 
     # Adjoint Input
@@ -172,7 +171,7 @@ def test_transpose_adjoint(barrier_fence_fixture,
         y_local_shape = compute_subshape(P_y.shape,
                                          P_y.index,
                                          x_global_shape)
-        dy = torch.Tensor(np.random.randn(*y_local_shape))
+        dy = torch.randn(*y_local_shape)
 
     # y = F @ x
     y = layer(x)
@@ -263,7 +262,7 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
             x_local_shape = compute_subshape(P_x.shape,
                                              P_x.index,
                                              x_global_shape)
-            x = torch.Tensor(np.random.randn(*x_local_shape))
+            x = torch.randn(*x_local_shape)
         x.requires_grad = True
 
         layer(x)
@@ -311,7 +310,7 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
             x_local_shape = compute_subshape(P_x.shape,
                                              P_x.index,
                                              x_global_shape)
-            x = torch.Tensor(np.random.randn(*x_local_shape))
+            x = torch.randn(*x_local_shape)
         x.requires_grad = True
 
         layer(x)
@@ -360,7 +359,7 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
             x_local_shape = compute_subshape(P_x.shape,
                                              P_x.index,
                                              x_global_shape)
-            x = torch.Tensor(np.random.randn(*x_local_shape))
+            x = torch.randn(*x_local_shape)
         x.requires_grad = True
 
         layer(x)
@@ -424,7 +423,6 @@ def test_transpose_dtype(barrier_fence_fixture,
                          P_y_ranks, P_y_shape,
                          x_global_shape):
 
-    import numpy as np
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
@@ -454,9 +452,7 @@ def test_transpose_dtype(barrier_fence_fixture,
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.Tensor(np.random.randn(*x_local_shape))
-        x = 10*x
-        x = x.to(dtype)
+        x = 10*torch.randn(*x_local_shape).to(dtype)
 
     x.requires_grad = test_backward
     # y = F @ x
@@ -471,9 +467,7 @@ def test_transpose_dtype(barrier_fence_fixture,
             y_local_shape = compute_subshape(P_y.shape,
                                              P_y.index,
                                              x_global_shape)
-            dy = torch.Tensor(np.random.randn(*y_local_shape))
-            dy = 10*dy
-            dy = dy.to(dtype)
+            dy = 10*torch.randn(*y_local_shape).to(dtype)
 
         # dx = F* @ dy
         y.backward(dy)

@@ -109,14 +109,14 @@ class SumReduceFunction(torch.autograd.Function):
             numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
             reduced_data_send = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
             input_numpy = input.detach().numpy()
-            req = P_send.comm.Ireduce(input_numpy, reduced_data_send, root=0, op=MPI.SUM)
+            req = P_send._comm.Ireduce(input_numpy, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
         # If I sent data in the forward, I have to receive it here.
         if P_send != P_recv and P_recv.active:
             numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
             reduced_data_recv = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
-            req = P_recv.comm.Ireduce(MPI.IN_PLACE, reduced_data_recv, root=0, op=MPI.SUM)
+            req = P_recv._comm.Ireduce(MPI.IN_PLACE, reduced_data_recv, root=0, op=MPI.SUM)
             requests.append(req)
 
         MPI.Request.Waitall(requests)
@@ -200,7 +200,7 @@ class SumReduceFunction(torch.autograd.Function):
         # If I received the reduction in the forward call, I broadcast my data
         if P_recv.active:
             grad_output_numpy = grad_output.detach().numpy()
-            req = P_recv.comm.Ibcast(grad_output_numpy, root=0)
+            req = P_recv._comm.Ibcast(grad_output_numpy, root=0)
             requests.append(req)
 
         # If I just receive, receive the broadcast
@@ -212,7 +212,7 @@ class SumReduceFunction(torch.autograd.Function):
                 numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
                 grad_input = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
 
-                req = P_send.comm.Ibcast(grad_input, root=0)
+                req = P_send._comm.Ibcast(grad_input, root=0)
                 req.Wait()
                 grad_input = torch.tensor(grad_input,
                                           requires_grad=input_tensor_structure.requires_grad)
