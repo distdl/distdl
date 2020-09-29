@@ -196,6 +196,12 @@ def test_sum_reduce_adjoint(barrier_fence_fixture,
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
+
 
 dtype_parametrizations = []
 
@@ -312,3 +318,9 @@ def test_sum_reduce_dtype(barrier_fence_fixture,
 
         if P_x.active:
             assert dx.dtype == dtype
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()

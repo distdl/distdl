@@ -187,6 +187,12 @@ def test_transpose_adjoint(barrier_fence_fixture,
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
+
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
 def test_excepts_mismatched_partitions(barrier_fence_fixture,
@@ -218,6 +224,12 @@ def test_excepts_mismatched_partitions(barrier_fence_fixture,
 
     with pytest.raises(ValueError) as e_info:  # noqa: F841
         DistributedTranspose(P_x, P_y)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
@@ -267,6 +279,12 @@ def test_excepts_mismatched_input_partition_tensor(barrier_fence_fixture,
 
         layer(x)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
+
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
 def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
@@ -314,6 +332,12 @@ def test_excepts_mismatched_output_partition_tensor(barrier_fence_fixture,
         x.requires_grad = True
 
         layer(x)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
@@ -363,6 +387,12 @@ def test_excepts_mismatched_nondivisible_tensor(barrier_fence_fixture,
         x.requires_grad = True
 
         layer(x)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
 
 
 dtype_parametrizations = []
@@ -474,3 +504,9 @@ def test_transpose_dtype(barrier_fence_fixture,
         dx = x.grad
         if P_x.active:
             assert dx.dtype == dtype
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()

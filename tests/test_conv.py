@@ -184,6 +184,18 @@ def test_conv_class_selection(barrier_fence_fixture,
 
     assert type(layer) == OutputLayerType
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+
+    if P_y_ranks is not None:
+        P_y_base.deactivate()
+        P_y.deactivate()
+
+    if P_w_ranks is not None:
+        P_w_base.deactivate()
+        P_w.deactivate()
+
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
 def test_excepts_no_match(barrier_fence_fixture,
@@ -215,3 +227,10 @@ def test_excepts_no_match(barrier_fence_fixture,
     with pytest.raises(ValueError) as e_info:  # noqa: F841
         layer = DistributedConv2d(P_x, P_w=P_w,  # noqa: F841
                                   in_channels=3, out_channels=3, kernel_size=ks)
+
+    P_world.deactivate()
+    P2.deactivate()
+    P4.deactivate()
+    P_x.deactivate()
+    P_y.deactivate()
+    P_w.deactivate()

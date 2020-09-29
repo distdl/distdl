@@ -196,6 +196,12 @@ def test_broadcast_adjoint(barrier_fence_fixture,
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
+
 
 deadlock_parametrizations = []
 
@@ -258,6 +264,12 @@ def test_potentially_deadlocked_send_recv_pairs(barrier_fence_fixture,
     P_w = P_w_base.create_cartesian_topology_partition(P_w_shape)
 
     layer = Broadcast(P_x, P_w)  # noqa F841
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_w_base.deactivate()
+    P_w.deactivate()
 
 
 dtype_parametrizations = []
@@ -375,3 +387,9 @@ def test_broadcast_dtype(barrier_fence_fixture,
 
         if P_x.active:
             assert dx.dtype == dtype
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_y_base.deactivate()
+    P_y.deactivate()
