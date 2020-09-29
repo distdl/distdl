@@ -248,6 +248,13 @@ def test_batch_norm_with_training(barrier_fence_fixture,
         assert dist_out2.shape == seq_out2.shape
         assert torch.allclose(dist_out2, seq_out2, ERROR_THRESHOLD, ERROR_THRESHOLD)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_in_out_base.deactivate()
+    P_in_out.deactivate()
+    P_affine.deactivate()
+
 
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "input_shape,"
@@ -319,3 +326,9 @@ def test_batch_norm_no_training(barrier_fence_fixture,
     if P_world.rank == 0:
         assert dist_out.shape == seq_out.shape
         assert torch.allclose(dist_out, seq_out, ERROR_THRESHOLD)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_in_out_base.deactivate()
+    P_in_out.deactivate()
