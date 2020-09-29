@@ -563,9 +563,14 @@ class MPIPartition:
                                                                     src_flat_indices,
                                                                     dest_flat_indices)
 
-        return self._create_send_recv_partitions(P_union,
-                                                 send_ranks, group_send,
-                                                 recv_ranks, group_recv)
+        P_send, P_recv = self._create_send_recv_partitions(P_union,
+                                                           send_ranks, group_send,
+                                                           recv_ranks, group_recv)
+
+        # Release temporary resources
+        P_union.deactivate()
+
+        return P_send, P_recv
 
     def create_reduction_partition_to(self, P_dest,
                                       transpose_src=False,
@@ -695,9 +700,14 @@ class MPIPartition:
                                                                     dest_flat_indices,
                                                                     src_flat_indices)
 
-        return self._create_send_recv_partitions(P_union,
-                                                 send_ranks, group_send,
-                                                 recv_ranks, group_recv)
+        P_send, P_recv = self._create_send_recv_partitions(P_union,
+                                                           send_ranks, group_send,
+                                                           recv_ranks, group_recv)
+
+        # Release temporary resources
+        P_union.deactivate()
+
+        return P_send, P_recv
 
     def broadcast_data(self, data, root=0, P_data=None):
         r"""Copy arbitrary data from one worker to all workers in a partition.
