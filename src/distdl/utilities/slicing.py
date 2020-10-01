@@ -103,3 +103,14 @@ def range_index(shape):
     # dimensions
     for x in itertools.product(*[range(y) for y in shape]):
         yield x
+
+
+def worker_layout(shape):
+    # Returns a numpy array with shape equal to the given shape such that
+    # all values are set to the worker ranks.
+
+    workers = np.zeros(shape.tolist(), dtype=int)
+    for i, index in enumerate(range_index(shape)):
+        workers[index] = i
+
+    return workers
