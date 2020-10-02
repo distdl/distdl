@@ -151,7 +151,7 @@ class DistributedBatchNorm(Module):
 
         """
 
-        x = torch.square(input - mean)
+        x = (input - mean)**2
         return self._compute_mean(x, feature_volume)
 
     def _update_running_stats(self, mean, var):

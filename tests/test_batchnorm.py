@@ -177,7 +177,7 @@ def test_batch_norm_with_training(barrier_fence_fixture,
     if P_world.rank == 0:
         seq_bn.train()
         seq_out1 = seq_bn(input_train)
-        seq_loss = torch.square(seq_out1 - exp).sum()
+        seq_loss = ((seq_out1 - exp)**2).sum()
         seq_loss.backward()
         seq_grads = [p.grad for p in seq_bn.parameters()]
         # Do a manual weight update (this is what optimizer does):
@@ -209,7 +209,7 @@ def test_batch_norm_with_training(barrier_fence_fixture,
     # Train distributed network
     dist_bn.train()
     dist_out1 = tr2(dist_bn(tr1(input_train)))
-    dist_loss = torch.square(dist_out1 - exp).sum()
+    dist_loss = ((dist_out1 - exp)**2).sum()
     assert dist_loss.requires_grad
     dist_loss.backward()
     # Note: We expect the batch norm gradient to have extra dimensions than PyTorch,
