@@ -155,8 +155,8 @@ class Broadcast(Module):
         """
 
         # Reset all of the buffers and communication objects
-        self.P_send = self._distdl_backend.Partition()
-        self.P_recv = self._distdl_backend.Partition()
+        self.P_send.deactivate()
+        self.P_recv.deactivate()
 
         # Reset any data stored about the tensor
         self.input_tensor_structure = TensorStructure()

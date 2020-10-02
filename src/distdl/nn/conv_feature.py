@@ -71,8 +71,11 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
             return
 
         # Weights and biases partition
-        self.P_wb = self.P_x.create_partition_inclusive([0])
-        self.P_wb_cart = self.P_wb.create_cartesian_topology_partition([1])
+        P_wb = self.P_x.create_partition_inclusive([0])
+        self.P_wb_cart = P_wb.create_cartesian_topology_partition([1])
+
+        # Release temporary resources
+        P_wb.deactivate()
 
         # We want only the root rank of the broadcast to have a weight and a
         # bias parameter. Every other rank gets a zero-volume tensor.

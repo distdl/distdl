@@ -75,8 +75,11 @@ class DistributedBatchNorm(Module):
         storage_workers = worker_layout(P_x.shape)[index].tolist()
 
         self.P_x = P_x
-        self.P_sum_base = P_x.create_partition_inclusive(storage_workers)
-        self.P_sum = self.P_sum_base.create_cartesian_topology_partition(internal_partition_shape)
+        P_sum_base = P_x.create_partition_inclusive(storage_workers)
+        self.P_sum = P_sum_base.create_cartesian_topology_partition(internal_partition_shape)
+
+        # Release temporary resources
+        P_sum_base.deactivate()
 
         if self.track_running_stats:
             self.running_mean = torch.zeros(internal_data_shape)
@@ -151,7 +154,7 @@ class DistributedBatchNorm(Module):
 
         """
 
-        x = torch.square(input - mean)
+        x = (input - mean)**2
         return self._compute_mean(x, feature_volume)
 
     def _update_running_stats(self, mean, var):

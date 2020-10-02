@@ -96,3 +96,5 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     y = y.detach()
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
+
+    P_world.deactivate()

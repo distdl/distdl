@@ -117,6 +117,9 @@ def assemble_global_tensor_structure(local_tensor_structure, P_in, P_out=None):
             P_sub._comm.Allreduce(v0, v1, op=MPI.SUM)
             global_tensor_shape[i] = v1[0]
 
+            # Free the subtopology resources
+            P_sub.deactivate()
+
         # Get a communicable integer representing the dtype
         intID_dtype = torch_to_intID_dtype_dict[local_tensor_structure.dtype]
         intID_dtype = np.array([intID_dtype], dtype=np.int)

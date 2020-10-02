@@ -177,3 +177,7 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     y = y.detach()
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()

@@ -93,17 +93,54 @@ class MPIPartition:
                 self._group = group
             self.rank = self._comm.Get_rank()
             self.size = self._comm.Get_size()
+            self.index = self.rank
         else:
             self.active = False
             self._group = group
             self.rank = MPI.PROC_NULL
             self.size = -1
+            self.index = None
 
         # For convenience, sometimes unstructured partitions can be treated
         # like Cartesian partitions, so we need to give a shape and index.
         self.shape = np.array([self.size], dtype=np.int)
         self.dim = len(self.shape)
-        self.index = self.rank
+
+    def deactivate(self):
+        r"""Deactivates this partition by releasing any resources and
+        nullifying any other properties.
+
+        Releases the MPI Communicator and Group that define this partition.
+
+        All `MPIPartition*.create_*` routines act as factories, acquiring
+        communicator and group resources for a new partition instance.
+
+        Warning
+        -------
+        Assumes that the resources released are *able to be released*.  There
+        is no way to guarantee safety.  Only call this if you know it is safe
+        to release the resources.
+
+        """
+
+        if self.active:
+            if (self._comm != MPI.COMM_NULL and
+                self._comm != MPI.COMM_WORLD): # noqa E129
+                self._comm.Free()
+
+            if self._group != MPI.GROUP_NULL:
+                self._group.Free()
+
+            self._comm = MPI.COMM_NULL
+            self._group = MPI.GROUP_NULL
+
+            self.active = False
+            self.rank = MPI.PROC_NULL
+            self.size = -1
+
+            self.shape = np.array([self.size], dtype=np.int)
+            self.dim = len(self.shape)
+            self.index = self.rank
 
     def __eq__(self, other):
         r"""Equality comparator for partitions.
@@ -526,9 +563,14 @@ class MPIPartition:
                                                                     src_flat_indices,
                                                                     dest_flat_indices)
 
-        return self._create_send_recv_partitions(P_union,
-                                                 send_ranks, group_send,
-                                                 recv_ranks, group_recv)
+        P_send, P_recv = self._create_send_recv_partitions(P_union,
+                                                           send_ranks, group_send,
+                                                           recv_ranks, group_recv)
+
+        # Release temporary resources
+        P_union.deactivate()
+
+        return P_send, P_recv
 
     def create_reduction_partition_to(self, P_dest,
                                       transpose_src=False,
@@ -658,9 +700,14 @@ class MPIPartition:
                                                                     dest_flat_indices,
                                                                     src_flat_indices)
 
-        return self._create_send_recv_partitions(P_union,
-                                                 send_ranks, group_send,
-                                                 recv_ranks, group_recv)
+        P_send, P_recv = self._create_send_recv_partitions(P_union,
+                                                           send_ranks, group_send,
+                                                           recv_ranks, group_recv)
+
+        # Release temporary resources
+        P_union.deactivate()
+
+        return P_send, P_recv
 
     def broadcast_data(self, data, root=0, P_data=None):
         r"""Copy arbitrary data from one worker to all workers in a partition.
@@ -808,6 +855,32 @@ class MPICartesianPartition(MPIPartition):
         self.index = None
         if self.active:
             self.index = self.cartesian_index(self.rank)
+
+    def deactivate(self):
+        r"""Deactivates this partition by releasing any resources and
+        nullifying any other properties.
+
+        Releases the MPI Communicator and Group that define this partition.
+
+        All `MPIPartition*.create_*` routines act as factories, acquiring
+        communicator and group resources for a new partition instance.
+
+        Warning
+        -------
+        Assumes that the resources released are *able to be released*.  There
+        is no way to guarantee safety.  Only call this if you know it is safe
+        to release the resources.
+
+        """
+
+        # Preserve the shape
+        shape = self.shape
+
+        super(MPICartesianPartition, self).deactivate()
+
+        self.shape = np.asarray(shape).astype(np.int)
+        self.dim = len(self.shape)
+        self.index = None
 
     def create_cartesian_subtopology_partition(self, remain_shape):
         r"""Creates new partition with Cartesian topology in specific

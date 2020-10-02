@@ -72,7 +72,7 @@ class DistributedChannelConvBase(Module, ConvMixin):
         self.P_w = P_w
 
         # Even inactive workers need some partition union
-        self.P_union = self._distdl_backend.Partition()
+        P_union = self._distdl_backend.Partition()
 
         if not (self.P_x.active or
                 self.P_y.active or
@@ -81,15 +81,18 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
         # This guarantees that P_union rank 0 has the kernel size, stride,
         # padding, and dilation factors
-        P_union = P_w.create_partition_union(P_x)
-        P_union = P_union.create_partition_union(P_y)
-        self.P_union = P_union
+        P_union_temp = P_w.create_partition_union(P_x)
+        P_union = P_union_temp.create_partition_union(P_y)
 
         # Ensure that all workers have the full size and structure of P_w
         P_w_shape = None
         if P_union.rank == 0:
             P_w_shape = np.array(P_w.shape, dtype=np.int)
         P_w_shape = P_union.broadcast_data(P_w_shape, root=0)
+
+        # Release the temporary resources
+        P_union_temp.deactivate()
+        P_union.deactivate()
 
         P_co = P_w_shape[0]
         P_ci = P_w_shape[1]

@@ -76,6 +76,10 @@ def test_simple_conv3d_adjoint_input(barrier_fence_fixture,
 
     check_adjoint_test_tight(P_world, x, dx, y, dy)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
@@ -140,6 +144,10 @@ def test_simple_conv3d_adjoint_weight(barrier_fence_fixture,
 
     check_adjoint_test_tight(P_world, W, dW, y, dy)
 
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+
 
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
@@ -203,3 +211,7 @@ def test_simple_conv3d_adjoint_bias(barrier_fence_fixture,
     y = y.detach()
 
     check_adjoint_test_tight(P_world, b, db, y, dy)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()

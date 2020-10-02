@@ -19,8 +19,8 @@ def test_mixin():
     P_size = np.prod(shape)
     use_ranks = ranks[:P_size]
 
-    P = P_world.create_partition_inclusive(use_ranks)
-    P_x = P.create_cartesian_topology_partition(shape)
+    P_x_base = P_world.create_partition_inclusive(use_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(shape)
     rank = P_x.rank
 
     layer = MockPoolLayer()
@@ -92,3 +92,7 @@ def test_mixin():
         assert(recv_buffer_shape is None)
         assert(send_buffer_shape is None)
         assert(needed_ranges is None)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()

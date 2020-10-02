@@ -85,15 +85,17 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         # This guarantees that P_union rank 0 has the kernel size, stride,
         # padding, and dilation factors
-        P_union = P_w.create_partition_union(P_x)
-        P_union = P_union.create_partition_union(P_y)
-        self.P_union = P_union
+        P_union_temp = P_w.create_partition_union(P_x)
+        self.P_union = P_union_temp.create_partition_union(P_y)
+
+        # Release the temporary resources
+        P_union_temp.deactivate()
 
         # Ensure that all workers have the full size and structure of P_w
         P_w_shape = None
-        if P_union.rank == 0:
+        if self.P_union.rank == 0:
             P_w_shape = np.array(P_w.shape, dtype=np.int)
-        P_w_shape = P_union.broadcast_data(P_w_shape, root=0)
+        P_w_shape = self.P_union.broadcast_data(P_w_shape, root=0)
 
         P_co = P_w_shape[0]
         P_ci = P_w_shape[1]
@@ -170,10 +172,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                 if np.all(c[2:] == 0):
                     w_root_subset.append(i)
 
-            self.P_wr_base = self.P_w.create_partition_inclusive(w_root_subset)
+            P_wr_base = self.P_w.create_partition_inclusive(w_root_subset)
             # ones are needed so the broadcast will work
-            self.P_wr = self.P_wr_base.create_cartesian_topology_partition([P_co, P_ci] + [1]*len(P_spatial))
+            self.P_wr = P_wr_base.create_cartesian_topology_partition([P_co, P_ci] + [1]*len(P_spatial))
             self.stores_weight = self.P_wr.active
+
+            # Release temporary resources
+            P_wr_base.deactivate()
 
             b_subset = []
             for i, c in enumerate(range_index(P_w.shape)):
@@ -184,9 +189,12 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                 if c[1] == 0:
                     b_subset.append(i)
 
-            self.P_b_base = self.P_w.create_partition_inclusive(b_subset)
-            self.P_b = self.P_b_base.create_cartesian_topology_partition([P_co] + [1] + list(P_spatial))
+            P_b_base = self.P_w.create_partition_inclusive(b_subset)
+            self.P_b = P_b_base.create_cartesian_topology_partition([P_co] + [1] + list(P_spatial))
             self.receives_bias = self.P_b.active and bias
+
+            # Release temporary resources
+            P_b_base.deactivate()
 
             # Now find the subset of _that_ which actually stores the
             # learnable parameter.
@@ -197,10 +205,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                 if np.all(c[1:] == 0):
                     b_root_subset.append(i)
 
-            self.P_br_base = self.P_w.create_partition_inclusive(b_root_subset)
+            P_br_base = self.P_w.create_partition_inclusive(b_root_subset)
             # ones are needed so the broadcast will work
-            self.P_br = self.P_br_base.create_cartesian_topology_partition([P_co] + [1] + [1]*len(P_spatial))
+            self.P_br = P_br_base.create_cartesian_topology_partition([P_co] + [1] + [1]*len(P_spatial))
             self.stores_bias = self.P_br.active and bias
+
+            # Release temporary resources
+            P_br_base.deactivate()
 
             # Correct the input arguments based on local properties
             local_kwargs = {}
@@ -263,15 +274,15 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         # from the defaults.  This info is required for all workers on the
         # input and output partitions because it is needed to construct the
         # halos.  Rank 0 in the union shares it with everyone.
-        if P_union.rank == 0:
+        if self.P_union.rank == 0:
             self.conv_kernel_size = np.array(self.conv_layer.kernel_size, dtype=np.int)
             self.conv_stride = np.array(self.conv_layer.stride, dtype=np.int)
             self.conv_padding = np.array(self.conv_layer.padding, dtype=np.int)
             self.conv_dilation = np.array(self.conv_layer.dilation, dtype=np.int)
-        self.conv_kernel_size = P_union.broadcast_data(self.conv_kernel_size, root=0)
-        self.conv_stride = P_union.broadcast_data(self.conv_stride, root=0)
-        self.conv_padding = P_union.broadcast_data(self.conv_padding, root=0)
-        self.conv_dilation = P_union.broadcast_data(self.conv_dilation, root=0)
+        self.conv_kernel_size = self.P_union.broadcast_data(self.conv_kernel_size, root=0)
+        self.conv_stride = self.P_union.broadcast_data(self.conv_stride, root=0)
+        self.conv_padding = self.P_union.broadcast_data(self.conv_padding, root=0)
+        self.conv_dilation = self.P_union.broadcast_data(self.conv_dilation, root=0)
 
         # We need the halo shape, and other info, to fully populate the pad,
         # halo exchange, and unpad layers.  For pad and unpad, we defer their

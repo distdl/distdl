@@ -177,7 +177,7 @@ def test_batch_norm_with_training(barrier_fence_fixture,
     if P_world.rank == 0:
         seq_bn.train()
         seq_out1 = seq_bn(input_train)
-        seq_loss = torch.square(seq_out1 - exp).sum()
+        seq_loss = ((seq_out1 - exp)**2).sum()
         seq_loss.backward()
         seq_grads = [p.grad for p in seq_bn.parameters()]
         # Do a manual weight update (this is what optimizer does):
@@ -209,7 +209,7 @@ def test_batch_norm_with_training(barrier_fence_fixture,
     # Train distributed network
     dist_bn.train()
     dist_out1 = tr2(dist_bn(tr1(input_train)))
-    dist_loss = torch.square(dist_out1 - exp).sum()
+    dist_loss = ((dist_out1 - exp)**2).sum()
     assert dist_loss.requires_grad
     dist_loss.backward()
     # Note: We expect the batch norm gradient to have extra dimensions than PyTorch,
@@ -247,6 +247,13 @@ def test_batch_norm_with_training(barrier_fence_fixture,
             assert torch.allclose(dist_grad, seq_grad, ERROR_THRESHOLD, ERROR_THRESHOLD)
         assert dist_out2.shape == seq_out2.shape
         assert torch.allclose(dist_out2, seq_out2, ERROR_THRESHOLD, ERROR_THRESHOLD)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_in_out_base.deactivate()
+    P_in_out.deactivate()
+    P_affine.deactivate()
 
 
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
@@ -319,3 +326,9 @@ def test_batch_norm_no_training(barrier_fence_fixture,
     if P_world.rank == 0:
         assert dist_out.shape == seq_out.shape
         assert torch.allclose(dist_out, seq_out, ERROR_THRESHOLD)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()
+    P_in_out_base.deactivate()
+    P_in_out.deactivate()
