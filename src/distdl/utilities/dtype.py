@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-# -----------------------------From Pytorch ----------------------------------
+# -----------------------Extended From Pytorch -------------------------------
 # https://github.com/pytorch/pytorch/blob/e180ca652f8a38c479a3eff1080efe69cbc11621/torch/testing/_internal/common_utils.py#L349
 
 # The MIT License (MIT)
@@ -28,6 +28,17 @@ import torch
 
 # Dict of NumPy dtype -> torch dtype (when the correspondence exists)
 numpy_to_torch_dtype_dict = {
+    np.dtype(np.bool)       : torch.bool,  # noqa E203
+    np.dtype(np.uint8)      : torch.uint8,  # noqa E203
+    np.dtype(np.int8)       : torch.int8,  # noqa E203
+    np.dtype(np.int16)      : torch.int16,  # noqa E203
+    np.dtype(np.int32)      : torch.int32,  # noqa E203
+    np.dtype(np.int64)      : torch.int64,  # noqa E203
+    np.dtype(np.float16)    : torch.float16,  # noqa E203
+    np.dtype(np.float32)    : torch.float32,  # noqa E203
+    np.dtype(np.float64)    : torch.float64,  # noqa E203
+    np.dtype(np.complex64)  : torch.complex64,  # noqa E203
+    np.dtype(np.complex128) : torch.complex128,  # noqa E203
     np.bool       : torch.bool,  # noqa E203
     np.uint8      : torch.uint8,  # noqa E203
     np.int8       : torch.int8,  # noqa E203
@@ -38,13 +49,13 @@ numpy_to_torch_dtype_dict = {
     np.float32    : torch.float32,  # noqa E203
     np.float64    : torch.float64,  # noqa E203
     np.complex64  : torch.complex64,  # noqa E203
-    np.complex128 : torch.complex128  # noqa E203
+    np.complex128 : torch.complex128,  # noqa E203
 }
 
 # Dict of torch dtype -> NumPy dtype
 torch_to_numpy_dtype_dict = {value: key for (key, value) in numpy_to_torch_dtype_dict.items()}
 
-# -----------------------------End from PyTorch ------------------------------
+# -----------------------------End Extended From PyTorch ---------------------
 
 
 # Get NumPy's unique numerical id numbers and map back to dtypes
