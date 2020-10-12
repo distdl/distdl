@@ -7,6 +7,8 @@ from distdl.backends.mpi.compare import check_null_comm
 from distdl.backends.mpi.compare import check_null_group
 from distdl.backends.mpi.compare import check_null_rank
 from distdl.utilities.debug import print_sequential
+from distdl.utilities.dtype import intID_to_numpy_dtype_dict
+from distdl.utilities.dtype import numpy_to_intID_dtype_dict
 from distdl.utilities.index_tricks import cartesian_index_c
 from distdl.utilities.index_tricks import cartesian_index_f
 
@@ -757,15 +759,30 @@ class MPIPartition:
             else:
                 raise ValueError("Requested root rank is not in P_data.")
 
-        # Give everyone the size of the data
+        # Give everyone the dimension of the data array
         data_dim = np.zeros(1, dtype=np.int)
         if P_data.active and self.rank == data_root:
             # Ensure that data is a numpy array
             data = np.atleast_1d(data)
-            data_dim[0] = len(data)
+            data_dim[0] = len(data.shape)
         self._comm.Bcast(data_dim, root=data_root)
 
-        out_data = np.ones(data_dim, dtype=np.int)
+        # Give everyone the shape of the data
+        data_shape = np.zeros(data_dim[0], dtype=np.int)
+        if P_data.active and self.rank == data_root:
+            # Ensure that data is a numpy array
+            data = np.atleast_1d(data)
+            data_shape[:] = np.asarray(data.shape)
+        self._comm.Bcast(data_shape, root=data_root)
+
+        data_dtype = np.zeros(1, dtype=np.int)
+        if P_data.active and self.rank == data_root:
+            # Ensure that data is a numpy array
+            data_dtype[0] = numpy_to_intID_dtype_dict[data.dtype]
+        self._comm.Bcast(data_dtype, root=data_root)
+        data_dtype = intID_to_numpy_dtype_dict[data_dtype[0]]
+
+        out_data = np.zeros(data_shape, dtype=data_dtype)
         if P_data.active and P_data.rank == root:
             out_data = data
 
