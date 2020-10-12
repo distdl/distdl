@@ -818,6 +818,49 @@ class MPIPartition:
 
         return out_data
 
+    def allreduce_data(self, data, op="sum"):
+        r"""Reduce information from all workers to all workers.
+
+        Note
+        ----
+        This is a general all-reduce in the sense of traditional parallelism.
+
+        Parameters
+        ----------
+        data :
+            The data to be reduced.
+        op : string, optional
+            The reduction operation.
+
+        Returns
+        -------
+        The output data, as a NumPy array, where the contents is reduced using
+        the `op` operation.
+
+        """
+
+        from distdl.backends.mpi import operation_map
+
+        if data.dtype.kind in ['i', 'u']:
+            dtype_info = np.iinfo(data.dtype)
+        elif data.dtype.kind in ['f']:
+            dtype_info = np.finfo(data.dtype)
+
+        if op == "sum":
+            output = np.zeros(data.shape, dtype=data.dtype)
+        elif op == "prod":
+            output = np.ones(data.shape, dtype=data.dtype)
+        elif op == "max":
+            output = np.full(data.shape, dtype_info.min, dtype=data.dtype)
+        elif op == "min":
+            output = np.full(data.shape, dtype_info.max, dtype=data.dtype)
+        else:
+            raise ValueError(f"Invalid operation {op}.")
+
+        self._comm.Allreduce(data, output, operation_map[op])
+
+        return output
+
 
 class MPICartesianPartition(MPIPartition):
     r"""MPI-based implementation of Cartesian tensor partition.
