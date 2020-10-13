@@ -521,3 +521,107 @@ def test_transpose_dtype(barrier_fence_fixture,
     P_x.deactivate()
     P_y_base.deactivate()
     P_y.deactivate()
+
+
+identity_parametrizations = []
+
+# Main functionality
+identity_parametrizations.append(
+    pytest.param(
+        np.arange(0, 12), [3, 4],  # P_x_ranks, P_x_shape
+        [77, 55],  # x_global_shape
+        12,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed-identity-2D",
+        marks=[pytest.mark.mpi(min_size=12)]
+        )
+    )
+
+identity_parametrizations.append(
+    pytest.param(
+        np.arange(0, 4), [1, 4],  # P_x_ranks, P_x_shape
+        [77, 55],  # x_global_shape
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="distributed-identity-1D",
+        marks=[pytest.mark.mpi(min_size=16)]
+        )
+    )
+
+
+# For example of indirect, see https://stackoverflow.com/a/28570677
+@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
+                         "x_global_shape,"
+                         "comm_split_fixture",
+                         identity_parametrizations,
+                         indirect=["comm_split_fixture"])
+@pytest.mark.parametrize("balanced", [True, False])
+def test_transpose_identity(barrier_fence_fixture,
+                            comm_split_fixture,
+                            P_x_ranks, P_x_shape,
+                            x_global_shape,
+                            balanced):
+
+    import torch
+
+    from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn.transpose import DistributedTranspose
+    from distdl.utilities.slicing import compute_subshape
+    from distdl.utilities.torch import zero_volume_tensor
+
+    # Isolate the minimum needed ranks
+    base_comm, active = comm_split_fixture
+    if not active:
+        return
+    P_world = MPIPartition(base_comm)
+
+    # Create the partitions
+    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
+    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
+
+    P_y = P_x
+
+    # The global tensor size is the same for x and y
+    layer = DistributedTranspose(P_x, P_y, preserve_batch=False)
+
+    # Forward Input
+    x = zero_volume_tensor()
+    if P_x.active:
+        if balanced:
+            x_local_shape = compute_subshape(P_x.shape,
+                                             P_x.index,
+                                             x_global_shape)
+        else:
+            quotient = np.atleast_1d(x_global_shape) // np.atleast_1d(P_x_shape)
+            remainder = np.atleast_1d(x_global_shape) % np.atleast_1d(P_x_shape)
+            loc = np.where(P_x.index == 0)
+            x_local_shape = quotient.copy()
+            x_local_shape[loc] += remainder[loc]
+
+        x = torch.randn(*x_local_shape)
+
+    x.requires_grad = True
+
+    # Adjoint Input
+    dy = zero_volume_tensor()
+    if P_y.active:
+        y_local_shape = compute_subshape(P_y.shape,
+                                         P_y.index,
+                                         x_global_shape)
+        dy = torch.randn(*y_local_shape)
+
+    # y = F @ x
+    y = layer(x)
+
+    # dx = F* @ dy
+    y.backward(dy)
+    dx = x.grad
+
+    x = x.detach()
+    dx = dx.detach()
+    dy = dy.detach()
+    y = y.detach()
+
+    check_adjoint_test_tight(P_world, x, dx, y, dy)
+
+    P_world.deactivate()
+    P_x_base.deactivate()
+    P_x.deactivate()

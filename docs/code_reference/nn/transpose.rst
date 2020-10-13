@@ -114,6 +114,13 @@ Assumptions
    without a transpose, and the new partition can be used as an input to the
    transpose.
 
+* Input tensors do not have to be load-balanced.  Output tensors will always
+  be load balanced.
+
+.. note::
+   Consequently, if an input tensor is unbalanced on a partition, a
+   transpose to the same partition will rebalance it.
+
 Intermediate data movement may be required by an implementation.  This may
 require intermediate buffers.  Buffer management should be a function of the
 back-end, as different communication back-ends may require different structure

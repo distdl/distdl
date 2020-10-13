@@ -73,18 +73,9 @@ class DistributedTranspose(Module):
         # List of buffers for copying data from other workers
         self.P_y_to_x_buffers = None
 
-        # Indicates if transpose requires any data movement.
-        self.identity = False
-
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
         self._input_tensor_structure = TensorStructure()
-
-        # If the two partitions are the same, no further information is
-        # required.
-        if P_x == P_y:
-            self.identity = True
-            return
 
         # Otherwise, we need the union of the input and output partitions
         # so that data can be copied across them.
@@ -324,8 +315,6 @@ class DistributedTranspose(Module):
 
         # If this is an identity operation (no communication necessary),
         # simply return a clone of the input.
-        if self.identity:
-            return input.clone()
 
         # If this worker is not active for the input or output, then the input
         # should be a zero-volume tensor, and the output should be the same.
