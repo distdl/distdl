@@ -2,8 +2,12 @@ import numpy as np
 
 from distdl.nn.module import Module
 from distdl.utilities.slicing import compute_nd_slice_volume
-from distdl.utilities.slicing import compute_partition_intersection
+from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.slicing import range_index
+from distdl.utilities.tensor_decomposition import compute_subtensor_intersection_slice
+from distdl.utilities.tensor_decomposition import compute_subtensor_shapes_balanced
+from distdl.utilities.tensor_decomposition import compute_subtensor_start_indices
+from distdl.utilities.tensor_decomposition import compute_subtensor_stop_indices
 from distdl.utilities.torch import TensorStructure
 
 
@@ -41,6 +45,10 @@ class DistributedTranspose(Module):
 
         # Global structure of the input tensor, assembled when layer is called
         self.global_input_tensor_structure = TensorStructure()
+
+        # Local input and output tensor structures, defined when layer is called
+        self.input_tensor_structure = TensorStructure()
+        self.output_tensor_structure = TensorStructure()
 
         # Partition of input tensor.
         self.P_x = P_x
@@ -145,42 +153,80 @@ class DistributedTranspose(Module):
         if not self.P_union.active:
             return
 
-        P_in_shape = self.P_x_shape
-        P_out_shape = self.P_y_shape
+        self.input_tensor_structure = TensorStructure(input[0])
 
         self.global_input_tensor_structure = \
-            self._distdl_backend.assemble_global_tensor_structure(self._input_tensor_structure,
+            self._distdl_backend.assemble_global_tensor_structure(self.input_tensor_structure,
                                                                   self.P_x,
                                                                   self.P_union)
-
         x_global_shape = self.global_input_tensor_structure.shape
+
+        if self.P_y.active:
+            self.output_tensor_structure.shape = compute_subshape(self.P_y.shape,
+                                                                  self.P_y.index,
+                                                                  x_global_shape)
 
         tensor_dim = len(x_global_shape)
 
-        if len(P_in_shape) != tensor_dim:
+        if len(self.P_x_shape) != tensor_dim:
             raise ValueError(f"Input partition mush have same dimension "
-                             f"({len(P_in_shape)}) as input tensor rank ({tensor_dim}).")
+                             f"({len(self.P_x_shape)}) as input tensor rank ({tensor_dim}).")
 
-        if len(P_out_shape) != tensor_dim:
+        if len(self.P_y_shape) != tensor_dim:
             raise ValueError(f"Output partition mush have same dimension "
-                             f"({len(P_out_shape)}) as input tensor rank ({tensor_dim}).")
+                             f"({len(self.P_y_shape)}) as input tensor rank ({tensor_dim}).")
 
-        if 1 in x_global_shape[x_global_shape != P_out_shape]:
+        if 1 in x_global_shape[x_global_shape != self.P_y_shape]:
             raise ValueError(f"Input tensor must not be size 1 "
                              f"({x_global_shape}) in a dimension where "
-                             f"output partition is other than 1 ({P_out_shape}).")
+                             f"output partition is other than 1 ({self.P_y_shape}).")
+
+        # Get the collective input lengths and origins. This may be load
+        # balanced or it may not be.  Therefore we will always assume is is
+        # not load balanced and just build the subshape tensor manually.
+        # This output is needed everywhere so it goes to P_union.
+        compute_subtensor_shapes_unbalanced = \
+            self._distdl_backend.tensor_decomposition.compute_subtensor_shapes_unbalanced
+        x_subtensor_shapes = compute_subtensor_shapes_unbalanced(self.input_tensor_structure,
+                                                                 self.P_x,
+                                                                 self.P_union)
+
+        # Get the collective output lengths and origins. This will always be
+        # load balanced, so we can infer the subshape tensor from the global
+        # tensor shape and the shape of P_y.  At this point, every worker in
+        # P_union has both of these pieces of information, so we can build it
+        # with no communication.
+
+        y_subtensor_shapes = compute_subtensor_shapes_balanced(self.global_input_tensor_structure,
+                                                               self.P_y_shape)
+
+        # Given all subtensor shapes, we can compute the start and stop indices
+        # for each partition.
+
+        x_subtensor_start_indices = compute_subtensor_start_indices(x_subtensor_shapes)
+        x_subtensor_stop_indices = compute_subtensor_stop_indices(x_subtensor_shapes)
+
+        y_subtensor_start_indices = compute_subtensor_start_indices(y_subtensor_shapes)
+        y_subtensor_stop_indices = compute_subtensor_stop_indices(y_subtensor_shapes)
 
         # We only need to move data to the output partition if we actually
         # have input data.  It is possible to have both input and output data,
         # either input or output data, or neither.  Hence the active guard.
         if self.P_x.active:
-            P_in_index = self.P_x.index
+            x_slice = tuple([slice(i, i+1) for i in self.P_x.index] + [slice(None)])
+            x_start_index = x_subtensor_start_indices[x_slice].squeeze()
+            x_stop_index = x_subtensor_stop_indices[x_slice].squeeze()
 
             # Compute our overlaps for each output subpartition.
-            for rank, P_out_index in enumerate(range_index(P_out_shape)):
-                sl = compute_partition_intersection(P_in_shape, P_in_index,
-                                                    P_out_shape, P_out_index,
-                                                    x_global_shape)
+            for rank, P_y_index in enumerate(range_index(self.P_y_shape)):
+
+                y_slice = tuple([slice(i, i+1) for i in P_y_index] + [slice(None)])
+                y_start_index = y_subtensor_start_indices[y_slice].squeeze()
+                y_stop_index = y_subtensor_stop_indices[y_slice].squeeze()
+
+                sl = compute_subtensor_intersection_slice(x_start_index, x_stop_index,
+                                                          y_start_index, y_stop_index)
+
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the output partner's rank in
@@ -193,13 +239,20 @@ class DistributedTranspose(Module):
         # We only need to obtain data from the input partition if we actually
         # have output data.
         if self.P_y.active:
-            P_out_index = self.P_y.index
+            y_slice = tuple([slice(i, i+1) for i in self.P_y.index] + [slice(None)])
+            y_start_index = y_subtensor_start_indices[y_slice].squeeze()
+            y_stop_index = y_subtensor_stop_indices[y_slice].squeeze()
 
             # Compute our overlaps for each input subpartition.
-            for rank, P_in_index in enumerate(range_index(P_in_shape)):
-                sl = compute_partition_intersection(P_out_shape, P_out_index,
-                                                    P_in_shape, P_in_index,
-                                                    x_global_shape)
+            for rank, P_x_index in enumerate(range_index(self.P_x_shape)):
+
+                x_slice = tuple([slice(i, i+1) for i in P_x_index] + [slice(None)])
+                x_start_index = x_subtensor_start_indices[x_slice].squeeze()
+                x_stop_index = x_subtensor_stop_indices[x_slice].squeeze()
+
+                sl = compute_subtensor_intersection_slice(y_start_index, y_stop_index,
+                                                          x_start_index, x_stop_index)
+
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
                     # Reverse the mapping to get the input partner's rank in
@@ -282,6 +335,8 @@ class DistributedTranspose(Module):
         return Function.apply(input,
                               self.P_union,
                               self.global_input_tensor_structure,
+                              self.input_tensor_structure,
+                              self.output_tensor_structure,
                               self.P_x,
                               self.P_x_to_y_overlaps,
                               self.P_x_to_y_buffers,

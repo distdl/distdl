@@ -127,11 +127,13 @@ adjoint_parametrizations.append(
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
+@pytest.mark.parametrize("balanced", [True, False])
 def test_transpose_adjoint(barrier_fence_fixture,
                            comm_split_fixture,
                            P_x_ranks, P_x_shape,
                            P_y_ranks, P_y_shape,
-                           x_global_shape):
+                           x_global_shape,
+                           balanced):
 
     import torch
 
@@ -159,10 +161,19 @@ def test_transpose_adjoint(barrier_fence_fixture,
     # Forward Input
     x = zero_volume_tensor()
     if P_x.active:
-        x_local_shape = compute_subshape(P_x.shape,
-                                         P_x.index,
-                                         x_global_shape)
+        if balanced:
+            x_local_shape = compute_subshape(P_x.shape,
+                                             P_x.index,
+                                             x_global_shape)
+        else:
+            quotient = np.atleast_1d(x_global_shape) // np.atleast_1d(P_x_shape)
+            remainder = np.atleast_1d(x_global_shape) % np.atleast_1d(P_x_shape)
+            loc = np.where(P_x.index == 0)
+            x_local_shape = quotient.copy()
+            x_local_shape[loc] += remainder[loc]
+
         x = torch.randn(*x_local_shape)
+
     x.requires_grad = True
 
     # Adjoint Input
