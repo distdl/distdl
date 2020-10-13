@@ -148,7 +148,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
             input_numpy = input.detach().numpy()
             for (sl, sz, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
-                    np.copyto(buff, input_numpy[tuple(sl)].ravel())
+                    np.copyto(buff, input_numpy[sl].ravel())
                     req = P_union._comm.Isend(buff, dest=partner, tag=111)
                     requests.append(req)
                 else:
@@ -179,8 +179,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 sl, sz, partner = P_y_to_x_overlaps[index]
                 buff = P_y_to_x_buffers[index]
                 if buff is not None:
-                    sh = output[tuple(sl)].shape
-                    np.copyto(output[tuple(sl)], buff.reshape(sh))
+                    sh = output[sl].shape
+                    np.copyto(output[sl], buff.reshape(sh))
 
             completed_count += 1
 
@@ -268,7 +268,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
             grad_output_numpy = grad_output.detach().numpy()
             for (sl, sz, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
-                    np.copyto(buff, grad_output_numpy[tuple(sl)].ravel())
+                    np.copyto(buff, grad_output_numpy[sl].ravel())
                     req = P_union._comm.Isend(buff, dest=partner, tag=113)
                     requests.append(req)
                 else:
@@ -297,10 +297,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 sl, sz, partner = P_x_to_y_overlaps[index]
                 buff = P_x_to_y_buffers[index]
                 if buff is not None:
-                    sh = grad_input[tuple(sl)].shape
+                    sh = grad_input[sl].shape
                     # This would normally be an add into the grad_input tensor
                     # but we just created it, so a copy is sufficient.
-                    np.copyto(grad_input[tuple(sl)], buff.reshape(sh))
+                    np.copyto(grad_input[sl], buff.reshape(sh))
 
             completed_count += 1
 
