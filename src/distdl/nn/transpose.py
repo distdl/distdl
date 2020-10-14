@@ -220,10 +220,18 @@ class DistributedTranspose(Module):
 
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
-                    # Reverse the mapping to get the output partner's rank in
-                    # the common partition.
-                    partner = np.where(self.P_y_ranks == rank)[0][0]
+
+                    # If it is a self-copy, mark it so we don't have to create
+                    # a potentially large buffer
+                    if self.P_y.active and np.all(P_y_index == self.P_y.index):
+                        partner = "self"
+                    # Otherwise, reverse the mapping to get the output
+                    # partner's rank in the common partition.
+                    else:
+                        partner = np.where(self.P_y_ranks == rank)[0][0]
+
                     self.P_x_to_y_overlaps.append((sl, sz, partner))
+
                 else:
                     self.P_x_to_y_overlaps.append((None, None, None))
 
@@ -246,10 +254,18 @@ class DistributedTranspose(Module):
 
                 if sl is not None:
                     sz = compute_nd_slice_volume(sl)
-                    # Reverse the mapping to get the input partner's rank in
-                    # the common partition.
-                    partner = np.where(self.P_x_ranks == rank)[0][0]
+
+                    # If it is a self-copy, mark it so we don't have to create
+                    # a potentially large buffer
+                    if self.P_x.active and np.all(P_x_index == self.P_x.index):
+                        partner = "self"
+                    # Otherwise, reverse the mapping to get the output
+                    # partner's rank in the common partition.
+                    else:
+                        partner = np.where(self.P_x_ranks == rank)[0][0]
+
                     self.P_y_to_x_overlaps.append((sl, sz, partner))
+
                 else:
                     self.P_y_to_x_overlaps.append((None, None, None))
 

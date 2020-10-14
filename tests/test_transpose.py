@@ -611,6 +611,14 @@ def test_transpose_identity(barrier_fence_fixture,
     # y = F @ x
     y = layer(x)
 
+    # In the balanced case, this should be a true identity, so there should
+    # be no communication performed, just self-copies.
+    if balanced:
+        for sl, sz, p in layer.P_x_to_y_overlaps:
+            assert p == "self" or (sl, sz, p) == (None, None, None)
+        for sl, sz, p in layer.P_y_to_x_overlaps:
+            assert p == "self" or (sl, sz, p) == (None, None, None)
+
     # dx = F* @ dy
     y.backward(dy)
     dx = x.grad

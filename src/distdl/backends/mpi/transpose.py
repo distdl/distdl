@@ -23,18 +23,18 @@ def allocate_transpose_buffers(P_x_to_y_overlaps, P_y_to_x_overlaps, dtype):
 
     # For each necessary copy, allocate send buffers.
     P_x_to_y_buffers = []
-    for sl, sz, r in P_x_to_y_overlaps:
+    for sl, sz, partner in P_x_to_y_overlaps:
         buff = None
-        if sz is not None:
+        if sz is not None and partner != "self":
             buff = np.zeros(sz, dtype=numpy_dtype)
 
         P_x_to_y_buffers.append(buff)
 
     # For each necessary copy, allocate receive buffers.
     P_y_to_x_buffers = []
-    for sl, sz, r in P_y_to_x_overlaps:
+    for sl, sz, partner in P_y_to_x_overlaps:
         buff = None
-        if sz is not None:
+        if sz is not None and partner != "self":
             buff = np.zeros(sz, dtype=numpy_dtype)
 
         P_y_to_x_buffers.append(buff)

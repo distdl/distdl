@@ -167,6 +167,19 @@ class DistributedTransposeFunction(torch.autograd.Function):
             numpy_dtype = torch_to_numpy_dtype_dict[x_global_structure.dtype]
             output = np.zeros(y_local_structure.shape, dtype=numpy_dtype)
 
+        # Handle the self-copy
+        if P_x.active and P_y.active:
+            # Find the self patch in x_to_y
+            for (xsl, xsz, x2ypartner) in P_x_to_y_overlaps:
+                if x2ypartner == "self":
+                    for (ysl, ysz, y2xpartner) in P_y_to_x_overlaps:
+                        if y2xpartner == "self":
+                            np.copyto(output[ysl], input_numpy[xsl])
+                            # There is only one case where this can happen
+                            break
+                    # There is only one case where this can happen
+                    break
+
         # Unpack the received data as it arrives
         completed_count = 0
         while(completed_count < len(requests)):
@@ -281,6 +294,19 @@ class DistributedTransposeFunction(torch.autograd.Function):
         if P_x.active:
             numpy_dtype = torch_to_numpy_dtype_dict[x_global_structure.dtype]
             grad_input = np.zeros(x_local_structure.shape, dtype=numpy_dtype)
+
+        # Handle the self-copy
+        if P_y.active and P_x.active:
+            # Find the self patch in x_to_y
+            for (ysl, ysz, y2xpartner) in P_y_to_x_overlaps:
+                if y2xpartner == "self":
+                    for (xsl, xsz, x2ypartner) in P_x_to_y_overlaps:
+                        if x2ypartner == "self":
+                            np.copyto(grad_input[xsl], grad_output_numpy[ysl])
+                            # There is only one case where this can happen
+                            break
+                    # There is only one case where this can happen
+                    break
 
         # Unpack the received data as it arrives
         completed_count = 0
