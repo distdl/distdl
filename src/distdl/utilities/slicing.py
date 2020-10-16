@@ -54,7 +54,7 @@ def assemble_slices(start_index, stop_index):
     for start, stop in zip(start_index, stop_index):
         slices.append(slice(start, stop, None))
 
-    return slices
+    return tuple(slices)
 
 
 def compute_partition_intersection(P_x_r_shape,

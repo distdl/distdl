@@ -7,6 +7,8 @@ from distdl.backends.mpi.compare import check_null_comm
 from distdl.backends.mpi.compare import check_null_group
 from distdl.backends.mpi.compare import check_null_rank
 from distdl.utilities.debug import print_sequential
+from distdl.utilities.dtype import intID_to_numpy_dtype_dict
+from distdl.utilities.dtype import numpy_to_intID_dtype_dict
 from distdl.utilities.index_tricks import cartesian_index_c
 from distdl.utilities.index_tricks import cartesian_index_f
 
@@ -757,15 +759,30 @@ class MPIPartition:
             else:
                 raise ValueError("Requested root rank is not in P_data.")
 
-        # Give everyone the size of the data
+        # Give everyone the dimension of the data array
         data_dim = np.zeros(1, dtype=np.int)
         if P_data.active and self.rank == data_root:
             # Ensure that data is a numpy array
             data = np.atleast_1d(data)
-            data_dim[0] = len(data)
+            data_dim[0] = len(data.shape)
         self._comm.Bcast(data_dim, root=data_root)
 
-        out_data = np.ones(data_dim, dtype=np.int)
+        # Give everyone the shape of the data
+        data_shape = np.zeros(data_dim[0], dtype=np.int)
+        if P_data.active and self.rank == data_root:
+            # Ensure that data is a numpy array
+            data = np.atleast_1d(data)
+            data_shape[:] = np.asarray(data.shape)
+        self._comm.Bcast(data_shape, root=data_root)
+
+        data_dtype = np.zeros(1, dtype=np.int)
+        if P_data.active and self.rank == data_root:
+            # Ensure that data is a numpy array
+            data_dtype[0] = numpy_to_intID_dtype_dict[data.dtype]
+        self._comm.Bcast(data_dtype, root=data_root)
+        data_dtype = intID_to_numpy_dtype_dict[data_dtype[0]]
+
+        out_data = np.zeros(data_shape, dtype=data_dtype)
         if P_data.active and P_data.rank == root:
             out_data = data
 
@@ -800,6 +817,49 @@ class MPIPartition:
         out_data.shape = -1, sz
 
         return out_data
+
+    def allreduce_data(self, data, op="sum"):
+        r"""Reduce information from all workers to all workers.
+
+        Note
+        ----
+        This is a general all-reduce in the sense of traditional parallelism.
+
+        Parameters
+        ----------
+        data :
+            The data to be reduced.
+        op : string, optional
+            The reduction operation.
+
+        Returns
+        -------
+        The output data, as a NumPy array, where the contents is reduced using
+        the `op` operation.
+
+        """
+
+        from distdl.backends.mpi import operation_map
+
+        if data.dtype.kind in ['i', 'u']:
+            dtype_info = np.iinfo(data.dtype)
+        elif data.dtype.kind in ['f']:
+            dtype_info = np.finfo(data.dtype)
+
+        if op == "sum":
+            output = np.zeros(data.shape, dtype=data.dtype)
+        elif op == "prod":
+            output = np.ones(data.shape, dtype=data.dtype)
+        elif op == "max":
+            output = np.full(data.shape, dtype_info.min, dtype=data.dtype)
+        elif op == "min":
+            output = np.full(data.shape, dtype_info.max, dtype=data.dtype)
+        else:
+            raise ValueError(f"Invalid operation {op}.")
+
+        self._comm.Allreduce(data, output, operation_map[op])
+
+        return output
 
 
 class MPICartesianPartition(MPIPartition):

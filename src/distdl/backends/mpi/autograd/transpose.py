@@ -5,7 +5,6 @@ import torch
 from mpi4py import MPI
 
 from distdl.utilities.dtype import torch_to_numpy_dtype_dict
-from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -31,6 +30,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, input, P_union, x_global_structure,
+                x_local_structure, y_local_structure,
                 P_x, P_x_to_y_overlaps, P_x_to_y_buffers,
                 P_y, P_y_to_x_overlaps, P_y_to_x_buffers, preserve_batch):
         r"""Forward function of distributed transpose layer.
@@ -62,6 +62,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
             Partition through which all communication occurs.
         x_global_structure :
             Structure of the global input tensor.
+        x_local_structure :
+            Structure of the local input tensor.
+        y_local_structure :
+            Structure of the local output tensor.
         P_x : Partition
             Input partition.
         P_x_to_y_overlaps : list
@@ -90,6 +94,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         ctx.P_union = P_union
         ctx.x_global_structure = x_global_structure
+        ctx.x_local_structure = x_local_structure
 
         ctx.P_x = P_x
         ctx.P_x_to_y_overlaps = P_x_to_y_overlaps
@@ -148,7 +153,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
             input_numpy = input.detach().numpy()
             for (sl, sz, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
-                    np.copyto(buff, input_numpy[tuple(sl)].ravel())
+                    np.copyto(buff, input_numpy[sl].ravel())
                     req = P_union._comm.Isend(buff, dest=partner, tag=111)
                     requests.append(req)
                 else:
@@ -159,12 +164,21 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # We do this after the sends so that they can get started before local
         # allocations.
         if P_y.active:
-            index = P_y.index
-            y_local_shape = compute_subshape(P_y.shape, index, x_global_structure.shape)
-            # TODO(#25): The dtype should not be fixed, but correcting this is
-            #            a thing that needs to be resolved globally.
             numpy_dtype = torch_to_numpy_dtype_dict[x_global_structure.dtype]
-            output = np.zeros(y_local_shape, dtype=numpy_dtype)
+            output = np.zeros(y_local_structure.shape, dtype=numpy_dtype)
+
+        # Handle the self-copy
+        if P_x.active and P_y.active:
+            # Find the self patch in x_to_y
+            for (xsl, xsz, x2ypartner) in P_x_to_y_overlaps:
+                if x2ypartner == "self":
+                    for (ysl, ysz, y2xpartner) in P_y_to_x_overlaps:
+                        if y2xpartner == "self":
+                            np.copyto(output[ysl], input_numpy[xsl])
+                            # There is only one case where this can happen
+                            break
+                    # There is only one case where this can happen
+                    break
 
         # Unpack the received data as it arrives
         completed_count = 0
@@ -179,8 +193,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 sl, sz, partner = P_y_to_x_overlaps[index]
                 buff = P_y_to_x_buffers[index]
                 if buff is not None:
-                    sh = output[tuple(sl)].shape
-                    np.copyto(output[tuple(sl)], buff.reshape(sh))
+                    sh = output[sl].shape
+                    np.copyto(output[sl], buff.reshape(sh))
 
             completed_count += 1
 
@@ -226,6 +240,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         P_union = ctx.P_union
         x_global_structure = ctx.x_global_structure
+        x_local_structure = ctx.x_local_structure
 
         P_x = ctx.P_x
         P_x_to_y_overlaps = ctx.P_x_to_y_overlaps
@@ -268,7 +283,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
             grad_output_numpy = grad_output.detach().numpy()
             for (sl, sz, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
-                    np.copyto(buff, grad_output_numpy[tuple(sl)].ravel())
+                    np.copyto(buff, grad_output_numpy[sl].ravel())
                     req = P_union._comm.Isend(buff, dest=partner, tag=113)
                     requests.append(req)
                 else:
@@ -277,12 +292,21 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 send_count += 1
 
         if P_x.active:
-            index = P_x.index
-            x_local_shape = compute_subshape(P_x.shape, index, x_global_structure.shape)
-            # TODO(#25): The dtype should not be fixed, but correcting this is
-            #            a thing that needs to be resolved globally.
             numpy_dtype = torch_to_numpy_dtype_dict[x_global_structure.dtype]
-            grad_input = np.zeros(x_local_shape, dtype=numpy_dtype)
+            grad_input = np.zeros(x_local_structure.shape, dtype=numpy_dtype)
+
+        # Handle the self-copy
+        if P_y.active and P_x.active:
+            # Find the self patch in x_to_y
+            for (ysl, ysz, y2xpartner) in P_y_to_x_overlaps:
+                if y2xpartner == "self":
+                    for (xsl, xsz, x2ypartner) in P_x_to_y_overlaps:
+                        if x2ypartner == "self":
+                            np.copyto(grad_input[xsl], grad_output_numpy[ysl])
+                            # There is only one case where this can happen
+                            break
+                    # There is only one case where this can happen
+                    break
 
         # Unpack the received data as it arrives
         completed_count = 0
@@ -297,10 +321,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 sl, sz, partner = P_x_to_y_overlaps[index]
                 buff = P_x_to_y_buffers[index]
                 if buff is not None:
-                    sh = grad_input[tuple(sl)].shape
+                    sh = grad_input[sl].shape
                     # This would normally be an add into the grad_input tensor
                     # but we just created it, so a copy is sufficient.
-                    np.copyto(grad_input[tuple(sl)], buff.reshape(sh))
+                    np.copyto(grad_input[sl], buff.reshape(sh))
 
             completed_count += 1
 
@@ -308,4 +332,4 @@ class DistributedTransposeFunction(torch.autograd.Function):
             grad_input = torch.from_numpy(grad_input)
             grad_input.requires_grad = input_requires_grad
 
-        return grad_input, None, None, None, None, None, None, None, None, None
+        return grad_input, None, None, None, None, None, None, None, None, None, None, None
