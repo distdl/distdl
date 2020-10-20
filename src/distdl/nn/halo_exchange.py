@@ -4,7 +4,7 @@ from distdl.utilities.torch import TensorStructure
 
 class HaloExchange(Module):
 
-    def __init__(self, P_x, halo_shape, recv_buffer_shape, send_buffer_shape):
+    def __init__(self, P_x, halo_shape, recv_buffer_shape, send_buffer_shape, buffer_manager=None):
 
         super(HaloExchange, self).__init__()
 
@@ -19,6 +19,13 @@ class HaloExchange(Module):
 
         self.slices = None
         self.buffers = None
+
+        # Back-end specific buffer manager for economic buffer allocation
+        if buffer_manager is None:
+            buffer_manager = self._distdl_backend.BufferManager()
+        elif type(buffer_manager) is not self._distdl_backend.BufferManager:
+            raise ValueError("Buffer manager type does not match backend.")
+        self.buffer_manager = buffer_manager
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
@@ -96,7 +103,8 @@ class HaloExchange(Module):
         if self.P_x.active:
             x_local_shape = input[0].shape
             self.slices = self._assemble_slices(x_local_shape, self.recv_buffer_shape, self.send_buffer_shape)
-            self.buffers = self.allocate_halo_exchange_buffers(self.slices,
+            self.buffers = self.allocate_halo_exchange_buffers(self.buffer_manager,
+                                                               self.slices,
                                                                self.recv_buffer_shape,
                                                                self.send_buffer_shape,
                                                                input[0].dtype)

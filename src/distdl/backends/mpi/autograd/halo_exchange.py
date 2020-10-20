@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+from distdl.utilities.slicing import compute_nd_slice_shape
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -32,12 +33,20 @@ class HaloExchangeFunction(torch.autograd.Function):
 
             lbs, lgs, rbs, rgs = slices[i]
             lbb, lgb, rbb, rgb = buffers[i]
+            if lbb is not None:
+                lbb = lbb.get_view(compute_nd_slice_shape(lbs))
+            if lgb is not None:
+                lgb = lgb.get_view(compute_nd_slice_shape(lgs))
+            if rbb is not None:
+                rbb = rbb.get_view(compute_nd_slice_shape(rbs))
+            if rgb is not None:
+                rgb = rgb.get_view(compute_nd_slice_shape(rgs))
             lrank, rrank = neighbor_ranks[i]
 
             if lbb is not None:
-                np.copyto(lbb, input_numpy[lbs].ravel())
+                np.copyto(lbb, input_numpy[lbs])
             if rbb is not None:
-                np.copyto(rbb, input_numpy[rbs].ravel())
+                np.copyto(rbb, input_numpy[rbs])
 
             ltag = 0
             rtag = 1
@@ -56,11 +65,9 @@ class HaloExchangeFunction(torch.autograd.Function):
 
                 if index != MPI.UNDEFINED:
                     if index == 0:
-                        newshape = input_numpy[lgs].shape
-                        np.copyto(input_numpy[lgs], lgb.reshape(newshape))
+                        np.copyto(input_numpy[lgs], lgb)
                     elif index == 1:
-                        newshape = input_numpy[rgs].shape
-                        np.copyto(input_numpy[rgs], rgb.reshape(newshape))
+                        np.copyto(input_numpy[rgs], rgb)
 
                 n_reqs_completed += 1
 
@@ -87,13 +94,21 @@ class HaloExchangeFunction(torch.autograd.Function):
 
             lbs, lgs, rbs, rgs = slices[i]
             lbb, lgb, rbb, rgb = buffers[i]
+            if lbb is not None:
+                lbb = lbb.get_view(compute_nd_slice_shape(lbs))
+            if lgb is not None:
+                lgb = lgb.get_view(compute_nd_slice_shape(lgs))
+            if rbb is not None:
+                rbb = rbb.get_view(compute_nd_slice_shape(rbs))
+            if rgb is not None:
+                rgb = rgb.get_view(compute_nd_slice_shape(rgs))
             lrank, rrank = neighbor_ranks[i]
 
             if lgb is not None:
-                np.copyto(lgb, grad_output_numpy[lgs].ravel())
+                np.copyto(lgb, grad_output_numpy[lgs])
                 grad_output_numpy[lgs] = 0.0
             if rgb is not None:
-                np.copyto(rgb, grad_output_numpy[rgs].ravel())
+                np.copyto(rgb, grad_output_numpy[rgs])
                 grad_output_numpy[rgs] = 0.0
 
             ltag = 0
@@ -113,11 +128,9 @@ class HaloExchangeFunction(torch.autograd.Function):
 
                 if index != MPI.UNDEFINED:
                     if index == 0:
-                        newshape = grad_output_numpy[lbs].shape
-                        grad_output_numpy[lbs] += lbb.reshape(newshape)
+                        grad_output_numpy[lbs] += lbb
                     elif index == 1:
-                        newshape = grad_output_numpy[rbs].shape
-                        grad_output_numpy[rbs] += rbb.reshape(newshape)
+                        grad_output_numpy[rbs] += rbb
 
                 n_reqs_completed += 1
 
