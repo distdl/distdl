@@ -65,6 +65,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
     def __init__(self, P_x, P_y, P_w,
                  in_channels=1, out_channels=1,
                  bias=True,
+                 buffer_manager=None,
                  *args, **kwargs):
 
         super(DistributedGeneralConvBase, self).__init__()
@@ -75,6 +76,13 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
         self.P_y = P_y
         # P_w is P_co x P_ci x P_d-1 x ... x P_0
         self.P_w = P_w
+
+        # Back-end specific buffer manager for economic buffer allocation
+        if buffer_manager is None:
+            buffer_manager = self._distdl_backend.BufferManager()
+        elif type(buffer_manager) is not self._distdl_backend.BufferManager:
+            raise ValueError("Buffer manager type does not match backend.")
+        self.buffer_manager = buffer_manager
 
         # Even inactive workers need some partition union
         self.P_union = self._distdl_backend.Partition()
@@ -367,7 +375,8 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             self.halo_layer = HaloExchange(self.P_x,
                                            halo_shape,
                                            recv_buffer_shape,
-                                           send_buffer_shape)
+                                           send_buffer_shape,
+                                           buffer_manager=self.buffer_manager)
 
             # We have to select out the "unused" entries.
             self.needed_slices = assemble_slices(needed_ranges[:, 0],
