@@ -1,7 +1,7 @@
 import numpy as np
 
 from distdl.nn.module import Module
-from distdl.utilities.slicing import compute_nd_slice_volume
+from distdl.utilities.slicing import compute_nd_slice_shape
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.slicing import range_index
 from distdl.utilities.tensor_decomposition import compute_subtensor_intersection_slice
@@ -37,10 +37,12 @@ class DistributedTranspose(Module):
         Partition of output tensor.
     preserve_batch : bool, optional
         Indicates if batch size should be preserved for zero-volume outputs.
+    buffer_manager : optional
+        External manager for communication buffers
 
     """
 
-    def __init__(self, P_x, P_y, preserve_batch=True):
+    def __init__(self, P_x, P_y, preserve_batch=True, buffer_manager=None):
         super(DistributedTranspose, self).__init__()
 
         # Global structure of the input tensor, assembled when layer is called
@@ -66,6 +68,13 @@ class DistributedTranspose(Module):
         # List of meta data describing copies of subvolumes of output tensor
         # into the current worker
         self.P_y_to_x_overlaps = []
+
+        # Back-end specific buffer manager for economic buffer allocation
+        if buffer_manager is None:
+            buffer_manager = self._distdl_backend.BufferManager()
+        elif type(buffer_manager) is not self._distdl_backend.BufferManager:
+            raise ValueError("Buffer manager type does not match backend.")
+        self.buffer_manager = buffer_manager
 
         # List of buffers for copying data to other workers
         self.P_x_to_y_buffers = None
@@ -219,8 +228,7 @@ class DistributedTranspose(Module):
                                                           y_start_index, y_stop_index)
 
                 if sl is not None:
-                    sz = compute_nd_slice_volume(sl)
-
+                    sh = compute_nd_slice_shape(sl)
                     # If it is a self-copy, mark it so we don't have to create
                     # a potentially large buffer
                     if self.P_y.active and np.all(P_y_index == self.P_y.index):
@@ -230,7 +238,7 @@ class DistributedTranspose(Module):
                     else:
                         partner = np.where(self.P_y_ranks == rank)[0][0]
 
-                    self.P_x_to_y_overlaps.append((sl, sz, partner))
+                    self.P_x_to_y_overlaps.append((sl, sh, partner))
 
                 else:
                     self.P_x_to_y_overlaps.append((None, None, None))
@@ -253,8 +261,7 @@ class DistributedTranspose(Module):
                                                           x_start_index, x_stop_index)
 
                 if sl is not None:
-                    sz = compute_nd_slice_volume(sl)
-
+                    sh = compute_nd_slice_shape(sl)
                     # If it is a self-copy, mark it so we don't have to create
                     # a potentially large buffer
                     if self.P_x.active and np.all(P_x_index == self.P_x.index):
@@ -264,12 +271,13 @@ class DistributedTranspose(Module):
                     else:
                         partner = np.where(self.P_x_ranks == rank)[0][0]
 
-                    self.P_y_to_x_overlaps.append((sl, sz, partner))
+                    self.P_y_to_x_overlaps.append((sl, sh, partner))
 
                 else:
                     self.P_y_to_x_overlaps.append((None, None, None))
 
-        buffs = self.allocate_transpose_buffers(self.P_x_to_y_overlaps,
+        buffs = self.allocate_transpose_buffers(self.buffer_manager,
+                                                self.P_x_to_y_overlaps,
                                                 self.P_y_to_x_overlaps,
                                                 self.global_input_tensor_structure.dtype)
         self.P_x_to_y_buffers = buffs[0]
