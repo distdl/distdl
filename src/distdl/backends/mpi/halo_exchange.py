@@ -12,16 +12,12 @@ def allocate_halo_exchange_buffers(buffer_manager, slices, recv_buffer_shape, se
 
     numpy_dtype = torch_to_numpy_dtype_dict[dtype]
 
-    # This can be reduced to just 4 (left-bulk, left-ghost, right-bulk, right-ghost)
-    count = 0
-    for i in range(dim):
-        count += 1 if send_buffer_shape[i, 0] > 0 else 0
-        count += 1 if recv_buffer_shape[i, 0] > 0 else 0
-        count += 1 if send_buffer_shape[i, 1] > 0 else 0
-        count += 1 if recv_buffer_shape[i, 1] > 0 else 0
-    buffers = buffer_manager.request_buffers(count, dtype=numpy_dtype)
+    # Each dimension is performed sequentially.  Thus, we only need 4 buffers:
+    # one each for left and right bulk and ghost.  The buffer shapes will be
+    # viewed correctly for each dimension.
+    count = 4
 
-    j = 0
+    buffers = buffer_manager.request_buffers(count, dtype=numpy_dtype)
 
     for i in range(dim):
         lbb_shape = compute_nd_slice_shape(slices[i][0]) if send_buffer_shape[i, 0] > 0 else 0
@@ -31,12 +27,12 @@ def allocate_halo_exchange_buffers(buffer_manager, slices, recv_buffer_shape, se
 
         buffers_i = list()
 
-        for shape in [lbb_shape, lgb_shape, rbb_shape, rgb_shape]:
+        for j, shape in enumerate([lbb_shape, lgb_shape, rbb_shape, rgb_shape]):
             buff = None
             if np.prod(shape) > 0:
                 buff = buffers[j]
                 buff.allocate_view(shape)
-                j += 1
+
             buffers_i.append(buff)
 
         buffers_out.append(buffers_i)
