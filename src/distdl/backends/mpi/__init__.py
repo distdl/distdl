@@ -7,6 +7,10 @@ from . import tensor_comm  # noqa: F401
 from . import tensor_decomposition  # noqa: F401
 from . import transpose  # noqa: F401
 #
+# Expose the buffer types
+from .buffer import MPIBufferManager as BufferManager  # noqa: F401
+from .buffer import MPIExpandableBuffer as ExpandableBuffer  # noqa: F401
+#
 # Expose the partition types
 from .partition import MPICartesianPartition as CartesianPartition  # noqa: F401
 from .partition import MPIPartition as Partition  # noqa: F401

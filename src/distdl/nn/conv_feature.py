@@ -51,12 +51,19 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
     # Convolution class for base unit of work.
     TorchConvType = None
 
-    def __init__(self, P_x, *args, **kwargs):
+    def __init__(self, P_x, buffer_manager=None, *args, **kwargs):
 
         super(DistributedFeatureConvBase, self).__init__()
 
         # P_x is 1 x 1 x P_d-1 x ... x P_0
         self.P_x = P_x
+
+        # Back-end specific buffer manager for economic buffer allocation
+        if buffer_manager is None:
+            buffer_manager = self._distdl_backend.BufferManager()
+        elif type(buffer_manager) is not self._distdl_backend.BufferManager:
+            raise ValueError("Buffer manager type does not match backend.")
+        self.buffer_manager = buffer_manager
 
         if not self.P_x.active:
             return
@@ -183,7 +190,8 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         self.halo_layer = HaloExchange(self.P_x,
                                        halo_shape,
                                        recv_buffer_shape,
-                                       send_buffer_shape)
+                                       send_buffer_shape,
+                                       buffer_manager=self.buffer_manager)
 
         # We have to select out the "unused" entries.  Sometimes there can
         # be "negative" halos.

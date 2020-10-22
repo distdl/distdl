@@ -95,6 +95,26 @@ def compute_nd_slice_volume(slices):
     return np.prod([s.stop-s.start for s in slices])
 
 
+def compute_nd_slice_shape(slices):
+    r"""Computes the shape of a tuple of slices.
+
+    This returns the shape of a given slice of a multi-dimensional array,
+    tensor, or view.
+
+    Parameters
+    ----------
+    slices : tuple of `slice` objects
+        The volume to determine the shape of.
+
+    Returns
+    -------
+    A tuple with the shape of the volume.
+
+    """
+
+    return tuple([s.stop-s.start for s in slices])
+
+
 def range_index(shape):
 
     import itertools

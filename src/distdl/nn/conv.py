@@ -33,12 +33,12 @@ class DistributedConvSelector:
 
     """
 
-    def __new__(cls, P_x, P_y=None, P_w=None, *args, **kwargs):
+    def __new__(cls, P_x, P_y=None, P_w=None, buffer_manager=None, *args, **kwargs):
 
         # If P_x is only partition specified, we assume a simple feature-only
         # partitioning scheme.
         if P_y is None and P_w is None:
-            return cls.DistributedFeatureConvType(P_x, *args, **kwargs)
+            return cls.DistributedFeatureConvType(P_x, buffer_manager=buffer_manager, *args, **kwargs)
 
         # P_y and P_w are required for channel and general convolutions
         if P_y is not None and P_w is not None:
@@ -55,6 +55,7 @@ class DistributedConvSelector:
 
             # In all other cases, the generalized type is appropriate
             return cls.DistributedGeneralConvType(P_x, P_y, P_w,
+                                                  buffer_manager=buffer_manager,
                                                   *args, **kwargs)
 
         raise ValueError("Cannot determine valid matching class.")
