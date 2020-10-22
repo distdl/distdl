@@ -154,7 +154,7 @@ class MPIBufferManager:
 
     def __init__(self):
 
-        self.buffers = list()
+        self.buffers_map = dict()
 
     def request_buffers(self, n_buffers, dtype, **kwargs):
         r"""Acquire a list of buffers of a specific dtype, creating them if
@@ -173,13 +173,15 @@ class MPIBufferManager:
 
         """
 
+        if dtype not in self.buffers_map:
+            self.buffers_map[dtype] = list()
+
         # Extract a list of all existing buffers with matching dtype
-        dtype_buffers = [b for b in self.buffers if b.dtype == dtype]
+        dtype_buffers = self.buffers_map[dtype]
 
         # If there are not enough, create more buffers with that dtype
         for i in range(n_buffers - len(dtype_buffers)):
-            self.buffers.append(MPIExpandableBuffer(dtype, **kwargs))
-            dtype_buffers.append(self.buffers[-1])
+            dtype_buffers.append(MPIExpandableBuffer(dtype, **kwargs))
 
         # Return the requested number of buffers
         return dtype_buffers[:n_buffers]

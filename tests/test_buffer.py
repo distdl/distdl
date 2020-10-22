@@ -94,36 +94,38 @@ def test_buffer_management(barrier_fence_fixture,
 
     # A new buffer manager should be empty
     buffer_manager = MPIBufferManager()
-    assert len(buffer_manager.buffers) == 0
+    assert len(buffer_manager.buffers_map) == 0
 
     # Requesting new buffers should create them
     buffers = buffer_manager.request_buffers(6, np.float32)
-    assert len(buffer_manager.buffers) == 6
+    assert len(buffer_manager.buffers_map[np.float32]) == 6
 
     # Requesting a subset of buffers should get the first n of them without
     # changing the size
     buffers = buffer_manager.request_buffers(3, np.float32)
-    assert len(buffer_manager.buffers) == 6
+    assert len(buffer_manager.buffers_map[np.float32]) == 6
     for i in range(3):
-        assert buffers[i] is buffer_manager.buffers[i]
+        assert buffers[i] is buffer_manager.buffers_map[np.float32][i]
 
     # Requesting new buffers of a different dtype should create them and
     # they should be different from the first group
-    buffers = buffer_manager.request_buffers(6, np.int32)
-    assert len(buffer_manager.buffers) == 12
-    for i in range(6):
-        assert buffers[i] is not buffer_manager.buffers[i]
+    buffers = buffer_manager.request_buffers(8, np.int32)
+    assert len(buffer_manager.buffers_map[np.float32]) == 6
+    assert len(buffer_manager.buffers_map[np.int32]) == 8
+    for i in range(8):
+        assert buffers[i] is buffer_manager.buffers_map[np.int32][i]
 
 
 @pytest.mark.parametrize("comm_split_fixture", [4], indirect=["comm_split_fixture"])
 def test_buffer_management_transpose_network(barrier_fence_fixture,
                                              comm_split_fixture):
 
-    import distdl
+    import numpy as np
     import torch
 
-    from distdl.backends.mpi.partition import MPIPartition
+    import distdl
     from distdl.backends.mpi.buffer import MPIBufferManager
+    from distdl.backends.mpi.partition import MPIPartition
     from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
@@ -159,25 +161,25 @@ def test_buffer_management_transpose_network(barrier_fence_fixture,
     # [0   1   2] [3   4   5] [6   7] [8   9]
     x2 = tr1(x)
     n_buffers_by_rank = (3, 1, 1, 1)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [0   1   2] [3   4   5] [6   7] [8   9] to
     # [0   1   2] [3   4   5] [6   7] [8   9]
     x3 = tr2(x2)
     n_buffers_by_rank = (3, 1, 1, 1)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     #    [0   1   2] [3   4   5] [6   7] [8   9] to
     # [] [0   1   2   3] [4   5   6] [7   8   9]
     x4 = tr3(x3)
     n_buffers_by_rank = (3, 2, 2, 1)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [] [0   1   2   3] [4   5   6] [7   8   9] to
     #    [0   1   2   3   4   5   6   7   8   9]
     y = tr4(x4)
     n_buffers_by_rank = (3, 2, 2, 1)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     dy = zero_volume_tensor(1)
     if P_1.active:
@@ -189,7 +191,7 @@ def test_buffer_management_transpose_network(barrier_fence_fixture,
 
     # Through the backward call the buffer count do not change
     n_buffers_by_rank = (3, 2, 2, 1)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # And adjointness is still preserved
 
@@ -213,11 +215,12 @@ def test_buffer_management_transpose_network(barrier_fence_fixture,
 def test_buffer_management_conv2d_network(barrier_fence_fixture,
                                           comm_split_fixture):
 
-    import distdl
+    import numpy as np
     import torch
 
-    from distdl.backends.mpi.partition import MPIPartition
+    import distdl
     from distdl.backends.mpi.buffer import MPIBufferManager
+    from distdl.backends.mpi.partition import MPIPartition
     from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
@@ -270,7 +273,7 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42]]  [43   44]]
     x3 = c1(x2)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02]  [[03   04]
     #  [10   11   12]   [13   14]]     [10   11   12]   [13   14]]
@@ -279,7 +282,7 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42]]  [43   44]]
     x4 = c2(x3)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02]  [[03   04]
     #  [10   11   12]   [13   14]]     [10   11   12]   [13   14]]
@@ -288,7 +291,7 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42]]  [43   44]]
     x5 = c3(x4)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02   03   04]
     #  [10   11   12]   [13   14]]     [10   11   12   13   14]
@@ -307,7 +310,7 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
 
     # Through the backward call the buffer count do not change
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # And adjointness is still preserved
 
@@ -329,11 +332,12 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
 def test_buffer_management_mixed_network(barrier_fence_fixture,
                                          comm_split_fixture):
 
-    import distdl
+    import numpy as np
     import torch
 
-    from distdl.backends.mpi.partition import MPIPartition
+    import distdl
     from distdl.backends.mpi.buffer import MPIBufferManager
+    from distdl.backends.mpi.partition import MPIPartition
     from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
@@ -379,7 +383,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
     #  [40   41   42   43   44]]      [40   41   42]]  [43   44]]
     x2 = tr1(x)
     n_buffers_by_rank = (3, 1, 1, 1)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02]  [[03   04]
     #  [10   11   12]   [13   14]]     [10   11   12]   [13   14]]
@@ -388,7 +392,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42]]  [43   44]]
     x3 = c1(x2)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02]  [[03   04]
     #  [10   11   12]   [13   14]]     [10   11   12]   [13   14]]
@@ -397,7 +401,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42]]  [43   44]]
     x4 = c2(x3)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02]  [[03   04]
     #  [10   11   12]   [13   14]]     [10   11   12]   [13   14]]
@@ -406,7 +410,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42]]  [43   44]]
     x5 = c3(x4)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # [[00   01   02]  [[03   04]     [[00   01   02   03   04]
     #  [10   11   12]   [13   14]]     [10   11   12   13   14]
@@ -415,7 +419,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
     #  [40   41   42]]  [43   44]]     [40   41   42   43   44]]
     y = tr2(x5)
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     dy = zero_volume_tensor(1)
     if P_1.active:
@@ -427,7 +431,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
 
     # Through the backward call the buffer count do not change
     n_buffers_by_rank = (4, 4, 4, 4)
-    assert len(buffer_manager.buffers) == n_buffers_by_rank[P_world.rank]
+    assert len(buffer_manager.buffers_map[np.float32]) == n_buffers_by_rank[P_world.rank]
 
     # And adjointness is still preserved
 
