@@ -1,68 +1,38 @@
 import torch
 
-interpolation_kernels = {
-    'constant' = interpolate_ndtensor_constant_kernel,
-    'linear' = interpolate_ndtensor_linear_kernel,
-    'cubic' = interpolate_ndtensor_cubic_kernel
+from distdl.functional.interpolate import PiecewiseConstantInterpolateFunction
+
+interpolation_function = {
+    'constant': PiecewiseConstantInterpolateFunction,
+    'nearest': PiecewiseConstantInterpolateFunction,
 }
-
-
-class PiecewiseConstantInterpolateFunction(torch.autograd.Function):
-
-
-    @staticmethod
-    def forward(ctx, input, x_starts, x_stops, y_starts, y_stops):
-
-        ctx.x_starts = x_starts
-        ctx.x_stops = x_stops
-        ctx.y_starts = y_starts
-        ctx.y_stops = y_stops
-
-        y_shape = y_stops - y_starts
-
-        output = torch.zeros(tuple(y_shape), input.dtype)
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad_output):
-
-        x_starts = ctx.x_starts
-        x_stops = ctx.x_stops
-        y_starts = ctx.y_starts
-        y_stops = ctx.y_stops
-
-        x_shape = x_stops - x_starts
-
-        grad_input = torch.zeros(tuple(x_shape), grad_output.dtype)
-
-        return grad_input
-
-
-
-
+#     'linear' : interpolate_ndtensor_linear_kernel,
+#     'cubic' : interpolate_ndtensor_cubic_kernel
+# }
 
 class Interpolate(torch.nn.Module):
 
-    def __init__(self, mode, x_starts, x_stops, y_starts, y_stops):
+    def __init__(self, mode,
+                 x_local_start, x_local_stop, x_global_shape,
+                 y_local_start, y_local_stop, y_global_shape):
 
         super(Interpolate, self).__init__()
 
         self.mode = mode
 
-        self.x_starts = x_starts.squeeze()
-        self.x_stops = x_stops.squeeze()
+        self.x_local_start = torch.Size(torch.as_tensor(x_local_start).squeeze())
+        self.x_local_stop = torch.Size(torch.as_tensor(x_local_stop).squeeze())
+        self.x_global_shape = torch.Size(torch.as_tensor(x_global_shape).squeeze())
 
-        self.y_starts = y_starts.squeeze()
-        self.y_stops = y_stops.squeeze()
+        self.y_local_start = torch.Size(torch.as_tensor(y_local_start).squeeze())
+        self.y_local_stop = torch.Size(torch.as_tensor(y_local_stop).squeeze())
+        self.y_global_shape = torch.Size(torch.as_tensor(y_global_shape).squeeze())
 
-        self.y_shape = self.y_stops - self.y_starts
+        self.Function = interpolation_function[mode]
 
-        self.kernel = interpolation_kernels[mode]
-
-        self.kernel_args = (self.x_starts, self.x_stops, self.y_starts, self.y_stops)
+        self.kernel_args = (self.x_local_start, self.x_local_stop, self.x_global_shape,
+                            self.y_local_start, self.y_local_stop, self.y_global_shape)
 
     def forward(self, input):
 
-
-        return self.kernel(input, output, *self.kernel_args)
+        return self.Function.apply(input, *self.kernel_args)
