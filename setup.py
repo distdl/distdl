@@ -47,10 +47,12 @@ default_extensions = [
 torch_extensions = []
 
 default_extension_args_cpu = dict()
-default_extension_args_cpu["extra_compiler_args"] = ["-Ofast",
-                                                     "-march=native",
-                                                     "-fopenmp"]
-default_extension_args_cpu["extra_link_args"] = ["-fopenmp"]
+default_extension_args_cpu["extra_compile_args"] = ["-Ofast",
+                                                    "-march=native",
+                                                    "-fopenmp"]
+# See: https://github.com/suphoff/pytorch_parallel_extension_cpp
+default_extension_args_cpu["extra_compile_args"] += ["-DAT_PARALLEL_OPENMP"]
+default_extension_args_cpu["extra_link_args"] = ["-lgomp"]
 
 def build_cpu_extension(name, src_files=None):
 
