@@ -64,14 +64,14 @@ gradcheck_parametrizations.append(
                          indirect=["comm_split_fixture"])
 @pytest.mark.parametrize("dimension", [1, 2, 3])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
-@pytest.mark.parametrize("mode", ["constant", "nearest"])
-def test_broadcast_adjoint(barrier_fence_fixture,
-                           comm_split_fixture,
-                           x_global_shape, x_start, x_stop,
-                           y_global_shape, y_start, y_stop,
-                           dimension,
-                           dtype,
-                           mode):
+@pytest.mark.parametrize("mode", ["constant", "nearest", "linear"])
+@pytest.mark.parametrize("align_corners", [True, False])
+def test_interpolation_adjoint(barrier_fence_fixture,
+                               comm_split_fixture,
+                               x_global_shape, x_start, x_stop,
+                               y_global_shape, y_start, y_stop,
+                               dimension,
+                               dtype, mode, align_corners):
 
     import torch
 
@@ -81,6 +81,10 @@ def test_broadcast_adjoint(barrier_fence_fixture,
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
+        return
+
+    # Test align_corners only in the linear case, otherwise ignore it.
+    if mode != "linear" and align_corners:
         return
 
     dim_range = 2 + dimension
@@ -101,7 +105,10 @@ def test_broadcast_adjoint(barrier_fence_fixture,
 
     dy = torch.randn(*y_local_shape)
 
-    layer = Interpolate('constant', x_start, x_stop, x_global_shape, y_start, y_stop, y_global_shape)
+    layer = Interpolate(x_start, x_stop, x_global_shape,
+                        y_start, y_stop, y_global_shape,
+                        mode=mode,
+                        align_corners=align_corners)
 
     # y = F @ x
     y = layer(x)
