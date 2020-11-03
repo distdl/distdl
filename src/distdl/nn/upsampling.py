@@ -1,15 +1,18 @@
 import torch
 
-# from distdl.nn.halo_exchange import HaloExchange
-# from distdl.nn.mixins.halo_mixin import HaloMixin
-# from distdl.nn.mixins.pooling_mixin import PoolingMixin
+from distdl.nn.halo_exchange import HaloExchange
+from distdl.nn.interpolate import Interpolate
+from distdl.nn.mixins.interpolate_mixin import InterpolateMixin
 from distdl.nn.module import Module
 from distdl.nn.padnd import PadNd
 from distdl.utilities.slicing import assemble_slices
+from distdl.utilities.tensor_decomposition import compute_subtensor_shapes_balanced
+from distdl.utilities.tensor_decomposition import compute_subtensor_start_indices
+from distdl.utilities.tensor_decomposition import compute_subtensor_stop_indices
 from distdl.utilities.torch import TensorStructure
 
 
-class DistributedUpsample(Module): #, HaloMixin, UpsampleMixin):
+class DistributedUpsample(Module, InterpolateMixin):
     r"""A tensor-partitioned distributed upsampling layer.
 
     This class provides the user interface to a distributed upsampling
@@ -38,9 +41,20 @@ class DistributedUpsample(Module): #, HaloMixin, UpsampleMixin):
 
     """
 
-    def __init__(self, P_x, buffer_manager=None, *args, **kwargs):
+    def __init__(self, P_x, buffer_manager=None,
+                 size=None, scale_factor=None,
+                 mode='linear', align_corners=False):
 
         super(DistributedUpsample, self).__init__()
+
+        if mode == 'cubic':
+            raise NotImplementedError('Cubic interpolation is not implemented.')
+
+        if size is None and scale_factor is None:
+            raise ValueError("One of `size` or `scale_factor` must be set.")
+
+        if size is not None and scale_factor is not None:
+            raise ValueError("Only one of `size` or `scale_factor` may be set.")
 
         # P_x is 1 x 1 x P_d-1 x ... x P_0
         self.P_x = P_x
@@ -59,8 +73,18 @@ class DistributedUpsample(Module): #, HaloMixin, UpsampleMixin):
         # in the serial case
         # self.pool_layer = self.TorchPoolType(*args, **kwargs)
 
-        mode = 'nearest'
-        self.interp_layer = Interpolate(mode, x_starts, x_stops, y_starts, y_stops)
+        self.mode = mode
+        self.align_corners = align_corners
+
+        self.size = size
+        self.scale_factor = scale_factor
+
+        # Local input and output tensor structures, defined when layer is called
+        self.input_tensor_structure = TensorStructure()
+        self.output_tensor_structure = TensorStructure()
+
+        # We need the actual sizes to determine the interpolation layer
+        self.interp_layer = None
 
         # We need the halo shape, and other info, to fully populate the pad
         # and halo exchange layers.  For pad, we defer the construction to the
@@ -100,35 +124,83 @@ class DistributedUpsample(Module): #, HaloMixin, UpsampleMixin):
         # To compute the halo regions and interpolation, we need the global
         # tensor shape.  This is not available until when the input is
         # provided.
-        x_global_structure = \
+        global_input_tensor_structure = \
             self._distdl_backend.assemble_global_tensor_structure(input[0], self.P_x)
 
+        if self.size is None:
+            global_output_tensor_shape = torch.as_tensor(global_input_tensor_structure.shape).to(torch.float64)
+            global_output_tensor_shape[2:] *= self.scale_factor
 
-
+            # I prefer ceil(), torch uses floor(), so we go with floor for consistency
+            global_output_tensor_shape = torch.Size(torch.floor(global_output_tensor_shape).to(torch.int64))
+        else:
+            if len(self.size) != len(global_input_tensor_structure.shape):
+                raise ValueError("Provided size does not match input tensor dimension.")
+            global_output_tensor_shape = torch.Size(torch.as_tensor(self.size))
+        global_output_tensor_structure = TensorStructure()
+        global_output_tensor_structure.shape = global_output_tensor_shape
 
         # Using that information, we can get there rest of the halo information
-        # exchange_info = self._compute_exchange_info(x_global_structure.shape,
-        #                                             self.pool_layer.kernel_size,
-        #                                             self.pool_layer.stride,
-        #                                             self.pool_layer.padding,
-        #                                             [1],  # torch pooling layers have no dilation
-        #                                             self.P_x.active,
-        #                                             self.P_x.shape,
-        #                                             self.P_x.index)
-        # halo_shape = exchange_info[0]
-        # recv_buffer_shape = exchange_info[1]
-        # send_buffer_shape = exchange_info[2]
-        # needed_ranges = exchange_info[3]
+        exchange_info = self._compute_exchange_info(self.P_x,
+                                                    global_input_tensor_structure,
+                                                    global_output_tensor_structure,
+                                                    self.mode,
+                                                    self.align_corners)
+        halo_shape = exchange_info[0]
+        recv_buffer_shape = exchange_info[1]
+        send_buffer_shape = exchange_info[2]
+        needed_ranges = exchange_info[3]
 
         # Now we have enough information to instantiate the padding shim
-        # self.pad_layer = PadNd(halo_shape, value=0)
+        self.pad_layer = PadNd(halo_shape, value=0)
 
         # We can also set up part of the halo layer.
-        # self.halo_layer = HaloExchange(self.P_x,
-        #                                halo_shape,
-        #                                recv_buffer_shape,
-        #                                send_buffer_shape,
-        #                                buffer_manager=self.buffer_manager)
+        self.halo_layer = HaloExchange(self.P_x,
+                                       halo_shape,
+                                       recv_buffer_shape,
+                                       send_buffer_shape,
+                                       buffer_manager=self.buffer_manager)
+
+        # We have to select out the "unused" entries.  Sometimes there can
+        # be "negative" halos.
+        self.needed_slices = assemble_slices(needed_ranges[:, 0],
+                                             needed_ranges[:, 1])
+
+        # This needs to refactor with the mixin to be cleaner
+        _slice = tuple([slice(i, i+1) for i in self.P_x.index] + [slice(None)])
+
+        x_subtensor_shapes = compute_subtensor_shapes_balanced(global_input_tensor_structure,
+                                                               self.P_x.shape)
+        x_subtensor_start_indices = compute_subtensor_start_indices(x_subtensor_shapes)
+        x_subtensor_stop_indices = compute_subtensor_stop_indices(x_subtensor_shapes)
+
+        x_start_index = torch.from_numpy(x_subtensor_start_indices[_slice].squeeze())
+        x_stop_index = torch.from_numpy(x_subtensor_stop_indices[_slice].squeeze())
+
+        y_subtensor_shapes = compute_subtensor_shapes_balanced(global_output_tensor_structure,
+                                                               self.P_x.shape)
+        y_subtensor_start_indices = compute_subtensor_start_indices(y_subtensor_shapes)
+        y_subtensor_stop_indices = compute_subtensor_stop_indices(y_subtensor_shapes)
+
+        y_start_index = torch.from_numpy(y_subtensor_start_indices[_slice].squeeze())
+        y_stop_index = torch.from_numpy(y_subtensor_stop_indices[_slice].squeeze())
+
+        x_start_index = self._compute_needed_start(self.mode,
+                                                   y_start_index,
+                                                   global_output_tensor_structure.shape,
+                                                   global_input_tensor_structure.shape,
+                                                   self.align_corners)
+
+        x_stop_index = self._compute_needed_stop(self.mode,
+                                                 y_stop_index-1,
+                                                 global_output_tensor_structure.shape,
+                                                 global_input_tensor_structure.shape,
+                                                 self.align_corners)
+
+        self.interp_layer = Interpolate(x_start_index, x_stop_index, global_input_tensor_structure.shape,
+                                        y_start_index, y_stop_index, global_output_tensor_structure.shape,
+                                        mode=self.mode,
+                                        align_corners=self.align_corners)
 
     def _distdl_module_teardown(self, input):
         r"""Distributed (channel) pooling module teardown function.
@@ -181,12 +253,8 @@ class DistributedUpsample(Module): #, HaloMixin, UpsampleMixin):
         if not self.P_x.active:
             return input.clone()
 
-        # y = self.interp(input)
-
-
-        return input.clone()
-
-        # input_padded = self.pad_layer(input)
-        # input_exchanged = self.halo_layer(input_padded)
-        # input_needed = input_exchanged[self.needed_slices]
-        # return self.pool_layer(input_needed)
+        input_padded = self.pad_layer(input)
+        input_exchanged = self.halo_layer(input_padded)
+        input_needed = input_exchanged[self.needed_slices]
+        y = self.interp_layer(input_needed)
+        return y
