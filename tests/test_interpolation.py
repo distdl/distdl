@@ -64,7 +64,7 @@ gradcheck_parametrizations.append(
                          indirect=["comm_split_fixture"])
 @pytest.mark.parametrize("dimension", [1, 2, 3])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
-@pytest.mark.parametrize("mode", ["constant", "nearest", "linear"])
+@pytest.mark.parametrize("mode", ["nearest", "linear"])
 @pytest.mark.parametrize("align_corners", [True, False])
 def test_interpolation_adjoint(barrier_fence_fixture,
                                comm_split_fixture,
