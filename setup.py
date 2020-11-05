@@ -54,6 +54,7 @@ default_extension_args_cpu["extra_compile_args"] = ["-Ofast",
 default_extension_args_cpu["extra_compile_args"] += ["-DAT_PARALLEL_OPENMP"]
 default_extension_args_cpu["extra_link_args"] = ["-lgomp"]
 
+
 def build_cpu_extension(name, src_files=None):
 
     path_parts = name.split('.')
