@@ -34,11 +34,16 @@ class InterpolateMixin:
                 fac = torch.where(x_global_shape != 1,
                                   (x_global_shape - 1) / (y_global_shape - 1),
                                   fac)
+                idx = torch.floor(fac*(y_global_idx))
             else:
+                # This calculation should match exactly interpolaate.h and the
+                # ATen interpolation code.
                 fac = torch.where(x_global_shape != 1,
                                   (x_global_shape) / (y_global_shape),
                                   fac)
-            idx = torch.floor(fac*(y_global_idx))
+                idx = fac*(y_global_idx + 0.5) - 0.5
+                idx = torch.where(idx < 0, torch.zeros_like(idx), idx)
+                idx = torch.floor(idx)
             idx = idx.to(torch.int64)
         else:
             raise NotImplementedError(f"Mode `{mode}` is not supported.")
@@ -63,8 +68,6 @@ class InterpolateMixin:
             idx = torch.floor(fac*(y_global_idx))
             idx = idx.to(torch.int64)
 
-            print("!!!!!", fac, y_global_idx, idx)
-
         elif mode == "linear":
 
             fac = torch.ones_like(x_global_shape)
@@ -72,12 +75,18 @@ class InterpolateMixin:
                 fac = torch.where(x_global_shape != 1,
                                   (x_global_shape - 1) / (y_global_shape - 1),
                                   fac)
+                idx = torch.floor(fac*(y_global_idx))
             else:
+                # This calculation should match exactly interpolaate.h and the
+                # ATen interpolation code.
                 fac = torch.where(x_global_shape != 1,
                                   (x_global_shape) / (y_global_shape),
                                   fac)
-            idx = torch.floor(fac*(y_global_idx))
-            idx = idx.to(torch.int64) + 1
+                idx = fac*(y_global_idx + 0.5) - 0.5
+                idx = torch.where(idx < 0, torch.zeros_like(idx), idx)
+                idx = torch.floor(idx)
+            idx = (idx+1).to(torch.int64)
+
         else:
             raise NotImplementedError(f"Mode `{mode}` is not supported.")
 
@@ -131,10 +140,8 @@ class InterpolateMixin:
         ranges[:, 0] = -1*np.minimum(0, halo_shape[:, 0])
 
         # The stop of the slice will be the data + the length of the two halos
-        # and the last maximum is so that we dont shorten the stop (keeps the
-        # parallel and sequential behavior exactly the same, but I dont think
-        # it is strictly necessary)
-        ranges[:, 1] = tensor_shape[:] + np.maximum(0, halo_shape[:, 0]) + np.maximum(0, halo_shape[:, 1])
+        # This allows negative right halos
+        ranges[:, 1] = tensor_shape[:] + np.maximum(0, halo_shape[:, 0]) + halo_shape[:, 1]
 
         return ranges
 
@@ -158,7 +165,7 @@ class InterpolateMixin:
         y_subtensor_start_indices = compute_subtensor_start_indices(y_subtensor_shapes)
         y_subtensor_stop_indices = compute_subtensor_stop_indices(y_subtensor_shapes)
 
-        def halo_shape_args(self, index, require_nonnegative=True):
+        def halo_shape_args(index, require_nonnegative=True):
             _slice = tuple([slice(i, i+1) for i in index] + [slice(None)])
             _x_start_index = torch.from_numpy(x_subtensor_start_indices[_slice].squeeze())
             _x_stop_index = torch.from_numpy(x_subtensor_stop_indices[_slice].squeeze())

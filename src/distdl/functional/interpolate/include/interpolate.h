@@ -88,7 +88,14 @@ static inline std::tuple<int64_t, scalar_t, int64_t, scalar_t> compute_linear_id
     scalar_t fac = align_corners ?
                    static_cast<scalar_t>(g_i_length-1) / static_cast<scalar_t>(g_o_length-1) :
                    static_cast<scalar_t>(g_i_length) / static_cast<scalar_t>(g_o_length);
-    scalar_t idx_ = fac*(l_o_offset + l_o_idx) - l_i_offset;
+
+    // The 0.5 shift factor comes from the ATen interpolation code.  I disagree
+    // with it, but to make this match the output of the torch code, we need it.
+    // Also, this is why we need to clamp the index at 0 here.
+    scalar_t idx_ = align_corners ?
+                    fac*(l_o_offset + l_o_idx) - l_i_offset :
+                    fac*(l_o_offset + l_o_idx + 0.5) - (l_i_offset + 0.5);
+    idx_ = (idx_ < 0) ? scalar_t(0) : idx_;
 
     int64_t idx0 = static_cast<int64_t>(floorf(idx_));
     idx0 = clamp_idx_to_range(idx0, 0, l_i_length-1);
