@@ -15,6 +15,7 @@ void linear_interpolation_fwd_kernel_cpu(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners
     ) {
 
@@ -92,6 +93,7 @@ void linear_interpolation_fwd_kernel_cpu(
                 std::tie(i_x0_idx0, w0_0, i_x0_idx1, w0_1) =
                     compute_linear_idx_weight<scalar_t>(o_x0_idx, o_ox0, g_o_nx0,
                                                         i_nx0, i_ox0, g_i_nx0,
+                                                        scale_factor,
                                                         align_corners);
 
                 int64_t o_idx_0 = compute_idx(c, o_nx0, o_x0_idx);
@@ -117,6 +119,7 @@ void linear_interpolation_fwd_kernel_cpu(
                 std::tie(i_x1_idx0, w1_0, i_x1_idx1, w1_1) =
                     compute_linear_idx_weight<scalar_t>(o_x1_idx, o_ox1, g_o_nx1,
                                                         i_nx1, i_ox1, g_i_nx1,
+                                                        scale_factor,
                                                         align_corners);
 
                 // 0/1 is x1 index (+0 or +1); X means unset dimension
@@ -137,6 +140,7 @@ void linear_interpolation_fwd_kernel_cpu(
                     std::tie(i_x0_idx0, w0_0, i_x0_idx1, w0_1) =
                         compute_linear_idx_weight<scalar_t>(o_x0_idx, o_ox0, g_o_nx0,
                                                             i_nx0, i_ox0, g_i_nx0,
+                                                            scale_factor,
                                                             align_corners);
 
                     int64_t o_idx_00 = compute_idx(o_idx_0X, o_nx0, o_x0_idx);
@@ -167,6 +171,7 @@ void linear_interpolation_fwd_kernel_cpu(
                 std::tie(i_x2_idx0, w2_0, i_x2_idx1, w2_1) =
                     compute_linear_idx_weight<scalar_t>(o_x2_idx, o_ox2, g_o_nx2,
                                                         i_nx2, i_ox2, g_i_nx2,
+                                                        scale_factor,
                                                         align_corners);
 
                 // 0/1 is x2 index (+0 or +1); X means unset dimension
@@ -179,6 +184,7 @@ void linear_interpolation_fwd_kernel_cpu(
                     std::tie(i_x1_idx0, w1_0, i_x1_idx1, w1_1) =
                         compute_linear_idx_weight<scalar_t>(o_x1_idx, o_ox1, g_o_nx1,
                                                             i_nx1, i_ox1, g_i_nx1,
+                                                            scale_factor,
                                                             align_corners);
 
                     // 0/1 is x2,x1 index (+0 or +1); X means unset dimension
@@ -201,6 +207,7 @@ void linear_interpolation_fwd_kernel_cpu(
                         std::tie(i_x0_idx0, w0_0, i_x0_idx1, w0_1) =
                             compute_linear_idx_weight<scalar_t>(o_x0_idx, o_ox0, g_o_nx0,
                                                                 i_nx0, i_ox0, g_i_nx0,
+                                                                scale_factor,
                                                                 align_corners);
 
                         int64_t o_idx_000 = compute_idx(o_idx_00X, o_nx0, o_x0_idx);
@@ -245,6 +252,7 @@ void linear_interpolation_fwd_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners
     ) {
 
@@ -255,6 +263,7 @@ void linear_interpolation_fwd_kernel_dispatch(
                                                       global_input_sizes,
                                                       output_offsets,
                                                       global_output_sizes,
+                                                      scale_factor,
                                                       align_corners);
     }));
 }
@@ -267,6 +276,7 @@ void linear_interpolation_adj_kernel_cpu(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners
     ) {
 
@@ -344,6 +354,7 @@ void linear_interpolation_adj_kernel_cpu(
                 std::tie(i_x0_idx0, w0_0, i_x0_idx1, w0_1) =
                     compute_linear_idx_weight<scalar_t>(o_x0_idx, o_ox0, g_o_nx0,
                                                         i_nx0, i_ox0, g_i_nx0,
+                                                        scale_factor,
                                                         align_corners);
 
                 int64_t o_idx_0 = compute_idx(c, o_nx0, o_x0_idx);
@@ -368,6 +379,7 @@ void linear_interpolation_adj_kernel_cpu(
                 std::tie(i_x1_idx0, w1_0, i_x1_idx1, w1_1) =
                     compute_linear_idx_weight<scalar_t>(o_x1_idx, o_ox1, g_o_nx1,
                                                         i_nx1, i_ox1, g_i_nx1,
+                                                        scale_factor,
                                                         align_corners);
 
                 // 0/1 is x1 index (+0 or +1); X means unset dimension
@@ -388,6 +400,7 @@ void linear_interpolation_adj_kernel_cpu(
                     std::tie(i_x0_idx0, w0_0, i_x0_idx1, w0_1) =
                         compute_linear_idx_weight<scalar_t>(o_x0_idx, o_ox0, g_o_nx0,
                                                             i_nx0, i_ox0, g_i_nx0,
+                                                            scale_factor,
                                                             align_corners);
 
                     int64_t i_idx_00 = compute_idx(o_idx_0X, o_nx0, o_x0_idx);
@@ -418,6 +431,7 @@ void linear_interpolation_adj_kernel_cpu(
                 std::tie(i_x2_idx0, w2_0, i_x2_idx1, w2_1) =
                     compute_linear_idx_weight<scalar_t>(o_x2_idx, o_ox2, g_o_nx2,
                                                         i_nx2, i_ox2, g_i_nx2,
+                                                        scale_factor,
                                                         align_corners);
 
                 // 0/1 is x2 index (+0 or +1); X means unset dimension
@@ -430,6 +444,7 @@ void linear_interpolation_adj_kernel_cpu(
                     std::tie(i_x1_idx0, w1_0, i_x1_idx1, w1_1) =
                         compute_linear_idx_weight<scalar_t>(o_x1_idx, o_ox1, g_o_nx1,
                                                             i_nx1, i_ox1, g_i_nx1,
+                                                            scale_factor,
                                                             align_corners);
 
                     // 0/1 is x2,x1 index (+0 or +1); X means unset dimension
@@ -452,6 +467,7 @@ void linear_interpolation_adj_kernel_cpu(
                         std::tie(i_x0_idx0, w0_0, i_x0_idx1, w0_1) =
                             compute_linear_idx_weight<scalar_t>(o_x0_idx, o_ox0, g_o_nx0,
                                                                 i_nx0, i_ox0, g_i_nx0,
+                                                                scale_factor,
                                                                 align_corners);
 
                         int64_t o_idx_000 = compute_idx(o_idx_00X, o_nx0, o_x0_idx);
@@ -496,6 +512,7 @@ void linear_interpolation_adj_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners
     ) {
 
@@ -506,6 +523,7 @@ void linear_interpolation_adj_kernel_dispatch(
                                                       global_input_sizes,
                                                       output_offsets,
                                                       global_output_sizes,
+                                                      scale_factor,
                                                       align_corners);
     }));
 }

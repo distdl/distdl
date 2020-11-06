@@ -145,6 +145,7 @@ class DistributedUpsample(Module, InterpolateMixin):
                                                     global_input_tensor_structure,
                                                     global_output_tensor_structure,
                                                     self.mode,
+                                                    self.scale_factor,
                                                     self.align_corners)
         halo_shape = exchange_info[0]
         recv_buffer_shape = exchange_info[1]
@@ -189,16 +190,19 @@ class DistributedUpsample(Module, InterpolateMixin):
                                                    y_start_index,
                                                    global_output_tensor_structure.shape,
                                                    global_input_tensor_structure.shape,
+                                                   self.scale_factor,
                                                    self.align_corners)
 
         x_stop_index = self._compute_needed_stop(self.mode,
                                                  y_stop_index-1,
                                                  global_output_tensor_structure.shape,
                                                  global_input_tensor_structure.shape,
+                                                 self.scale_factor,
                                                  self.align_corners)
 
         self.interp_layer = Interpolate(x_start_index, x_stop_index, global_input_tensor_structure.shape,
                                         y_start_index, y_stop_index, global_output_tensor_structure.shape,
+                                        scale_factor=self.scale_factor,
                                         mode=self.mode,
                                         align_corners=self.align_corners)
 
