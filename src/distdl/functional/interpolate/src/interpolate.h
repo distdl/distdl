@@ -3,6 +3,8 @@
 
 #include <torch/extension.h>
 
+#include <cmath>
+
 #include <tuple>
 
 void constant_interpolation_fwd_kernel_dispatch(
@@ -111,10 +113,11 @@ static inline std::tuple<int64_t, scalar_t, int64_t, scalar_t> compute_linear_id
     idx0 = clamp_idx_to_range(idx0, 0, l_i_length-1);
     int64_t idx1 = clamp_idx_to_range(idx0 + 1, 0, l_i_length-1);
 
-    scalar_t lambda = idx_ - idx0;
+    scalar_t lambda = idx_ - static_cast<scalar_t>(idx0);
+
     // Clamp to the boundaries, accounting for fp error
-    if (abs(lambda) < 1e-4) lambda = 0.0;
-    if (abs(lambda - 1.0) < 1e-4) lambda = 1.0;
+    if (std::abs(lambda) < 1e-4) lambda = 0.0;
+    if (std::abs(lambda - 1.0) < 1e-4) lambda = 1.0;
 
     return std::make_tuple(idx0, 1.0 - lambda, idx1, lambda);
 }
