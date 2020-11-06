@@ -18,7 +18,12 @@ adj_functions = {
 class InterpolateFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, input, mode, align_corners, x_start, x_stop, x_global_shape, y_start, y_stop, y_global_shape):
+    def forward(ctx, input, scale_factor, mode, align_corners, x_start, x_stop, x_global_shape, y_start, y_stop, y_global_shape):
+
+        if scale_factor is None:
+            scale_factor = -1
+
+        ctx.scale_factor = scale_factor
 
         ctx.mode = mode
         ctx.align_corners = align_corners
@@ -36,12 +41,15 @@ class InterpolateFunction(torch.autograd.Function):
         fwd_functions[mode](output, input,
                             x_start, x_global_shape,
                             y_start, y_global_shape,
+                            scale_factor,
                             align_corners)
 
         return output
 
     @staticmethod
     def backward(ctx, grad_output):
+
+        scale_factor = ctx.scale_factor
 
         mode = ctx.mode
         align_corners = ctx.align_corners
@@ -59,6 +67,7 @@ class InterpolateFunction(torch.autograd.Function):
         adj_functions[mode](grad_input, grad_output,
                             x_start, x_global_shape,
                             y_start, y_global_shape,
+                            scale_factor,
                             align_corners)
 
-        return grad_input, None, None, None, None, None, None, None, None
+        return grad_input, None, None, None, None, None, None, None, None, None

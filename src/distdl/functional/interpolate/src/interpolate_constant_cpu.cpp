@@ -201,6 +201,7 @@ void constant_interpolation_fwd_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners
     ) {
 
@@ -411,6 +412,7 @@ void constant_interpolation_adj_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners
     ) {
 

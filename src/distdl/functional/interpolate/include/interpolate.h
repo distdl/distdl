@@ -12,6 +12,7 @@ void constant_interpolation_fwd_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners);
 
 void constant_interpolation_adj_kernel_dispatch(
@@ -21,6 +22,7 @@ void constant_interpolation_adj_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners);
 
 void linear_interpolation_fwd_kernel_dispatch(
@@ -30,6 +32,7 @@ void linear_interpolation_fwd_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners);
 
 void linear_interpolation_adj_kernel_dispatch(
@@ -39,6 +42,7 @@ void linear_interpolation_adj_kernel_dispatch(
     at::IntArrayRef global_input_sizes,
     at::IntArrayRef output_offsets,
     at::IntArrayRef global_output_sizes,
+    double scale_factor,
     bool align_corners);
 
 static inline int64_t clamp_idx_to_range(
@@ -74,6 +78,8 @@ static inline int64_t compute_nearest_left_idx_weight(
     return idx;
 }
 
+#include <cstdio>
+
 template<typename scalar_t>
 static inline std::tuple<int64_t, scalar_t, int64_t, scalar_t> compute_linear_idx_weight(
     const int64_t& l_o_idx,
@@ -82,12 +88,16 @@ static inline std::tuple<int64_t, scalar_t, int64_t, scalar_t> compute_linear_id
     const int64_t& l_i_length,
     const int64_t& l_i_offset,
     const int64_t& g_i_length,
+    double scale_factor,
     bool align_corners){
 
-	// align corners changes from "counting (open ended) fence rails" to "counting fence posts"
+    // align corners changes from "counting (open ended) fence rails" to "counting fence posts"
     scalar_t fac = align_corners ?
-                   static_cast<scalar_t>(g_i_length-1) / static_cast<scalar_t>(g_o_length-1) :
-                   static_cast<scalar_t>(g_i_length) / static_cast<scalar_t>(g_o_length);
+                       static_cast<scalar_t>(g_i_length-1) / static_cast<scalar_t>(g_o_length-1) :
+                       (scale_factor > 0 ?
+                            static_cast<scalar_t>(1.0 / scale_factor) :
+                            static_cast<scalar_t>(g_i_length) / static_cast<scalar_t>(g_o_length)
+                        );
 
     // The 0.5 shift factor comes from the ATen interpolation code.  I disagree
     // with it, but to make this match the output of the torch code, we need it.
@@ -103,7 +113,7 @@ static inline std::tuple<int64_t, scalar_t, int64_t, scalar_t> compute_linear_id
 
     scalar_t lambda = idx_ - idx0;
     // Clamp to the boundaries, accounting for fp error
-    if (abs(lambda) < 1e-4)	lambda = 0.0;
+    if (abs(lambda) < 1e-4) lambda = 0.0;
     if (abs(lambda - 1.0) < 1e-4) lambda = 1.0;
 
     return std::make_tuple(idx0, 1.0 - lambda, idx1, lambda);

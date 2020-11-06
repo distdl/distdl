@@ -13,6 +13,7 @@ class InterpolateMixin:
 
     def _compute_needed_start(self, mode,
                               y_global_idx, y_global_shape, x_global_shape,
+                              scale_factor,
                               align_corners):
 
         # Finds the start index required to get to y_global_idx
@@ -23,7 +24,9 @@ class InterpolateMixin:
 
         if mode == "nearest":
 
-            fac = x_global_shape / y_global_shape
+            fac = torch.ones_like(x_global_shape)
+            fac[2:] = x_global_shape[2:] / y_global_shape[2:]
+
             idx = torch.floor(fac*(y_global_idx))
             idx = idx.to(torch.int64)
 
@@ -31,16 +34,16 @@ class InterpolateMixin:
 
             fac = torch.ones_like(x_global_shape)
             if align_corners:
-                fac = torch.where(x_global_shape != 1,
-                                  (x_global_shape - 1) / (y_global_shape - 1),
-                                  fac)
+                fac[2:] = (x_global_shape[2:] - 1) / (y_global_shape[2:] - 1)
                 idx = torch.floor(fac*(y_global_idx))
             else:
                 # This calculation should match exactly interpolaate.h and the
                 # ATen interpolation code.
-                fac = torch.where(x_global_shape != 1,
-                                  (x_global_shape) / (y_global_shape),
-                                  fac)
+                if scale_factor is not None:
+                    fac[2:] = 1.0 / scale_factor
+                else:
+                    fac[2:] = (x_global_shape[2:]) / (y_global_shape[2:])
+
                 idx = fac*(y_global_idx + 0.5) - 0.5
                 idx = torch.where(idx < 0, torch.zeros_like(idx), idx)
                 idx = torch.floor(idx)
@@ -54,6 +57,7 @@ class InterpolateMixin:
 
     def _compute_needed_stop(self, mode,
                              y_global_idx, y_global_shape, x_global_shape,
+                             scale_factor,
                              align_corners):
 
         # Finds the stop index required to get to y_global_idx
@@ -64,7 +68,9 @@ class InterpolateMixin:
 
         if mode == "nearest" or mode == "constant":
 
-            fac = x_global_shape / y_global_shape
+            fac = torch.ones_like(x_global_shape)
+            fac[2:] = x_global_shape[2:] / y_global_shape[2:]
+
             idx = torch.floor(fac*(y_global_idx))
             idx = idx.to(torch.int64)
 
@@ -72,25 +78,24 @@ class InterpolateMixin:
 
             fac = torch.ones_like(x_global_shape)
             if align_corners:
-                fac = torch.where(x_global_shape != 1,
-                                  (x_global_shape - 1) / (y_global_shape - 1),
-                                  fac)
+                fac[2:] = (x_global_shape[2:] - 1) / (y_global_shape[2:] - 1)
                 idx = torch.floor(fac*(y_global_idx))
             else:
                 # This calculation should match exactly interpolaate.h and the
                 # ATen interpolation code.
-                fac = torch.where(x_global_shape != 1,
-                                  (x_global_shape) / (y_global_shape),
-                                  fac)
+                if scale_factor is not None:
+                    fac[2:] = 1.0 / scale_factor
+                else:
+                    fac[2:] = (x_global_shape[2:]) / (y_global_shape[2:])
+
                 idx = fac*(y_global_idx + 0.5) - 0.5
                 idx = torch.where(idx < 0, torch.zeros_like(idx), idx)
                 idx = torch.floor(idx)
             idx = (idx+1).to(torch.int64)
-
         else:
             raise NotImplementedError(f"Mode `{mode}` is not supported.")
 
-        # idx is the actual index, so we need to add 1 to get to a python slice
+        # idx is the actual index, so we need to add 1 to get to a python slice stop
         idx += 1
 
         idx = torch.where(idx > x_global_shape, x_global_shape.to(torch.int64), idx)
@@ -99,13 +104,14 @@ class InterpolateMixin:
 
     def _compute_halo_shape(self, y_local_start, y_local_stop, y_global_shape,
                             x_local_start, x_local_stop, x_global_shape,
-                            mode, align_corners,
+                            mode, scale_factor, align_corners,
                             require_nonnegative=True):
 
         x_local_start_needed = self._compute_needed_start(mode,
                                                           y_local_start,
                                                           y_global_shape,
                                                           x_global_shape,
+                                                          scale_factor,
                                                           align_corners)
         x_local_start_needed = np.maximum(np.zeros_like(x_global_shape),
                                           x_local_start_needed)
@@ -114,6 +120,7 @@ class InterpolateMixin:
                                                         y_local_stop - 1,
                                                         y_global_shape,
                                                         x_global_shape,
+                                                        scale_factor,
                                                         align_corners)
         x_local_stop_needed = np.minimum(x_global_shape,
                                          x_local_stop_needed)
@@ -146,7 +153,7 @@ class InterpolateMixin:
         return ranges
 
     def _compute_exchange_info(self, P_x, x_global_tensor_structure, y_global_tensor_structure,
-                               mode, align_corners):
+                               mode, scale_factor, align_corners):
 
         if not P_x.active:
             return None, None, None, None
@@ -174,7 +181,7 @@ class InterpolateMixin:
 
             args = (_y_start_index, _y_stop_index, y_global_tensor_structure.shape,
                     _x_start_index, _x_stop_index, x_global_tensor_structure.shape,
-                    mode, align_corners, require_nonnegative)
+                    mode, scale_factor, align_corners, require_nonnegative)
 
             return args
 
