@@ -66,6 +66,8 @@ We implement a number of distributed layers based on the actual layers and the p
      - Distributed pooling layers.
    * - :ref:`code_reference/nn/linear:Linear Layer`
      - Distributed linear layer.
+   * - :ref:`code_reference/nn/upsampling:Upsample Layer`
+     - Distributed upsampling layer.
 
 Additional Sequential Layers
 ============================
@@ -77,6 +79,9 @@ We implement some useful sequential modules.
    :width: 100%
    :header-rows: 0
    :align: left
+
+   * - :ref:`code_reference/nn/interpolate:Interpolate Layer`
+     - N-dimensional, interpolation.
 
    * - :ref:`code_reference/nn/padding:Padding Layer`
      - N-dimensional, unbalanced padding.

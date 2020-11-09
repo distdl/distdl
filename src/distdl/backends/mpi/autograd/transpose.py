@@ -208,7 +208,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        r"""Forward function of distributed transpose layer.
+        r"""Adjoint function of distributed transpose layer.
 
         This method implements the adjoint of the Jacobian of the transpose
         operation using MPI immediate-mode, non-blocking communication.

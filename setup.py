@@ -16,6 +16,7 @@ from os.path import splitext
 from setuptools import Extension
 from setuptools import find_packages
 from setuptools import setup
+from torch.utils import cpp_extension
 
 
 def read(*names, **kwargs):
@@ -31,6 +32,55 @@ def read(*names, **kwargs):
 # deps have been safely installed).
 if 'TOXENV' in os.environ and 'SETUPPY_CFLAGS' in os.environ:
     os.environ['CFLAGS'] = os.environ['SETUPPY_CFLAGS']
+
+# Default extensions
+default_extensions = [
+        Extension(
+            splitext(relpath(path, 'src').replace(os.sep, '.'))[0],
+            sources=[path],
+            include_dirs=[dirname(path)]
+        )
+        for root, _, _ in os.walk('src')
+        for path in glob(join(root, '*.c'))
+    ]
+
+torch_extensions = []
+
+default_extension_args_cpu = dict()
+default_extension_args_cpu["extra_compile_args"] = ["-Ofast",
+                                                    "-march=native",
+                                                    "-fopenmp"]
+# See: https://github.com/suphoff/pytorch_parallel_extension_cpp
+default_extension_args_cpu["extra_compile_args"] += ["-DAT_PARALLEL_OPENMP"]
+default_extension_args_cpu["extra_link_args"] = ["-lgomp"]
+
+
+def build_cpu_extension(name, src_files=None):
+
+    path_parts = name.split('.')
+
+    base_path = os.path.join("src", *path_parts)
+    src_path = os.path.join(base_path, "src")
+    incl_path = os.path.join(base_path, "include")
+
+    ext_args = dict()
+    ext_args.update(default_extension_args_cpu)
+
+    ext_name = f"{name}._cpp"
+
+    if src_files is None:
+        src_files = [f for f in os.listdir(src_path) if f.endswith(".cpp")]
+
+    ext_args["sources"] = [os.path.join(src_path, f) for f in src_files]
+    ext_args["include_dirs"] = [incl_path]
+
+    extension = cpp_extension.CppExtension(ext_name, **ext_args)
+
+    return extension
+
+
+# Interpolation
+torch_extensions.append(build_cpu_extension("distdl.functional.interpolate"))
 
 setup(
     name='distdl',
@@ -90,13 +140,6 @@ setup(
         #   'rst': ['docutils>=0.11'],
         #   ':python_version=="2.6"': ['argparse'],
     },
-    ext_modules=[
-        Extension(
-            splitext(relpath(path, 'src').replace(os.sep, '.'))[0],
-            sources=[path],
-            include_dirs=[dirname(path)]
-        )
-        for root, _, _ in os.walk('src')
-        for path in glob(join(root, '*.c'))
-    ],
+    ext_modules=torch_extensions,
+    cmdclass={'build_ext': cpp_extension.BuildExtension},
 )
