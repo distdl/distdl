@@ -7,6 +7,14 @@
 
 #include <tuple>
 
+// Implementation of interpolation interfaces, inspired by the
+// PyTorch/ATen implementation in:
+//     pytorch/aten/src/ATen/native/UpSample.h
+// This is generally a re-implementation under slightly different assumptions.
+// Consequently, for license compatibility, this file is licensed under the
+// PyTorch license (found in distdl_root/other_licenses/PYTORCH_LICENSE)
+// and not the standard DISTDL license.
+
 void constant_interpolation_fwd_kernel_dispatch(
     at::Tensor& output,
     const at::Tensor& input,

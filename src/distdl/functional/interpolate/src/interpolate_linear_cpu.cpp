@@ -7,6 +7,14 @@
 
 #include "interpolate.h"
 
+// Implementation of linear interpolation, inspired by the
+// PyTorch/ATen implementation in:
+//     pytorch/aten/src/ATen/native/cpu/UpSampleMoreKernel.cpp
+// This is generally a re-implementation under slightly different assumptions.
+// Consequently, for license compatibility, this file is licensed under the
+// PyTorch license (found in distdl_root/other_licenses/PYTORCH_LICENSE)
+// and not the standard DISTDL license.
+
 template <typename scalar_t>
 void linear_interpolation_fwd_kernel_cpu(
     at::Tensor& output_,

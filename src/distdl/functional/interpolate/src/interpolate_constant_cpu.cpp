@@ -7,6 +7,14 @@
 
 #include "interpolate.h"
 
+// Implementation of nearest-left neighbor interpolation, inspired by the
+// PyTorch/ATen implementation in:
+//     pytorch/aten/src/ATen/native/cpu/UpSampleKernel.cpp
+// This is generally a re-implementation under slightly different assumptions.
+// Consequently, for license compatibility, this file is licensed under the
+// PyTorch license (found in distdl_root/other_licenses/PYTORCH_LICENSE)
+// and not the standard DISTDL license.
+
 template <typename scalar_t>
 void constant_interpolation_fwd_kernel_cpu(
     at::Tensor& output_,
@@ -384,19 +392,13 @@ void constant_interpolation_adj_kernel_cpu(
     };
 
     if (ndim == 3) {
-        // int64_t output_slice_size = o_nx0;
-        // at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE / output_slice_size / 2, loop_1d);
         at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE, loop_1d);
     }
     else if (ndim == 4) {
-        // int64_t output_slice_size = o_nx1 * o_nx0;
-        // at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE / output_slice_size / 4, loop_2d);
         at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE, loop_2d);
     }
     else {
         TORCH_INTERNAL_ASSERT(ndim == 5);
-        // int64_t output_slice_size = o_nx2 * o_nx1 * o_nx0;
-        // at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE / output_slice_size / 4, loop_2d);
         at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE, loop_3d);
     }
 
