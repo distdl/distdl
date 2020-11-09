@@ -25,9 +25,9 @@ class Interpolate(torch.nn.Module):
         self.y_local_stop = torch.Size(torch.as_tensor(y_local_stop).squeeze())
         self.y_global_shape = torch.Size(torch.as_tensor(y_global_shape).squeeze())
 
-        self.kernel_args = (self.x_local_start, self.x_local_stop, self.x_global_shape,
-                            self.y_local_start, self.y_local_stop, self.y_global_shape)
-
     def forward(self, input):
 
-        return InterpolateFunction.apply(input, self.scale_factor, self.mode, self.align_corners, *self.kernel_args)
+        return InterpolateFunction.apply(input,
+                                         self.scale_factor, self.mode, self.align_corners,
+                                         self.x_local_start, self.x_local_stop, self.x_global_shape,
+                                         self.y_local_start, self.y_local_stop, self.y_global_shape)

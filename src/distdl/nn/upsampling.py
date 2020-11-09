@@ -34,6 +34,8 @@ class DistributedUpsample(Module, InterpolateMixin):
 
     There are no learnable parameters.
 
+    Upsampling occurs over feature dimensions only.
+
     Parameters
     ----------
     P_x :
@@ -144,8 +146,8 @@ class DistributedUpsample(Module, InterpolateMixin):
         exchange_info = self._compute_exchange_info(self.P_x,
                                                     global_input_tensor_structure,
                                                     global_output_tensor_structure,
-                                                    self.mode,
                                                     self.scale_factor,
+                                                    self.mode,
                                                     self.align_corners)
         halo_shape = exchange_info[0]
         recv_buffer_shape = exchange_info[1]
@@ -167,7 +169,9 @@ class DistributedUpsample(Module, InterpolateMixin):
         self.needed_slices = assemble_slices(needed_ranges[:, 0],
                                              needed_ranges[:, 1])
 
-        # This needs to refactor with the mixin to be cleaner
+        # TODO #176: This block to compute the start and stop index of the
+        # post-halo exchanged input can be cleaned up, as it is a duplicate of
+        # calculation in the halo layer itself
         _slice = tuple([slice(i, i+1) for i in self.P_x.index] + [slice(None)])
 
         x_subtensor_shapes = compute_subtensor_shapes_balanced(global_input_tensor_structure,
@@ -186,18 +190,18 @@ class DistributedUpsample(Module, InterpolateMixin):
         y_start_index = torch.from_numpy(y_subtensor_start_indices[_slice].squeeze())
         y_stop_index = torch.from_numpy(y_subtensor_stop_indices[_slice].squeeze())
 
-        x_start_index = self._compute_needed_start(self.mode,
-                                                   y_start_index,
-                                                   global_output_tensor_structure.shape,
+        x_start_index = self._compute_needed_start(y_start_index,
                                                    global_input_tensor_structure.shape,
+                                                   global_output_tensor_structure.shape,
                                                    self.scale_factor,
+                                                   self.mode,
                                                    self.align_corners)
 
-        x_stop_index = self._compute_needed_stop(self.mode,
-                                                 y_stop_index-1,
-                                                 global_output_tensor_structure.shape,
+        x_stop_index = self._compute_needed_stop(y_stop_index-1,
                                                  global_input_tensor_structure.shape,
+                                                 global_output_tensor_structure.shape,
                                                  self.scale_factor,
+                                                 self.mode,
                                                  self.align_corners)
 
         self.interp_layer = Interpolate(x_start_index, x_stop_index, global_input_tensor_structure.shape,

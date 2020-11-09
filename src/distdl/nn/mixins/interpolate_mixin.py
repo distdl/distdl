@@ -7,14 +7,14 @@ from distdl.utilities.tensor_decomposition import compute_subtensor_stop_indices
 
 
 class InterpolateMixin:
-    r"""A mixin providing general support for distributed convolution layers.
+    r"""A mixin providing general support for distributed layers using
+    Interpolation.
 
     """
 
-    def _compute_needed_start(self, mode,
-                              y_global_idx, y_global_shape, x_global_shape,
-                              scale_factor,
-                              align_corners):
+    def _compute_needed_start(self, y_global_idx,
+                              x_global_shape, y_global_shape,
+                              scale_factor, mode, align_corners):
 
         # Finds the start index required to get to y_global_idx
 
@@ -55,10 +55,9 @@ class InterpolateMixin:
 
         return idx
 
-    def _compute_needed_stop(self, mode,
-                             y_global_idx, y_global_shape, x_global_shape,
-                             scale_factor,
-                             align_corners):
+    def _compute_needed_stop(self, y_global_idx,
+                             x_global_shape, y_global_shape,
+                             scale_factor, mode, align_corners):
 
         # Finds the stop index required to get to y_global_idx
 
@@ -102,25 +101,26 @@ class InterpolateMixin:
 
         return idx
 
-    def _compute_halo_shape(self, y_local_start, y_local_stop, y_global_shape,
+    def _compute_halo_shape(self,
                             x_local_start, x_local_stop, x_global_shape,
-                            mode, scale_factor, align_corners,
+                            y_local_start, y_local_stop, y_global_shape,
+                            scale_factor, mode, align_corners,
                             require_nonnegative=True):
 
-        x_local_start_needed = self._compute_needed_start(mode,
-                                                          y_local_start,
-                                                          y_global_shape,
+        x_local_start_needed = self._compute_needed_start(y_local_start,
                                                           x_global_shape,
+                                                          y_global_shape,
                                                           scale_factor,
+                                                          mode,
                                                           align_corners)
         x_local_start_needed = np.maximum(np.zeros_like(x_global_shape),
                                           x_local_start_needed)
 
-        x_local_stop_needed = self._compute_needed_stop(mode,
-                                                        y_local_stop - 1,
-                                                        y_global_shape,
+        x_local_stop_needed = self._compute_needed_stop(y_local_stop - 1,
                                                         x_global_shape,
+                                                        y_global_shape,
                                                         scale_factor,
+                                                        mode,
                                                         align_corners)
         x_local_stop_needed = np.minimum(x_global_shape,
                                          x_local_stop_needed)
@@ -152,8 +152,9 @@ class InterpolateMixin:
 
         return ranges
 
-    def _compute_exchange_info(self, P_x, x_global_tensor_structure, y_global_tensor_structure,
-                               mode, scale_factor, align_corners):
+    def _compute_exchange_info(self, P_x,
+                               x_global_tensor_structure, y_global_tensor_structure,
+                               scale_factor, mode, align_corners):
 
         if not P_x.active:
             return None, None, None, None
@@ -179,9 +180,9 @@ class InterpolateMixin:
             _y_start_index = torch.from_numpy(y_subtensor_start_indices[_slice].squeeze())
             _y_stop_index = torch.from_numpy(y_subtensor_stop_indices[_slice].squeeze())
 
-            args = (_y_start_index, _y_stop_index, y_global_tensor_structure.shape,
-                    _x_start_index, _x_stop_index, x_global_tensor_structure.shape,
-                    mode, scale_factor, align_corners, require_nonnegative)
+            args = (_x_start_index, _x_stop_index, x_global_tensor_structure.shape,
+                    _y_start_index, _y_stop_index, y_global_tensor_structure.shape,
+                    scale_factor, mode, align_corners, require_nonnegative)
 
             return args
 
