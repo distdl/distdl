@@ -81,7 +81,10 @@ static inline int64_t compute_nearest_left_idx_weight(
     const int64_t& g_i_length){
 
     scalar_t fac = static_cast<scalar_t>(g_i_length) / static_cast<scalar_t>(g_o_length);
+
+    // Compute the nearest-left neighbor using hte offset index provided.
     int64_t idx = static_cast<int64_t>(floorf(fac*(l_o_offset + l_o_idx) - l_i_offset));
+
     idx = clamp_idx_to_range(idx, 0, l_i_length-1);
 
     // Don't actually return the weight, it is 1.
@@ -102,6 +105,8 @@ static inline std::tuple<int64_t, scalar_t, int64_t, scalar_t> compute_linear_id
     bool align_corners){
 
     // align corners changes from "counting (open ended) fence rails" to "counting fence posts"
+    // Follow ATen, if there is a given scale factor, use that rather then the
+    // true scale factor found using the discrete feature sizes.
     scalar_t fac = align_corners ?
                        static_cast<scalar_t>(g_i_length-1) / static_cast<scalar_t>(g_o_length-1) :
                        (scale_factor > 0 ?

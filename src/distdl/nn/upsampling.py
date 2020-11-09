@@ -19,6 +19,9 @@ class DistributedUpsample(Module, InterpolateMixin):
     layer, where the input (and output) tensors are partitioned in arbitrary
     dimensions.
 
+    This class produces identical (to floating-point error) output as its
+    sequential PyTorch counterpart, `torch.nn.Upsample`.
+
     The base unit of work is given by the input/output tensor partition.  This
     class requires the following of the tensor partitions:
 
@@ -40,6 +43,17 @@ class DistributedUpsample(Module, InterpolateMixin):
     ----------
     P_x :
         Partition of input tensor.
+    buffer_manager : optional
+        External manager for communication buffers
+    size : optional
+        Desired output size.  Only one of `size` and `scale_factor` may be set.
+    scale_factor : optional
+        Scale-factor representing a specific scaling used to obtain
+        the relationship between global input and output tensors.
+    mode : string
+        Interpolation mode.
+    align_corners : bool
+        Analogous to PyTorch UpSample's `align_corner` flag.
 
     """
 

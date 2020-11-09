@@ -15,12 +15,43 @@ class InterpolateMixin:
     def _compute_needed_start(self, y_global_idx,
                               x_global_shape, y_global_shape,
                               scale_factor, mode, align_corners):
+        r"""Finds the start index, in global input coordinates, required
+        to compute the specified output index, in global output coordinates.
 
-        # Finds the start index required to get to y_global_idx
+        Here, "start" means the same as the start of a Python `Slice`.
+
+        Parameters
+        ----------
+        y_global_idx : iterable
+            Global output index to process.
+        x_global_shape : iterable
+            Size of the global input tensor that the source subtensor is embedded in.
+        y_global_shape : iterable
+            Size of the global input tensor that the destination subtensor is embedded in.
+        scale_factor :
+            Scale-factor representing a specific scaling used to obtain
+            the relationship between `x_global_shape` and `y_global_shape`.  Used
+            to match PyTorch UpSample behavior in the event that the specified
+            scale factor does not produce an integer scaling between the source
+            and destination tensors.
+        mode : string
+            Interpolation mode.
+        align_corners : bool
+            Analogous to PyTorch UpSample's `align_corner` flag.
+
+        Returns
+        -------
+        output :
+            "Start" output index tensor.
+
+        """
 
         y_global_idx = torch.as_tensor(y_global_idx)
         y_global_shape = torch.as_tensor(y_global_shape).to(torch.float64)
         x_global_shape = torch.as_tensor(x_global_shape).to(torch.float64)
+
+        # These calculations follow those in
+        # src/distdl/functional/interpolate/src/interpolate.h
 
         if mode == "nearest":
 
@@ -37,7 +68,7 @@ class InterpolateMixin:
                 fac[2:] = (x_global_shape[2:] - 1) / (y_global_shape[2:] - 1)
                 idx = torch.floor(fac*(y_global_idx))
             else:
-                # This calculation should match exactly interpolaate.h and the
+                # This calculation should match exactly interpolate.h and the
                 # ATen interpolation code.
                 if scale_factor is not None:
                     fac[2:] = 1.0 / scale_factor
@@ -58,14 +89,45 @@ class InterpolateMixin:
     def _compute_needed_stop(self, y_global_idx,
                              x_global_shape, y_global_shape,
                              scale_factor, mode, align_corners):
+        r"""Finds the stop index, in global input coordinates, required
+        to compute the specified output index, in global output coordinates.
 
-        # Finds the stop index required to get to y_global_idx
+        Here, "stop" means the same as the stop of a Python `Slice`.
+
+        Parameters
+        ----------
+        y_global_idx : iterable
+            Global output index to process.
+        x_global_shape : iterable
+            Size of the global input tensor that the source subtensor is embedded in.
+        y_global_shape : iterable
+            Size of the global input tensor that the destination subtensor is embedded in.
+        scale_factor :
+            Scale-factor representing a specific scaling used to obtain
+            the relationship between `x_global_shape` and `y_global_shape`.  Used
+            to match PyTorch UpSample behavior in the event that the specified
+            scale factor does not produce an integer scaling between the source
+            and destination tensors.
+        mode : string
+            Interpolation mode.
+        align_corners : bool
+            Analogous to PyTorch UpSample's `align_corner` flag.
+
+        Returns
+        -------
+        output :
+            "Stop" output index tensor.
+
+        """
 
         y_global_idx = torch.as_tensor(y_global_idx)
         y_global_shape = torch.as_tensor(y_global_shape).to(torch.float64)
         x_global_shape = torch.as_tensor(x_global_shape).to(torch.float64)
 
-        if mode == "nearest" or mode == "constant":
+        # These calculations follow those in
+        # src/distdl/functional/interpolate/src/interpolate.h
+
+        if mode == "nearest":
 
             fac = torch.ones_like(x_global_shape)
             fac[2:] = x_global_shape[2:] / y_global_shape[2:]
@@ -80,7 +142,7 @@ class InterpolateMixin:
                 fac[2:] = (x_global_shape[2:] - 1) / (y_global_shape[2:] - 1)
                 idx = torch.floor(fac*(y_global_idx))
             else:
-                # This calculation should match exactly interpolaate.h and the
+                # This calculation should match exactly interpolate.h and the
                 # ATen interpolation code.
                 if scale_factor is not None:
                     fac[2:] = 1.0 / scale_factor
@@ -106,6 +168,41 @@ class InterpolateMixin:
                             y_local_start, y_local_stop, y_global_shape,
                             scale_factor, mode, align_corners,
                             require_nonnegative=True):
+        r"""Compute the halo shape required to map a given outbut subtensor to
+        a given input tensor.
+
+        Parameters
+        ----------
+        x_local_start : torch.Tensor
+            Starting index (e.g., `start` in a Python slice) of the source subtensor.
+        x_local_stop : torch.Tensor
+            Stopping index (e.g., `stop` in a Python slice) of the source subtensor.
+        x_global_shape : torch.Tensor
+            Size of the global input tensor that the source subtensor is embedded in.
+        y_local_start : torch.Tensor
+            Starting index (e.g., `start` in a Python slice) of the destination subtensor.
+        y_local_stop : torch.Tensor
+            Stopping index (e.g., `stop` in a Python slice) of the destination subtensor.
+        y_global_shape : torch.Tensor
+            Size of the global input tensor that the destination subtensor is embedded in.
+        scale_factor :
+            Scale-factor representing a specific scaling used to obtain
+            the relationship between `x_global_shape` and `y_global_shape`.  Used
+            to match PyTorch UpSample behavior in the event that the specified
+            scale factor does not produce an integer scaling between the source
+            and destination tensors.
+        mode : string
+            Interpolation mode.
+        align_corners : bool
+            Analogous to PyTorch UpSample's `align_corner` flag.
+        require_nonnegative: bool, optional
+            Do not report negative halos.
+
+        Returns
+        -------
+        output :
+            Output tensor of halo sizes.
+        """
 
         x_local_start_needed = self._compute_needed_start(y_local_start,
                                                           x_global_shape,
@@ -139,6 +236,24 @@ class InterpolateMixin:
         return halo_sizes
 
     def _compute_needed_ranges(self, tensor_shape, halo_shape):
+        r"""Determine the range of data (including halos) required to perform
+        the required computation.
+
+        This provides a range of indices allowing, e.g., negative halos to be
+        removed.
+
+        Parameters
+        ----------
+        tensor_shape :
+            Shape of the tensor in question, including halos.
+        halo_shape :
+            Shape of the halos in all dimensions.
+
+        Returns
+        -------
+        output :
+            Range of valid entries in the input tensor.
+        """
 
         ranges = np.zeros_like(halo_shape)
 
@@ -155,6 +270,33 @@ class InterpolateMixin:
     def _compute_exchange_info(self, P_x,
                                x_global_tensor_structure, y_global_tensor_structure,
                                scale_factor, mode, align_corners):
+        r"""Compute any informationr required for a halo exchange.
+
+        Parameters
+        ----------
+        P_x :
+            Partition of input tensor.
+        x_global_tensor_structure : distdl.torch.TensorStructure()
+            Basic structure of the global input tensor.
+        y_global_tensor_structure : torch.Tensor
+            Basic structure of the global output tensor.
+        scale_factor :
+            Scale-factor representing a specific scaling used to obtain the
+            relationship between the input global shape and the output global
+            shape.  Used to match PyTorch UpSample behavior in the event that
+            the specified scale factor does not produce an integer scaling
+            between the source and destination tensors.
+        mode : string
+            Interpolation mode.
+        align_corners : bool
+            Analogous to PyTorch UpSample's `align_corner` flag.
+
+        Returns
+        -------
+        output :
+            The shape of the halo, receive and send buffers, and the required
+            range of the input.
+        """
 
         if not P_x.active:
             return None, None, None, None

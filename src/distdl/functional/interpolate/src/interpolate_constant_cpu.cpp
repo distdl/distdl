@@ -181,19 +181,13 @@ void constant_interpolation_fwd_kernel_cpu(
     };
 
     if (ndim == 3) {
-        // int64_t output_slice_size = o_nx0;
-        // at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE / output_slice_size / 2, loop_1d);
         at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE, loop_1d);
     }
     else if (ndim == 4) {
-        // int64_t output_slice_size = o_nx1 * o_nx0;
-        // at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE / output_slice_size / 4, loop_2d);
         at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE, loop_2d);
     }
     else {
         TORCH_INTERNAL_ASSERT(ndim == 5);
-        // int64_t output_slice_size = o_nx2 * o_nx1 * o_nx0;
-        // at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE / output_slice_size / 4, loop_2d);
         at::parallel_for(0, i_nb*i_nc, at::internal::GRAIN_SIZE, loop_3d);
     }
 
@@ -214,7 +208,8 @@ void constant_interpolation_fwd_kernel_dispatch(
     ) {
 
     // align_corners is irrelevant for constant/nearest-left neighbor, but
-    // necessary to preserve congruency of the interfaces
+    // necessary to preserve congruency of the interfaces.  Same for
+    // scale_factor.
 
     AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "constant_interpolation_fwd", ([&]{
         constant_interpolation_fwd_kernel_cpu<scalar_t>(output,
@@ -419,7 +414,8 @@ void constant_interpolation_adj_kernel_dispatch(
     ) {
 
     // align_corners is irrelevant for constant/nearest-left neighbor, but
-    // necessary to preserve congruency of the interfaces
+    // necessary to preserve congruency of the interfaces.  Same for
+    // scale_factor.
 
     AT_DISPATCH_FLOATING_TYPES(grad_output.scalar_type(), "constant_interpolation_adj", ([&]{
         constant_interpolation_adj_kernel_cpu<scalar_t>(grad_input,

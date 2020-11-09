@@ -14,6 +14,7 @@ from .conv_general import DistributedGeneralConv1d  # noqa: F401
 from .conv_general import DistributedGeneralConv2d  # noqa: F401
 from .conv_general import DistributedGeneralConv3d  # noqa: F401
 from .halo_exchange import HaloExchange  # noqa: F401
+from .interpolate import Interpolate  # noqa: F401
 from .linear import DistributedLinear  # noqa: F401
 from .module import Module  # noqa: F401
 from .padnd import PadNd  # noqa: F401
@@ -26,6 +27,7 @@ from .pooling import DistributedMaxPool3d  # noqa: F401
 from .sum_reduce import SumReduce  # noqa: F401
 from .transpose import DistributedTranspose  # noqa: F401
 from .unpadnd import UnpadNd  # noqa: F401
+from .upsampling import DistributedUpsample  # noqa: F401
 
 __all__ = ["Broadcast",
            "DistributedBatchNorm",
@@ -54,4 +56,6 @@ __all__ = ["Broadcast",
            "DistributedMaxPool3d",
            "SumReduce",
            "DistributedTranspose",
+           "Interpolate",
+           "DistributedUpsample",
            ]
