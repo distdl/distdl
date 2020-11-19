@@ -14,7 +14,8 @@ class HaloMixin:
                                dilation,
                                partition_active,
                                partition_shape,
-                               partition_index):
+                               partition_index,
+                               subtensor_shapes=None):
 
         if not partition_active:
             return None, None, None, None
@@ -53,40 +54,46 @@ class HaloMixin:
                                               kernel_size,
                                               stride,
                                               padding,
-                                              dilation)
+                                              dilation,
+                                              subtensor_shapes=subtensor_shapes)
 
         recv_buffer_shape = halo_shape.copy()
 
-        send_buffer_shape = np.zeros_like(halo_shape)
+        send_buffer_shape = np.zeros_like(halo_shape, dtype=int)
 
         for i in range(dim):
             lindex = [x - 1 if j == i else x for j, x in enumerate(partition_index)]
-            nhalo = self._compute_halo_shape(partition_shape,
-                                             lindex,
-                                             x_global_shape,
-                                             kernel_size,
-                                             stride,
-                                             padding,
-                                             dilation)
             # If I have a left neighbor, my left send buffer size is my left
             # neighbor's right halo size
-            if(lindex[i] > -1):
+            if lindex[i] > -1:
+                nhalo = self._compute_halo_shape(partition_shape,
+                                                 lindex,
+                                                 x_global_shape,
+                                                 kernel_size,
+                                                 stride,
+                                                 padding,
+                                                 dilation,
+                                                 subtensor_shapes=subtensor_shapes)
                 send_buffer_shape[i, 0] = nhalo[i, 1]
 
             rindex = [x + 1 if j == i else x for j, x in enumerate(partition_index)]
-            nhalo = self._compute_halo_shape(partition_shape,
-                                             rindex,
-                                             x_global_shape,
-                                             kernel_size,
-                                             stride,
-                                             padding,
-                                             dilation)
             # If I have a right neighbor, my right send buffer size is my right
             # neighbor's left halo size
-            if(rindex[i] < partition_shape[i]):
+            if rindex[i] < partition_shape[i]:
+                nhalo = self._compute_halo_shape(partition_shape,
+                                                 rindex,
+                                                 x_global_shape,
+                                                 kernel_size,
+                                                 stride,
+                                                 padding,
+                                                 dilation,
+                                                 subtensor_shapes=subtensor_shapes)
                 send_buffer_shape[i, 1] = nhalo[i, 0]
 
-        x_local_shape = compute_subshape(partition_shape, partition_index, x_global_shape)
+        if subtensor_shapes is not None:
+            x_local_shape = subtensor_shapes[tuple(partition_index)]
+        else:
+            x_local_shape = compute_subshape(partition_shape, partition_index, x_global_shape)
         halo_shape_with_negatives = self._compute_halo_shape(partition_shape,
                                                              partition_index,
                                                              x_global_shape,
@@ -94,7 +101,8 @@ class HaloMixin:
                                                              stride,
                                                              padding,
                                                              dilation,
-                                                             require_nonnegative=False)
+                                                             require_nonnegative=False,
+                                                             subtensor_shapes=subtensor_shapes)
         needed_ranges = self._compute_needed_ranges(x_local_shape, halo_shape_with_negatives)
 
         halo_shape = halo_shape.astype(int)
@@ -102,9 +110,22 @@ class HaloMixin:
 
         return halo_shape, recv_buffer_shape, send_buffer_shape, needed_ranges
 
+    def _compute_local_start_index(self,
+                                   index,
+                                   subtensor_shapes,
+                                   x_local_shape):
+
+        x_local_start_index = np.zeros_like(x_local_shape, dtype=np.int)
+        dims = len(x_local_shape)
+        for dim in range(dims):
+            for i in range(index[dim]):
+                idx = tuple(i if j == dim else 0 for j in range(dims))
+                x_local_start_index[dim] += subtensor_shapes[idx][dim]
+        return x_local_start_index
+
     def _compute_needed_ranges(self, tensor_shape, halo_shape):
 
-        ranges = np.zeros_like(halo_shape)
+        ranges = np.zeros_like(halo_shape, dtype=int)
 
         # If we have a negative halo on the left, we want to not pass that
         # data to the torch layer
@@ -114,6 +135,7 @@ class HaloMixin:
         # and the last maximum is so that we dont shorten the stop (keeps the
         # parallel and sequential behavior exactly the same, but I dont think
         # it is strictly necessary)
+        # TODO: Change this to correctly handle negative right halos.
         ranges[:, 1] = tensor_shape[:] + np.maximum(0, halo_shape[:, 0]) + np.maximum(0, halo_shape[:, 1])
 
         return ranges
@@ -131,12 +153,20 @@ class HaloMixin:
                             stride,
                             padding,
                             dilation,
-                            require_nonnegative=True):
+                            require_nonnegative=True,
+                            subtensor_shapes=None):
 
         x_global_shape = np.asarray(x_global_shape)
 
-        x_local_shape = compute_subshape(shape, index, x_global_shape)
-        x_local_start_index = compute_start_index(shape, index, x_global_shape)
+        # If subtensor_shapes is not None, then we cannot assume the input is balanced.
+        if subtensor_shapes is not None:
+            x_local_shape = subtensor_shapes[tuple(index)]
+            x_local_start_index = self._compute_local_start_index(index,
+                                                                  subtensor_shapes,
+                                                                  x_local_shape)
+        else:
+            x_local_shape = compute_subshape(shape, index, x_global_shape)
+            x_local_start_index = compute_start_index(shape, index, x_global_shape)
 
         # formula from pytorch docs for maxpool
         y_global_shape = self._compute_out_shape(x_global_shape, kernel_size,
