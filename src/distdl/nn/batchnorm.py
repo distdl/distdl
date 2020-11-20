@@ -90,6 +90,7 @@ class DistributedBatchNorm(Module):
 
         self.sr = SumReduce(P_x, self.P_sum)
         self.bc = Broadcast(self.P_sum, P_x)
+        self.bc_affine = Broadcast(self.P_sum, P_x)
 
         if self.affine:
             if self.P_sum.active:
@@ -225,8 +226,8 @@ class DistributedBatchNorm(Module):
 
         # scale and shift
         if self.affine:
-            gamma = self.bc(self.gamma)
-            beta = self.bc(self.beta)
+            gamma = self.bc_affine(self.gamma)
+            beta = self.bc_affine(self.beta)
             x = gamma * x + beta
 
         return x
