@@ -24,3 +24,13 @@ Changelog
 * Added pre-forward hooks so that communication buffers are only allocated
   when the shape of the input tensor changes.
 * Improved general consistency of layer structure and member names.
+
+0.3.0 (2020-12-01)
+------------------
+* Corrected use of dtype in internal buffers.
+* Cleaned up partition API.
+* Fixed a bug where MPI resources were not released.
+* Removed assumption that transpose requires load-balanced input.
+* Added smarter buffer re-use.
+* Added distributed batch normalization layer.
+* Added distributed upsampling interpolation layer.
