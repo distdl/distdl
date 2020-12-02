@@ -35,4 +35,4 @@ jobs:
     - name: Build docs
       run: |
         tox -v -e docs
-        
+

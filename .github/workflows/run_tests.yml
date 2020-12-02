@@ -42,7 +42,7 @@ jobs:
         python --version
         uname -a
         lsb_release -a || true
-        bash ci/travis-ci/install-mpi.sh ${{ matrix.mpi }}
+        bash ci/mpi/install-mpi.sh ${{ matrix.mpi }}
         if [[ ${{ matrix.mpi }} == "mpich"   ]]; then mpichversion; fi
     - name: Install installer dependencies
       run: |
