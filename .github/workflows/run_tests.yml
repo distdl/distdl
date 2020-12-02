@@ -1,0 +1,55 @@
+# This workflow is based on the old travis-ci configuration and built from a github actions workflow template.
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Install Package and Run Tests
+
+on:
+  pull_request:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    env:
+      LD_PRELOAD: /lib/x86_64-linux-gnu/libSegFault.so
+      SEGFAULT_SIGNALS: all
+      HYDRA_LAUNCHER: fork
+      OMPI_MCA_plm: isolated
+      OMPI_MCA_rmaps_base_oversubscribe: true
+      NP: 20
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.7', '3.8']
+        mpi: ['mpich']
+        include:
+          - python-version: '3.6'
+            toxenv: py36
+          - python-version: '3.7'
+            toxenv: py37
+          - python-version: '3.8'
+            toxenv: py38
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install MPI (${{ matrix.mpi }})
+      run: |
+        python --version
+        uname -a
+        lsb_release -a || true
+        bash ci/mpi/install-mpi.sh ${{ matrix.mpi }}
+        if [[ ${{ matrix.mpi }} == "mpich"   ]]; then mpichversion; fi
+    - name: Install installer dependencies
+      run: |
+        python -mpip install --progress-bar=off tox -rci/requirements.txt
+        virtualenv --version
+        pip --version
+        tox --version
+    - name: Install DistDL and run tests
+      run: |
+        tox -v -e ${{ matrix.toxenv }}
