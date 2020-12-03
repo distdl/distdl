@@ -18,7 +18,7 @@ Overview
     :target: https://readthedocs.org/projects/distdl
     :alt: Documentation Status
 
-.. |ci| image:: https://github.com/distdl/distdl/workflows/Install%20Package%20and%20Run%20Tests/badge.svg
+.. |ci| image:: https://github.com/distdl/distdl/workflows/package%20tests/badge.svg
     :alt: DistDL Github Actions build status
     :target: https://github.com/distdl/distdl/actions
 
