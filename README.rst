@@ -10,13 +10,17 @@ Overview
     * - docs
       - |docs|
     * - tests
-      - | |travis| |codecov|
+      - | |ci| |codecov|
     * - package
       - | |version| |supported-implementations|
 
 .. |docs| image:: https://readthedocs.org/projects/distdl/badge/?style=flat
     :target: https://readthedocs.org/projects/distdl
     :alt: Documentation Status
+
+.. |ci| image:: https://github.com/distdl/distdl/workflows/Install%20Package%20and%20Run%20Tests/badge.svg
+    :alt: DistDL Github Actions build status
+    :target: https://github.com/distdl/distdl/actions
 
 .. |travis| image:: https://api.travis-ci.com/distdl/distdl.svg?branch=master
     :alt: Travis-CI Build Status
