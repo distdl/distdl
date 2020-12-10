@@ -78,6 +78,8 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
     # Convolution class for base unit of work.
     TorchConvType = None
+    # Number of dimensions of a feature
+    num_dimensions = None
 
     def __init__(self,
                  P_x,
@@ -107,15 +109,27 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         if not self.P_x.active:
             return
 
+        dims = len(self.P_x.shape)
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = self._expand_parameter(kernel_size)
+        self.stride = self._expand_parameter(stride)
+        self.padding = self._expand_parameter(padding)
+        self.padding_mode = padding_mode
+        self.dilation = self._expand_parameter(dilation)
+        self.groups = groups
+        self.bias = bias
+
         # Do this before checking serial so that the layer works properly
         # in the serial case
         self.conv_layer = self.TorchConvType(in_channels=in_channels,
                                              out_channels=out_channels,
-                                             kernel_size=kernel_size,
-                                             stride=stride,
+                                             kernel_size=self.kernel_size,
+                                             stride=self.stride,
                                              padding=0,
                                              padding_mode='zeros',
-                                             dilation=dilation,
+                                             dilation=self.dilation,
                                              groups=groups,
                                              bias=bias)
 
@@ -124,23 +138,10 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
             self.serial = True
             return
 
-        dims = len(self.P_x.shape)
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-        self.padding_mode = padding_mode
-        self.dilation = dilation
-        self.groups = groups
-        self.bias = bias
-
         # We will be using global padding to compute local padding,
         # so expand it to a numpy array
-        global_padding = np.atleast_1d(padding)
-        global_padding = np.pad(global_padding,
-                                pad_width=(dims-len(global_padding), 0),
+        global_padding = np.pad(self.padding,
+                                pad_width=(dims-len(self.padding), 0),
                                 mode='constant',
                                 constant_values=0)
         self.global_padding = global_padding
@@ -206,6 +207,18 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         self._distdl_is_setup = False
         self._input_tensor_structure = TensorStructure()
 
+    def _expand_parameter(self, param):
+        # If the given input is not of size num_dimensions, expand it so.
+        # If not possible, raise an exception.
+        param = np.atleast_1d(param)
+        if len(param) == 1:
+            param = np.ones(self.num_dimensions, dtype=int) * param[0]
+        elif len(param) == self.num_dimensions:
+            pass
+        else:
+            raise ValueError('Invalid parameter: ' + str(param))
+        return tuple(param)
+
     def _distdl_module_setup(self, input):
         r"""Distributed (feature) convolution module setup function.
 
@@ -251,7 +264,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         exchange_info = self._compute_exchange_info(x_global_shape_after_pad,
                                                     self.kernel_size,
                                                     self.stride,
-                                                    0,
+                                                    self._expand_parameter(0),
                                                     self.dilation,
                                                     self.P_x.active,
                                                     self.P_x.shape,
@@ -378,6 +391,7 @@ class DistributedFeatureConv1d(DistributedFeatureConvBase):
     """
 
     TorchConvType = torch.nn.Conv1d
+    num_dimensions = 1
 
 
 class DistributedFeatureConv2d(DistributedFeatureConvBase):
@@ -386,6 +400,7 @@ class DistributedFeatureConv2d(DistributedFeatureConvBase):
     """
 
     TorchConvType = torch.nn.Conv2d
+    num_dimensions = 2
 
 
 class DistributedFeatureConv3d(DistributedFeatureConvBase):
@@ -394,3 +409,4 @@ class DistributedFeatureConv3d(DistributedFeatureConvBase):
     """
 
     TorchConvType = torch.nn.Conv3d
+    num_dimensions = 3
