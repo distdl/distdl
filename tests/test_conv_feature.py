@@ -5,16 +5,16 @@ import pytest
 
 params = []
 
-# No stride, and ideal padding for kernel size
+# No stride, and ideal padding for kernel size with scalar inputs
 params.append(
     pytest.param(
         np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
         2,  # input_dimensions
         [1, 5, 10, 10],  # x_global_shape
-        [3, 3],  # kernel_size
-        [1, 1],  # padding
-        [1, 1],  # stride
-        [1, 1],  # dilation
+        3,  # kernel_size
+        1,  # padding
+        1,  # stride
+        1,  # dilation
         False,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
         id="no-stride-ideal-padding",
@@ -22,16 +22,16 @@ params.append(
         )
     )
 
-# Basic example with stride = 2 and ideal padding
+# Basic example with stride = 2 and ideal padding with scalar inputs
 params.append(
    pytest.param(
        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
        2,  # input_dimensions
        [1, 5, 10, 10],  # x_global_shape
-       [5, 5],  # kernel_size
-       [2, 2],  # padding
-       [2, 2],  # stride
-       [1, 1],  # dilation
+       5,  # kernel_size
+       2,  # padding
+       2,  # stride
+       1,  # dilation
        False,  # bias
        4,  # passed to comm_split_fixture, required MPI ranks
        id="stride-2-ideal-padding",
@@ -206,6 +206,23 @@ params.append(
         18,  # passed to comm_split_fixture, required MPI ranks
         id="hard-test",
         marks=[pytest.mark.mpi(min_size=18)]
+        )
+    )
+
+# Common conv layer for ResNet
+params.append(
+    pytest.param(
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
+        2,  # input_dimensions
+        [1, 5, 20, 20],  # x_global_shape
+        7,  # kernel_size
+        3,  # padding
+        2,  # stride
+        1,  # dilation
+        False,  # bias
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="common-resnet-test",
+        marks=[pytest.mark.mpi(min_size=4)]
         )
     )
 
