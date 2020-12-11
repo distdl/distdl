@@ -11,10 +11,6 @@ class PoolingMixin:
                                  dilation):
         r"""Compute left index required to apply a kernel at a given index.
 
-        .. warning::
-           This does not currently take padding and dilation into account.
-           Therefore, the padding values may not be correct in these cases.
-
         Parameters
         ----------
         idx :
@@ -35,8 +31,7 @@ class PoolingMixin:
 
         """
 
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + 0
+        return stride * idx - padding
 
     def _compute_max_input_range(self,
                                  idx,
@@ -45,10 +40,6 @@ class PoolingMixin:
                                  padding,
                                  dilation):
         r"""Compute right index required to apply a kernel at a given index.
-
-        .. warning::
-           This does not currently take padding and dilation into account.
-           Therefore, the padding values may not be correct in these cases.
 
         Parameters
         ----------
@@ -70,5 +61,4 @@ class PoolingMixin:
 
         """
 
-        # incorrect, does not take dilation and padding into account
-        return stride * idx + kernel_size - 1
+        return stride * idx + dilation * (kernel_size - 1) - padding
