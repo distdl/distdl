@@ -198,10 +198,6 @@ params.append(
        )
    )
 
-layer_type_params = []
-layer_type_params.append(pytest.param('max'))
-layer_type_params.append(pytest.param('avg'))
-
 
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "input_dimensions,"
@@ -213,17 +209,17 @@ layer_type_params.append(pytest.param('avg'))
                          "comm_split_fixture",
                          params,
                          indirect=["comm_split_fixture"])
-@pytest.mark.parametrize("layer_type", layer_type_params)
-def test_conv_versus_pytorch(barrier_fence_fixture,
-                             comm_split_fixture,
-                             P_x_ranks, P_x_shape,
-                             input_dimensions,
-                             x_global_shape,
-                             kernel_size,
-                             padding,
-                             stride,
-                             dilation,
-                             layer_type):
+@pytest.mark.parametrize("layer_type", ['max', 'avg'])
+def test_matches_sequential(barrier_fence_fixture,
+                            comm_split_fixture,
+                            P_x_ranks, P_x_shape,
+                            input_dimensions,
+                            x_global_shape,
+                            kernel_size,
+                            padding,
+                            stride,
+                            dilation,
+                            layer_type):
 
     import numpy as np
     import torch
