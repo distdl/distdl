@@ -223,20 +223,8 @@ def test_matches_sequential(barrier_fence_fixture,
 
     import numpy as np
     import torch
-    from torch.nn import AvgPool1d
-    from torch.nn import AvgPool2d
-    from torch.nn import AvgPool3d
-    from torch.nn import MaxPool1d
-    from torch.nn import MaxPool2d
-    from torch.nn import MaxPool3d
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.pooling import DistributedAvgPool1d
-    from distdl.nn.pooling import DistributedAvgPool2d
-    from distdl.nn.pooling import DistributedAvgPool3d
-    from distdl.nn.pooling import DistributedMaxPool1d
-    from distdl.nn.pooling import DistributedMaxPool2d
-    from distdl.nn.pooling import DistributedMaxPool3d
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -256,25 +244,31 @@ def test_matches_sequential(barrier_fence_fixture,
     # Create the layers
     if input_dimensions == 1:
         if layer_type == 'max':
-            dist_layer_type = DistributedMaxPool1d
-            seq_layer_type = MaxPool1d
+            from torch.nn import MaxPool1d as SequentialPoolType
+
+            from distdl.nn import DistributedMaxPool1d as DistributedPoolType
         else:
-            dist_layer_type = DistributedAvgPool1d
-            seq_layer_type = AvgPool1d
+            from torch.nn import AvgPool1d as SequentialPoolType
+
+            from distdl.nn import DistributedAvgPool1d as DistributedPoolType
     elif input_dimensions == 2:
         if layer_type == 'max':
-            dist_layer_type = DistributedMaxPool2d
-            seq_layer_type = MaxPool2d
+            from torch.nn import MaxPool2d as SequentialPoolType
+
+            from distdl.nn import DistributedMaxPool2d as DistributedPoolType
         else:
-            dist_layer_type = DistributedAvgPool2d
-            seq_layer_type = AvgPool2d
+            from torch.nn import AvgPool2d as SequentialPoolType
+
+            from distdl.nn import DistributedAvgPool2d as DistributedPoolType
     elif input_dimensions == 3:
         if layer_type == 'max':
-            dist_layer_type = DistributedMaxPool3d
-            seq_layer_type = MaxPool3d
+            from torch.nn import MaxPool3d as SequentialPoolType
+
+            from distdl.nn import DistributedMaxPool3d as DistributedPoolType
         else:
-            dist_layer_type = DistributedAvgPool3d
-            seq_layer_type = AvgPool3d
+            from torch.nn import AvgPool3d as SequentialPoolType
+
+            from distdl.nn import DistributedAvgPool3d as DistributedPoolType
 
     # PyTorch AvgPool doesn't support dilation, so skip the test if the combination comes up
     dilation_is_default = dilation == 1 or all(x == 1 for x in dilation)
@@ -282,22 +276,22 @@ def test_matches_sequential(barrier_fence_fixture,
         return
 
     scatter = DistributedTranspose(P_root, P_x)
-    dist_layer = dist_layer_type(P_x,
-                                 kernel_size=kernel_size,
-                                 padding=padding,
-                                 stride=stride,
-                                 dilation=dilation)
+    dist_layer = DistributedPoolType(P_x,
+                                     kernel_size=kernel_size,
+                                     padding=padding,
+                                     stride=stride,
+                                     dilation=dilation)
     gather = DistributedTranspose(P_x, P_root)
     if P_root.active:
         if layer_type == 'avg':
-            seq_layer = seq_layer_type(kernel_size=kernel_size,
-                                       padding=padding,
-                                       stride=stride)
+            seq_layer = SequentialPoolType(kernel_size=kernel_size,
+                                           padding=padding,
+                                           stride=stride)
         else:
-            seq_layer = seq_layer_type(kernel_size=kernel_size,
-                                       padding=padding,
-                                       stride=stride,
-                                       dilation=dilation)
+            seq_layer = SequentialPoolType(kernel_size=kernel_size,
+                                           padding=padding,
+                                           stride=stride,
+                                           dilation=dilation)
 
     # Create the input
     if P_root.active:
