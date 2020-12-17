@@ -293,11 +293,12 @@ class DistributedPoolBase(Module, HaloMixin, PoolingMixin):
         if total_padding.sum() == 0:
             input_padded = input
         else:
-            input_padded = F.pad(input, pad=torch_padding, mode='constant', value=0)
+            input_padded = F.pad(input, pad=torch_padding, mode='constant', value=self.default_pad_value)
 
         input_exchanged = self.halo_layer(input_padded)
         input_needed = input_exchanged[self.needed_slices]
         pool_output = self.pool_layer(input_needed)
+
         return pool_output
 
 
@@ -308,6 +309,7 @@ class DistributedAvgPool1d(DistributedPoolBase):
 
     TorchPoolType = torch.nn.AvgPool1d
     num_dimensions = 1
+    default_pad_value = 0
 
 
 class DistributedAvgPool2d(DistributedPoolBase):
@@ -317,6 +319,7 @@ class DistributedAvgPool2d(DistributedPoolBase):
 
     TorchPoolType = torch.nn.AvgPool2d
     num_dimensions = 2
+    default_pad_value = 0
 
 
 class DistributedAvgPool3d(DistributedPoolBase):
@@ -326,6 +329,7 @@ class DistributedAvgPool3d(DistributedPoolBase):
 
     TorchPoolType = torch.nn.AvgPool3d
     num_dimensions = 3
+    default_pad_value = 0
 
 
 class DistributedMaxPool1d(DistributedPoolBase):
@@ -336,6 +340,9 @@ class DistributedMaxPool1d(DistributedPoolBase):
     TorchPoolType = torch.nn.MaxPool1d
     num_dimensions = 1
 
+    # See https://github.com/pytorch/pytorch/issues/33384 for default `value`
+    default_pad_value = -float('inf')
+
 
 class DistributedMaxPool2d(DistributedPoolBase):
     r"""A feature-partitioned distributed 2d max pooling layer.
@@ -345,6 +352,9 @@ class DistributedMaxPool2d(DistributedPoolBase):
     TorchPoolType = torch.nn.MaxPool2d
     num_dimensions = 2
 
+    # See https://github.com/pytorch/pytorch/issues/33384 for default `value`
+    default_pad_value = -float('inf')
+
 
 class DistributedMaxPool3d(DistributedPoolBase):
     r"""A feature-partitioned distributed 3d max pooling layer.
@@ -353,3 +363,6 @@ class DistributedMaxPool3d(DistributedPoolBase):
 
     TorchPoolType = torch.nn.MaxPool3d
     num_dimensions = 3
+
+    # See https://github.com/pytorch/pytorch/issues/33384 for default `value`
+    default_pad_value = -float('inf')
