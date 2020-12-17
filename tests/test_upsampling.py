@@ -347,6 +347,8 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
     x_ref.requires_grad = True
     dy_ref = zero_volume_tensor()
 
+    # Construct the inputs to the forward and backward functions as well as the
+    # the outputs of the sequential layer
     if P_0.active:
         x_ref = torch.randn(*x_global_shape)
         x_ref.requires_grad = True
@@ -358,17 +360,21 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
         y_ref.backward(dy_ref)
         dx_ref = x_ref.grad
 
-    x = scatter_layer_x(x_ref.detach())
-    x.requires_grad = True
+    # Ensure that the scatter is not part of the computation we are testing
+    with torch.no_grad():
+        x = scatter_layer_x(x_ref.detach())
+        dy = scatter_layer_y(dy_ref.detach())
 
-    dy = scatter_layer_y(dy_ref.detach())
+    x.requires_grad = True
 
     y = dist_layer(x)
     y.backward(dy)
     dx = x.grad
 
-    dx_comp = gather_layer_x(dx.detach())
-    y_comp = gather_layer_y(y.detach())
+    # Ensure that the gather is not part of the computation we are testing
+    with torch.no_grad():
+        dx_comp = gather_layer_x(dx.detach())
+        y_comp = gather_layer_y(y.detach())
 
     if P_0.active:
 
@@ -379,14 +385,15 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
         # floating point numbers.  The NumPy default of 1e-8 is closer to
         # sqrt(e_mach) for 64-bit numbers.  So we set the 32-bit tolerance to
         # a little tighter than sqrt(1e-7), 1e-5.
-        if x.dtype == torch.float64:
+        if x_ref.dtype == torch.float64:
             atol = 1e-8
-        elif x.dtype == torch.float32:
+        elif x_ref.dtype == torch.float32:
             atol = 1e-5
         else:
             # torch default
             atol = 1e-8
 
+        # Test the result of each entry independently
         assert torch.allclose(y_ref, y_comp, atol=atol)
         assert torch.allclose(dx_ref, dx_comp, atol=atol)
 

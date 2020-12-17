@@ -270,10 +270,15 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
     P_world._comm.Barrier()
 
     # Create the partitions
-    P_root_base = P_world.create_partition_inclusive(np.arange(1))
+    P_0_base = P_world.create_partition_inclusive(np.arange(1))
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_root = P_root_base.create_cartesian_topology_partition([1]*len(P_x_shape))
+    P_0 = P_0_base.create_cartesian_topology_partition([1]*len(P_x_shape))
     P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
+
+    scatter_layer_x = DistributedTranspose(P_0, P_x)
+    scatter_layer_y = DistributedTranspose(P_0, P_x)
+    gather_layer_x = DistributedTranspose(P_x, P_0)
+    gather_layer_y = DistributedTranspose(P_x, P_0)
 
     # Create the layers
     if input_dimensions == 1:
@@ -285,7 +290,6 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
     elif input_dimensions == 3:
         dist_layer_type = DistributedFeatureConv3d
         seq_layer_type = Conv3d
-    scatter = DistributedTranspose(P_root, P_x)
     dist_layer = dist_layer_type(P_x,
                                  in_channels=x_global_shape[1],
                                  out_channels=10,
@@ -294,8 +298,7 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
                                  stride=stride,
                                  dilation=dilation,
                                  bias=bias)
-    gather = DistributedTranspose(P_x, P_root)
-    if P_root.active:
+    if P_0.active:
         seq_layer = seq_layer_type(in_channels=x_global_shape[1],
                                    out_channels=10,
                                    kernel_size=kernel_size,
@@ -312,40 +315,63 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
             seq_layer.bias.data = bias_weight
             dist_layer.bias.data = bias_weight
 
-    # Create the input
-    if P_root.active:
-        x = np.random.randn(*x_global_shape)
-        dist_x = torch.from_numpy(x.copy()).to(torch.float32)
-        seq_x = torch.from_numpy(x.copy()).to(torch.float32)
-        dist_x.requires_grad = True
-        seq_x.requires_grad = True
+    # Forward Input
+    x_ref = zero_volume_tensor()
+    x_ref.requires_grad = True
+    dy_ref = zero_volume_tensor()
 
-        if dist_x.dtype == torch.float64:
+    # Construct the inputs to the forward and backward functions as well as the
+    # the outputs of the sequential layer
+    if P_0.active:
+        x_ref = torch.randn(*x_global_shape)
+        x_ref.requires_grad = True
+        y_ref = seq_layer(x_ref)
+        y_global_shape_calc = y_ref.shape
+
+        dy_ref = torch.randn(*y_global_shape_calc)
+
+        y_ref.backward(dy_ref)
+        dx_ref = x_ref.grad
+
+    # Ensure that the scatter is not part of the computation we are testing
+    with torch.no_grad():
+        x = scatter_layer_x(x_ref.detach())
+        dy = scatter_layer_y(dy_ref.detach())
+
+    x.requires_grad = True
+
+    y = dist_layer(x)
+    y.backward(dy)
+    dx = x.grad
+
+    # Ensure that the gather is not part of the computation we are testing
+    with torch.no_grad():
+        dx_comp = gather_layer_x(dx.detach())
+        y_comp = gather_layer_y(y.detach())
+
+    if P_0.active:
+
+        # Set the absolute tolerance to ~sqrt(e_mach), or the default
+        # Pytorch got their defaults from NumPy, but NumPy defaults to 64-bit
+        # floats, not 32-bit floats as torch does.  Consequently, the default
+        # torch atol is actually tighter than one can expect from two fp-equal
+        # floating point numbers.  The NumPy default of 1e-8 is closer to
+        # sqrt(e_mach) for 64-bit numbers.  So we set the 32-bit tolerance to
+        # a little tighter than sqrt(1e-7), 1e-5.
+        if x_ref.dtype == torch.float64:
             atol = 1e-8
-        elif dist_x.dtype == torch.float32:
+        elif x_ref.dtype == torch.float32:
             atol = 1e-5
         else:
             # torch default
             atol = 1e-8
-    else:
-        dist_x = zero_volume_tensor(requires_grad=True)
 
-    # Check the forward pass
-    dist_y = gather(dist_layer(scatter(dist_x)))
-    if P_root.active:
-        seq_y = seq_layer(seq_x)
-        assert dist_y.shape == seq_y.shape
-        assert torch.allclose(dist_y, seq_y, atol=atol)
-
-    # Check the backward pass
-    dist_y.sum().backward()
-    dist_dx = dist_x.grad
-    if P_root.active:
-        seq_y.sum().backward()
-        seq_dx = seq_x.grad
-        assert dist_dx.shape == seq_dx.shape
-        assert np.allclose(dist_dx, seq_dx, atol=atol)
+        # Test the result of each entry independently
+        assert torch.allclose(y_ref, y_comp, atol=atol)
+        assert torch.allclose(dx_ref, dx_comp, atol=atol)
 
     P_world.deactivate()
+    P_0_base.deactivate()
+    P_0.deactivate()
     P_x_base.deactivate()
     P_x.deactivate()
