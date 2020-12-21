@@ -139,7 +139,7 @@ class HaloExchange(Module):
 
     def forward(self, input):
 
-        Function = self._distdl_backend.autograd.halo_exchange.HaloExchangeFunction
+        Function = self._distdl_backend.functional.halo_exchange.HaloExchangeFunction
 
         if not self.P_x.active:
             return input.clone()

@@ -201,8 +201,8 @@ Broadcast
      - Module
      - Class
    * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
-     - :any:`backends.mpi.autograd.broadcast <distdl.backends.mpi.autograd.broadcast>`
-     - :any:`BroadcastFunction <distdl.backends.mpi.autograd.BroadcastFunction>`
+     - :any:`backends.mpi.functional.broadcast <distdl.backends.mpi.functional.broadcast>`
+     - :any:`BroadcastFunction <distdl.backends.mpi.functional.BroadcastFunction>`
 
 The functional primitive for the Broadcast data movement operation does not
 use the original tensor partitions :math:`P_x` (input) and :math:`P_y`
@@ -379,8 +379,8 @@ Sum-Reduce
      - Module
      - Class
    * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
-     - :any:`backends.mpi.autograd.sum_reduce <distdl.backends.mpi.autograd.sum_reduce>`
-     - :any:`SumReduceFunction <distdl.backends.mpi.autograd.SumReduceFunction>`
+     - :any:`backends.mpi.functional.sum_reduce <distdl.backends.mpi.functional.sum_reduce>`
+     - :any:`SumReduceFunction <distdl.backends.mpi.functional.SumReduceFunction>`
 
 The functional primitive for the SumReduce data movement operation does not
 use the original tensor partitions :math:`P_x` (input) and :math:`P_y`
@@ -554,8 +554,8 @@ Transpose
      - Module
      - Class
    * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
-     - :any:`backends.mpi.autograd.transpose <distdl.backends.mpi.autograd.transpose>`
-     - :any:`BroadcastFunction <distdl.backends.mpi.autograd.DistributedTransposeFunction>`
+     - :any:`backends.mpi.functional.transpose <distdl.backends.mpi.functional.transpose>`
+     - :any:`BroadcastFunction <distdl.backends.mpi.functional.DistributedTransposeFunction>`
 
 The functional primitive for the Transpose data movement operation does not
 use the original tensor partitions :math:`P_x` (input) and :math:`P_y`

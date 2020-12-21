@@ -191,7 +191,7 @@ class Broadcast(Module):
 
         """
 
-        Function = self._distdl_backend.autograd.broadcast.BroadcastFunction
+        Function = self._distdl_backend.functional.broadcast.BroadcastFunction
 
         # If this is an identity operation (no communication necessary),
         # simply return a clone of the input.

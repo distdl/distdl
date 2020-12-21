@@ -335,7 +335,7 @@ class DistributedTranspose(Module):
 
         """
 
-        Function = self._distdl_backend.autograd.transpose.DistributedTransposeFunction
+        Function = self._distdl_backend.functional.transpose.DistributedTransposeFunction
 
         # If this is an identity operation (no communication necessary),
         # simply return a clone of the input.

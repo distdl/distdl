@@ -1,6 +1,6 @@
 from mpi4py import MPI as _MPI
 
-from . import autograd  # noqa: F401
+from . import functional  # noqa: F401
 from . import halo_exchange  # noqa: F401
 from . import partition  # noqa: F401
 from . import tensor_comm  # noqa: F401
