@@ -32,36 +32,36 @@ Primitive Functionals
 Broadcast
 ---------
 
-.. automodule:: distdl.backends.mpi.autograd.broadcast
+.. automodule:: distdl.backends.mpi.functional.broadcast
 
-.. autoclass:: distdl.backends.mpi.autograd.BroadcastFunction
+.. autoclass:: distdl.backends.mpi.functional.BroadcastFunction
     :members:
     :undoc-members:
 
 Halo Exchange
 -------------
 
-.. automodule:: distdl.backends.mpi.autograd.halo_exchange
+.. automodule:: distdl.backends.mpi.functional.halo_exchange
 
-.. autoclass:: distdl.backends.mpi.autograd.HaloExchangeFunction
+.. autoclass:: distdl.backends.mpi.functional.HaloExchangeFunction
     :members:
     :undoc-members:
 
 Sum-Reduce
 ----------
 
-.. automodule:: distdl.backends.mpi.autograd.sum_reduce
+.. automodule:: distdl.backends.mpi.functional.sum_reduce
 
-.. autoclass:: distdl.backends.mpi.autograd.SumReduceFunction
+.. autoclass:: distdl.backends.mpi.functional.SumReduceFunction
     :members:
     :undoc-members:
 
 Transpose
 ---------
 
-.. automodule:: distdl.backends.mpi.autograd.transpose
+.. automodule:: distdl.backends.mpi.functional.transpose
 
-.. autoclass:: distdl.backends.mpi.autograd.DistributedTransposeFunction
+.. autoclass:: distdl.backends.mpi.functional.DistributedTransposeFunction
     :members:
     :undoc-members:
 
