@@ -23,7 +23,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
     class requires the following of the tensor partitions:
 
     1. :math:`P_x` over input tensor :math:`x` has shape :math:`1 \times
-       P_{\text{c_in}} \times 1 \times \dots \times 1`.
+       1 \times P_{d-1} \times \dots \times P_0`.
 
     The output partition, :math:`P_y`, is assumed to be the same as the
     input partition.
