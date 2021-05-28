@@ -970,7 +970,7 @@ class MPICartesianPartition(MPIPartition):
 
             return MPICartesianPartition(comm, group,
                                          self._root,
-                                         self.shape[remain_shape == True]) # noqa E712
+                                         self.shape[remain_shape])
 
         else:
             comm = MPI.COMM_NULL
