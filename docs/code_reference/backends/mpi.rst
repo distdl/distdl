@@ -29,6 +29,15 @@ Tensor Partitions
 Primitive Functionals
 =====================
 
+All Sum-Reduce
+--------------
+
+.. automodule:: distdl.backends.mpi.functional.all_sum_reduce
+
+.. autoclass:: distdl.backends.mpi.functional.AllSumReduceFunction
+    :members:
+    :undoc-members:
+
 Broadcast
 ---------
 
