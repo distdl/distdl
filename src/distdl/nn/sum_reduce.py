@@ -186,7 +186,7 @@ class SumReduce(Module):
         Parameters
         ----------
         input :
-            Input tensor to be broadcast.
+            Input tensor to be sum-reduced.
 
         """
 

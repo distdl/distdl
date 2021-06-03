@@ -1,6 +1,7 @@
 import distdl.nn.loss  # noqa: F401
 
 from . import mixins  # noqa: F401
+from .all_sum_reduce import AllSumReduce  # noqa: F401
 from .batchnorm import DistributedBatchNorm  # noqa: F401
 from .broadcast import Broadcast  # noqa: F401
 from .conv import DistributedConv1d  # noqa: F401
@@ -37,7 +38,8 @@ from .transpose import DistributedTranspose  # noqa: F401
 from .unpadnd import UnpadNd  # noqa: F401
 from .upsampling import DistributedUpsample  # noqa: F401
 
-__all__ = ["Broadcast",
+__all__ = ["AllSumReduce",
+           "Broadcast",
            "DistributedBatchNorm",
            "DistributedConv1d",
            "DistributedConv2d",
