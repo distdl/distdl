@@ -116,6 +116,23 @@ def compute_nd_slice_shape(slices):
 
 
 def range_index(shape):
+    r"""An iterator over Cartesian indices of a given shape.
+
+    Yields all possible Cartesian indices for a Partition of shape `shape` in
+    row-major order: the first index varies slowest and the last index varies
+    fastest.  For example, if the shape is (2, 3), the iterator will yield
+    `[(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]`.
+
+    Parameters
+    ----------
+    shape : iterable
+        Shape of partition.
+
+    Yields
+    ------
+    A Cartesian index.
+
+    """
 
     import itertools
 
@@ -134,3 +151,72 @@ def worker_layout(shape):
         workers[index] = i
 
     return workers
+
+
+def filtered_range_index(shape, filter):
+    r"""A filtered iterator over Cartesian indices of a given shape.
+
+    Yields all possible Cartesian indices for a Partition of shape `shape`
+    that match a given filter.  The filter is a set of integers that must
+    match.  If a dimension is not required to match, the filter is `None` in
+    that dimension.  For example, if the shape is (2, 3), and the filter is
+    `(1, None)`, then the iterator will yield `[(1, 0), (1, 1), (1, 2)]`.
+
+    Parameters
+    ----------
+    shape : iterable
+        Shape of partition.
+    filter : iterable
+        Filter mask containing values to match (or None).
+
+    Yields
+    ------
+    A Cartesian index.
+
+    """
+
+    def _filter(idx, filter):
+        for i, f in zip(idx, filter):
+            if f is None:
+                continue
+            if i != f:
+                return False
+        return True
+    for idx_tuple in range_index(shape):
+        if _filter(idx_tuple, filter):
+            yield idx_tuple
+
+
+def assemble_index_filter(index, dims, invert=False):
+    r"""Helper for creating proper filters for `filtered_range_index()`.
+
+    Given an iterable index and the dimensions that are required to match,
+    creates the necessary filter.  This filter is the same as `index` except
+    that it contains `None` for the indices not in `dims`.
+
+    The `invert` flag produces the inverse mask from the same inputs.  That
+    is, `None` for the indices in `dims` and the values of `index`
+    elsewhere.
+
+    For example, if `index` is `(4, 3, 2)` and `dims` is `(1, )`, the filter
+    is `(None, 3, None)`.  If `invert` is true, then the filter would be
+    `(4, None, 2)`.
+
+    Parameters
+    ----------
+    index : iterable
+        Index from which to build the filter.
+    dims : iterable
+        Dimensions of the index to preserve.
+    invert : bool, optional
+        Invert the `dims` when building the filter
+
+    Returns
+    -------
+    Tuple containing filter constructed as above.
+
+    """
+    if invert:
+        return tuple([index[k] if k not in dims else None for k in range(len(index))])
+    else:
+        return tuple([index[k] if k in dims else None for k in range(len(index))])
