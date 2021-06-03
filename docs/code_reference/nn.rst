@@ -40,6 +40,8 @@ We implement a number of primitives.
    :header-rows: 0
    :align: left
 
+   * - :ref:`code_reference/nn/all_sum_reduce:AllSumReduce Layer`
+     - Performs an all-sum-reduction within a partition.
    * - :ref:`code_reference/nn/broadcast:Broadcast Layer`
      - Performs a broadcast of a tensor from one partition to another.
    * - :ref:`code_reference/nn/halo_exchange:Halo Exchange Layer`
