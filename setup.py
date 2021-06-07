@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import io
 import os
+import platform
 import re
 from glob import glob
 from os.path import basename
@@ -48,8 +49,9 @@ torch_extensions = []
 
 default_extension_args_cpu = dict()
 default_extension_args_cpu["extra_compile_args"] = ["-Ofast",
-                                                    "-march=native",
                                                     "-fopenmp"]
+if platform.system() != 'Darwin':
+    default_extension_args_cpu["extra_compile_args"].append("-march=native")
 # See: https://github.com/suphoff/pytorch_parallel_extension_cpp
 default_extension_args_cpu["extra_compile_args"] += ["-DAT_PARALLEL_OPENMP"]
 default_extension_args_cpu["extra_link_args"] = ["-lgomp"]
