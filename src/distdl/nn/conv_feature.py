@@ -121,21 +121,32 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         self.groups = groups
         self.bias = bias
 
-        # Do this before checking serial so that the layer works properly
-        # in the serial case
-        self.conv_layer = self.TorchConvType(in_channels=in_channels,
-                                             out_channels=out_channels,
-                                             kernel_size=self.kernel_size,
-                                             stride=self.stride,
-                                             padding=0,
-                                             padding_mode='zeros',
-                                             dilation=self.dilation,
-                                             groups=groups,
-                                             bias=bias)
+        self.serial = self.P_x.size == 1
 
-        self.serial = False
-        if self.P_x.size == 1:
-            self.serial = True
+        if self.serial:
+            self.conv_layer = self.TorchConvType(in_channels=in_channels,
+                                                 out_channels=out_channels,
+                                                 kernel_size=self.kernel_size,
+                                                 stride=self.stride,
+                                                 padding=self.padding,
+                                                 padding_mode=self.padding_mode,
+                                                 dilation=self.dilation,
+                                                 groups=self.groups,
+                                                 bias=self.bias)
+            self.weight = self.conv_layer.weight
+            self.bias = self.conv_layer.bias
+        else:
+            self.conv_layer = self.TorchConvType(in_channels=in_channels,
+                                                 out_channels=out_channels,
+                                                 kernel_size=self.kernel_size,
+                                                 stride=self.stride,
+                                                 padding=0,
+                                                 padding_mode='zeros',
+                                                 dilation=self.dilation,
+                                                 groups=groups,
+                                                 bias=bias)
+
+        if self.serial:
             return
 
         # We will be using global padding to compute local padding,
