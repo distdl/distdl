@@ -226,6 +226,23 @@ params.append(
         )
     )
 
+# serial case
+params.append(
+    pytest.param(
+        np.arange(0, 1), [1, 1, 1, 1],  # P_x_ranks, P_x_shape
+        2,  # input_dimensions
+        [1, 3, 16, 16],  # x_global_shape
+        3,  # kernel_size
+        1,  # padding
+        1,  # stride
+        1,  # dilation
+        False,  # bias
+        1,  # passed to comm_split_fixture, required MPI ranks
+        id="serial-test",
+        marks=[pytest.mark.mpi(min_size=1)]
+        )
+    )
+
 
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "input_dimensions,"
