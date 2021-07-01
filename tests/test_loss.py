@@ -86,6 +86,7 @@ loss_parametrizations = [
     pytest.param(torch.nn.KLDivLoss, distdl.nn.DistributedKLDivLoss)
 ]
 
+
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape,"
@@ -102,11 +103,10 @@ def test_distributed_loss(barrier_fence_fixture,
                           SequentialLoss,
                           DistributedLoss):
 
-    import numpy as np
     import torch
 
-    from distdl.nn import DistributedTranspose
     from distdl.backends.mpi.partition import MPIPartition
+    from distdl.nn import DistributedTranspose
     from distdl.utilities.torch import zero_volume_tensor
 
     # Isolate the minimum needed ranks
@@ -142,11 +142,11 @@ def test_distributed_loss(barrier_fence_fixture,
 
         x_l.requires_grad = True
         distributed_loss = distributed_criterion(x_l, y_l)
-        
+
         # For "none", no reduction is applied so we see if it computed the
         # same loss as the sequential code by gathering the loss value it to
         # the root rank.
-        if reduction == "none":    
+        if reduction == "none":
             distributed_loss = gather(distributed_loss)
 
         if P_0.active:
@@ -161,14 +161,12 @@ def test_distributed_loss(barrier_fence_fixture,
         if reduction != "none":
             distributed_loss.backward()
             distributed_dx_g = gather(x_l.grad)
-            
+
             if P_0.active:
                 sequential_loss.backward()
                 sequential_dx_g = x_g.grad
 
                 assert(torch.allclose(distributed_dx_g, sequential_dx_g))
-
-
 
     P_world.deactivate()
     P_x_base.deactivate()

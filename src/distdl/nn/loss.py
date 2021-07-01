@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 
 from distdl.functional import ZeroVolumeCorrectorFunction
 from distdl.nn.module import Module
@@ -31,7 +31,7 @@ class DistributedLossBase(Module):
     Weight functions are not yet supported.
 
     """
-    
+
     BaseLossLayer = None
     _valid_reductions = ["none", "mean", "sum"]
 
@@ -62,7 +62,6 @@ class DistributedLossBase(Module):
 
         # By default, no normalization is required
         self.normalization_factor = 1
-
 
     def _distdl_module_setup(self, input):
         r"""Distributed loss setup function.
@@ -112,7 +111,6 @@ class DistributedLossBase(Module):
         self._distdl_is_setup = False
         self._input_tensor_structure = TensorStructure()
 
-
     def _distdl_input_changed(self, input):
         r"""Determine if the structure of inputs has changed.
 
@@ -127,7 +125,6 @@ class DistributedLossBase(Module):
         new_tensor_structure = TensorStructure(input[0])
 
         return self._input_tensor_structure != new_tensor_structure
-
 
     def forward(self, local_input, local_target):
         r"""Distributed loss forward function.
@@ -258,4 +255,3 @@ class DistributedKLDivLoss(DistributedLossBase):
 
         self._distdl_is_setup = True
         self._input_tensor_structure = TensorStructure(input[0])
-
