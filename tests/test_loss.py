@@ -19,7 +19,7 @@ input_parametrizations.append(
 input_parametrizations.append(
     pytest.param(
         np.arange(0, 4), [1, 4],  # P_x_ranks, P_x_shape
-        [7, 7],  # x_global_shape
+        [7, 17],  # x_global_shape
         4,  # passed to comm_split_fixture, required MPI ranks
         id="1D-nonpartitioned_batch",
         marks=[pytest.mark.mpi(min_size=4)]
