@@ -11,5 +11,6 @@ Information on how things work
     :maxdepth: 3
 
     nn
+    functional
     backends
     utilities

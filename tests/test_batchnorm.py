@@ -238,15 +238,32 @@ def test_batch_norm_with_training(barrier_fence_fixture,
 
     # Compare the distributed and sequential networks
     if P_world.rank == 0:
+
+        # Set the absolute tolerance to ~sqrt(e_mach), or the default
+        # Pytorch got their defaults from NumPy, but NumPy defaults to 64-bit
+        # floats, not 32-bit floats as torch does.  Consequently, the default
+        # torch atol is actually tighter than one can expect from two fp-equal
+        # floating point numbers.  The NumPy default of 1e-8 is closer to
+        # sqrt(e_mach) for 64-bit numbers.  So we set the 32-bit tolerance to
+        # sqrt(1e-7), as our usual choice, 1e-5, is too tight.
+        if seq_out1.dtype == torch.float64:
+            atol = 1e-8
+        elif seq_out1.dtype == torch.float32:
+            import math
+            atol = math.sqrt(1e-7)
+        else:
+            # torch default
+            atol = 1e-8
+
         assert dist_out1.shape == seq_out1.shape
-        assert torch.allclose(dist_out1, seq_out1, ERROR_THRESHOLD, ERROR_THRESHOLD)
+        assert torch.allclose(dist_out1, seq_out1, rtol=ERROR_THRESHOLD, atol=atol)
         assert dist_loss.shape == seq_loss.shape
-        assert torch.allclose(dist_loss, seq_loss, ERROR_THRESHOLD, ERROR_THRESHOLD)
+        assert torch.allclose(dist_loss, seq_loss, rtol=ERROR_THRESHOLD, atol=atol)
         for dist_grad, seq_grad in zip(dist_grads, seq_grads):
             assert dist_grad.shape == seq_grad.shape
-            assert torch.allclose(dist_grad, seq_grad, ERROR_THRESHOLD, ERROR_THRESHOLD)
+            assert torch.allclose(dist_grad, seq_grad, rtol=ERROR_THRESHOLD, atol=atol)
         assert dist_out2.shape == seq_out2.shape
-        assert torch.allclose(dist_out2, seq_out2, ERROR_THRESHOLD, ERROR_THRESHOLD)
+        assert torch.allclose(dist_out2, seq_out2, rtol=ERROR_THRESHOLD, atol=atol)
 
     P_world.deactivate()
     P_x_base.deactivate()
@@ -300,8 +317,6 @@ def test_batch_norm_no_training(barrier_fence_fixture,
                                                            momentum=momentum,
                                                            affine=affine,
                                                            track_running_stats=track_running_stats))
-    else:
-        seq_net = None
 
     # Evaluate sequential network
     if P_world.rank == 0:
@@ -325,7 +340,22 @@ def test_batch_norm_no_training(barrier_fence_fixture,
     # Compare the distributed and sequential networks
     if P_world.rank == 0:
         assert dist_out.shape == seq_out.shape
-        assert torch.allclose(dist_out, seq_out, ERROR_THRESHOLD)
+
+        # Set the absolute tolerance to ~sqrt(e_mach), or the default
+        # Pytorch got their defaults from NumPy, but NumPy defaults to 64-bit
+        # floats, not 32-bit floats as torch does.  Consequently, the default
+        # torch atol is actually tighter than one can expect from two fp-equal
+        # floating point numbers.  The NumPy default of 1e-8 is closer to
+        # sqrt(e_mach) for 64-bit numbers.  So we set the 32-bit tolerance to
+        # a little tighter than sqrt(1e-7), 1e-5.
+        if seq_out.dtype == torch.float64:
+            atol = 1e-8
+        elif seq_out.dtype == torch.float32:
+            atol = 1e-5
+        else:
+            # torch default
+            atol = 1e-8
+        assert torch.allclose(dist_out, seq_out, atol=atol)
 
     P_world.deactivate()
     P_x_base.deactivate()
