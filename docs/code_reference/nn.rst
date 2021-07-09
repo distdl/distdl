@@ -66,8 +66,22 @@ We implement a number of distributed layers based on the actual layers and the p
      - Distributed pooling layers.
    * - :ref:`code_reference/nn/linear:Linear Layer`
      - Distributed linear layer.
-   * - :ref:`code_reference/nn/upsampling:Upsample Layer`
+   * - :ref:`code_reference/nn/upsampling:Upsampling Layer`
      - Distributed upsampling layer.
+
+Distributed Loss Functions
+==========================
+
+We implement a number of distributed loss functions based on the PyTorch losses and the primitives.
+
+.. list-table::
+   :widths: 35 65
+   :width: 100%
+   :header-rows: 0
+   :align: left
+
+   * - :ref:`code_reference/nn/loss:Loss Functions`
+     - Distributed loss functions.
 
 Additional Sequential Layers
 ============================
