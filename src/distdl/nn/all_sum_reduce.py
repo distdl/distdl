@@ -14,7 +14,7 @@ class AllSumReduce(Module):
     implicitly satisfied.
 
     Functionally, the input tensor is reduced along dimensions specified by
-    the `reduce_dims` field and the result of that reduction is broadcast
+    the `axes_reduce` field and the result of that reduction is broadcast
     along the same dimensions.  However, the underlying implementation will
     not typically apply these two operations directly.
 
@@ -22,12 +22,12 @@ class AllSumReduce(Module):
     ----------
     P_x :
         Partition of input and output tensor.
-    reduce_dims : tuple
+    axes_reduce : tuple
         Partition dimensions along which the all-reduction takes place.
 
     """
 
-    def __init__(self, P_x, reduce_dims):
+    def __init__(self, P_x, axes_reduce):
 
         super(AllSumReduce, self).__init__()
 
@@ -35,7 +35,7 @@ class AllSumReduce(Module):
         self.P_x = P_x
 
         # Partition dimensions along which the all-reduction takes place.
-        self.reduce_dims = reduce_dims
+        self.axes_reduce = axes_reduce
 
         # Indicates if broadcast requires any data movement.
         self.identity = False
@@ -80,7 +80,7 @@ class AllSumReduce(Module):
         # If it is not an identity, we need actual Partitions to do the work.
         if not self.identity:
 
-            self.P_allreduce = self.P_x.create_allreduction_partition(self.reduce_dims)
+            self.P_allreduce = self.P_x.create_allreduction_partition(self.axes_reduce)
 
             self.input_tensor_structure = TensorStructure(input[0])
             self.output_tensor_structure = self.input_tensor_structure

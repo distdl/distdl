@@ -102,10 +102,10 @@ along the last two dimesions:
 >>> P_x_base = P_world.create_partition_inclusive(np.arange(0, 12))
 >>> P_x = P_x_base.create_cartesian_topology_partition([2, 2, 3])
 >>>
->>> x_local_shape = np.array([7, 5])
+>>> x_local_shape = np.array([3, 7, 5])
 >>>
->>> reduce_dims = (1, 2)
->>> layer = AllSumReduce(P_x, reduce_dims)
+>>> axes_reduce = (1, 2)
+>>> layer = AllSumReduce(P_x, axes_reduce)
 >>>
 >>> x = zero_volume_tensor()
 >>> if P_x.active:

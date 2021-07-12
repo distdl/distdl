@@ -576,12 +576,12 @@ class MPIPartition:
 
         return P_send, P_recv
 
-    def create_allreduction_partition(self, reduce_dims):
+    def create_allreduction_partition(self, axes_reduce):
         r"""Creates the partitions for all-reductions.
 
         Parameters
         ----------
-        reduce_dims : tuple
+        axes_reduce : tuple
             Partition dimensions along which the all-reduction takes place.
 
         Returns
@@ -598,17 +598,17 @@ class MPIPartition:
         if not P_src.active:
             return P_allreduce
 
-        for dim in reduce_dims:
+        for dim in axes_reduce:
             if dim >= P_src.dim:
-                raise ValueError(f"Dimension {dim} in reduce_dims exceeds partition dimesion.")
+                raise ValueError(f"Dimension {dim} in axes_reduce exceeds partition dimesion.")
 
-        # `reduce_dims` are eliminated, so in the new partition the dim is 1 in those dimensions
-        allreduce_shape = [P_src.shape[k] if k in reduce_dims else 1 for k in range(P_src.dim)]
+        # `axes_reduce` are eliminated, so in the new partition the dim is 1 in those dimensions
+        allreduce_shape = [P_src.shape[k] if k in axes_reduce else 1 for k in range(P_src.dim)]
 
         # assemble_index_filter produces a mask for preserving dimensions in the 2nd argument,
         # but to get the indices of the ranks in the new partition, we actually need a mask of
         # the inverse of those ranks
-        index_filter = assemble_index_filter(P_src.index, reduce_dims, invert=True)
+        index_filter = assemble_index_filter(P_src.index, axes_reduce, invert=True)
         allreduce_ranks = [P_src._comm.Get_cart_rank(idx) for idx in filtered_range_index(P_src.shape, index_filter)]
 
         P_allreduce_base = P_src.create_partition_inclusive(allreduce_ranks)
