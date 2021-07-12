@@ -18,16 +18,20 @@ class AllSumReduce(Module):
     along the same dimensions.  However, the underlying implementation will
     not typically apply these two operations directly.
 
+    One of `axes_reduce` or `axes_keep`, only, may be set.
+
     Parameters
     ----------
     P_x :
         Partition of input and output tensor.
-    axes_reduce : tuple
+    axes_reduce : tuple, optional
         Partition dimensions along which the all-reduction takes place.
+    axes_keep : tuple, optional
+        Partition dimensions to reduce to.  Complement of `axes_reduce`.
 
     """
 
-    def __init__(self, P_x, axes_reduce):
+    def __init__(self, P_x, axes_reduce=None, axes_keep=None):
 
         super(AllSumReduce, self).__init__()
 
@@ -35,7 +39,17 @@ class AllSumReduce(Module):
         self.P_x = P_x
 
         # Partition dimensions along which the all-reduction takes place.
-        self.axes_reduce = axes_reduce
+        # While we compute both terms, `axes_reduce` is used internally.
+        if axes_reduce is None and axes_keep is None:
+            raise ValueError("One of `axes_reduce` or `axes_keep` must be specified.")
+        elif axes_reduce is not None and axes_keep is not None:
+            raise ValueError("Only one of `axes_reduce` or `axes_keep` may be specified.")
+        elif axes_reduce is not None:
+            self.axes_reduce = axes_reduce
+            self.axes_keep = [d for d in range(P_x.dim) if d not in axes_reduce]
+        elif axes_keep is not None:
+            self.axes_reduce = [d for d in range(P_x.dim) if d not in axes_keep]
+            self.axes_keep = axes_keep
 
         # Indicates if broadcast requires any data movement.
         self.identity = False
