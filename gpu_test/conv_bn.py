@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from mpi4py import MPI
+import platform
+import time
 
 from distdl.backends.mpi.partition import MPIPartition
 from distdl.nn.conv_feature import DistributedFeatureConv2d
@@ -9,7 +11,14 @@ from distdl.utilities.debug import print_sequential
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import zero_volume_tensor
 
-torch.set_printoptions(linewidth=200)
+st = time.time()
+
+rank = MPI.COMM_WORLD.Get_rank()
+node_name = platform.node()
+num_devices = torch.cuda.device_count()
+print(f'Hi, I am worker {rank} on node {node_name} and I have access to {num_devices} GPU.', flush=True)
+
+quit()
 
 device = torch.device('cuda:0')
 
@@ -31,7 +40,7 @@ if P_x.active:
                                      P_x.index,
                                      x_global_shape)
     x = torch.ones(tuple(x_local_shape)) * (P_x.rank + 1)
-    # x = x.to(device)
+    x = x.to(device)
 x.requires_grad = True
 
 y_hat = torch.zeros_like(x)
@@ -44,3 +53,7 @@ y.backward(y_hat)
 
 # print_sequential(P_world._comm, f'rank = {P_world.rank}, output =\n{x.grad}')
 # print_sequential(P_world._comm, f'rank = {P_world.rank}, output =\n{y}')
+
+MPI.COMM_WORLD.Barrier()
+en = time.time()
+print(rank, en-st)
