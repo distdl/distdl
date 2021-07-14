@@ -119,7 +119,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         self.padding_mode = padding_mode
         self.dilation = self._expand_parameter(dilation)
         self.groups = groups
-        self.bias = bias
+        self.use_bias = bias
 
         self.serial = self.P_x.size == 1
 
@@ -132,7 +132,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
                                                  padding_mode=self.padding_mode,
                                                  dilation=self.dilation,
                                                  groups=self.groups,
-                                                 bias=self.bias)
+                                                 bias=self.use_bias)
             self.weight = self.conv_layer.weight
             self.bias = self.conv_layer.bias
         else:
@@ -175,10 +175,10 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
             if self.conv_layer.bias is not None:
                 self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
         else:
-            self.weight = zero_volume_tensor()
+            self.register_buffer('weight', zero_volume_tensor())
 
             if self.conv_layer.bias is not None:
-                self.bias = zero_volume_tensor()
+                self.register_buffer('bias', zero_volume_tensor())
 
         self.weight.requires_grad = self.conv_layer.weight.requires_grad
 

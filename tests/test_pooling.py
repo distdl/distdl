@@ -1,8 +1,12 @@
+import os
+
 import numpy as np
 import pytest
 
 # These tests aim to compare Distributed MaxPoolNd and AvgPoolNd functionality to
 # PyTorch's MaxPoolNd/AvgPoolNd layers.
+
+use_cuda = 'USE_CUDA' in os.environ
 
 params = []
 
@@ -228,6 +232,8 @@ def test_matches_sequential(barrier_fence_fixture,
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.torch import zero_volume_tensor
 
+    device = torch.device('cuda' if use_cuda else 'cpu')
+
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
@@ -241,10 +247,10 @@ def test_matches_sequential(barrier_fence_fixture,
     P_0 = P_0_base.create_cartesian_topology_partition([1]*len(P_x_shape))
     P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
-    scatter_layer_x = DistributedTranspose(P_0, P_x)
-    scatter_layer_y = DistributedTranspose(P_0, P_x)
-    gather_layer_x = DistributedTranspose(P_x, P_0)
-    gather_layer_y = DistributedTranspose(P_x, P_0)
+    scatter_layer_x = DistributedTranspose(P_0, P_x).to(device)
+    scatter_layer_y = DistributedTranspose(P_0, P_x).to(device)
+    gather_layer_x = DistributedTranspose(P_x, P_0).to(device)
+    gather_layer_y = DistributedTranspose(P_x, P_0).to(device)
 
     # Create the layers
     if input_dimensions == 1:
@@ -290,24 +296,24 @@ def test_matches_sequential(barrier_fence_fixture,
     if layer_type == 'max':
         layer_kwargs['dilation'] = dilation
 
-    dist_layer = DistributedPoolType(P_x, **layer_kwargs)
+    dist_layer = DistributedPoolType(P_x, **layer_kwargs).to(device)
     if P_0.active:
-        seq_layer = SequentialPoolType(**layer_kwargs)
+        seq_layer = SequentialPoolType(**layer_kwargs).to(device)
 
     # Forward Input
-    x_ref = zero_volume_tensor()
+    x_ref = zero_volume_tensor(device=device)
     x_ref.requires_grad = True
-    dy_ref = zero_volume_tensor()
+    dy_ref = zero_volume_tensor(device=device)
 
     # Construct the inputs to the forward and backward functions as well as the
     # the outputs of the sequential layer
     if P_0.active:
-        x_ref = torch.randn(*x_global_shape)
+        x_ref = torch.randn(*x_global_shape, device=device)
         x_ref.requires_grad = True
         y_ref = seq_layer(x_ref)
         y_global_shape_calc = y_ref.shape
 
-        dy_ref = torch.randn(*y_global_shape_calc)
+        dy_ref = torch.randn(*y_global_shape_calc, device=device)
 
         y_ref.backward(dy_ref)
         dx_ref = x_ref.grad

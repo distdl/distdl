@@ -82,8 +82,8 @@ class DistributedBatchNorm(Module):
         P_sum_base.deactivate()
 
         if self.track_running_stats:
-            self.running_mean = torch.zeros(internal_data_shape)
-            self.running_var = torch.ones(internal_data_shape)
+            self.register_buffer('running_mean', torch.zeros(internal_data_shape))
+            self.register_buffer('running_var', torch.ones(internal_data_shape))
         else:
             self.running_mean = None
             self.running_var = None
@@ -97,8 +97,8 @@ class DistributedBatchNorm(Module):
                 self.gamma = torch.nn.Parameter(torch.ones(internal_data_shape))
                 self.beta = torch.nn.Parameter(torch.zeros(internal_data_shape))
             else:
-                self.gamma = zero_volume_tensor(requires_grad=True)
-                self.beta = zero_volume_tensor(requires_grad=True)
+                self.register_buffer('gamma', zero_volume_tensor(requires_grad=True))
+                self.register_buffer('beta', zero_volume_tensor(requires_grad=True))
 
     def _distdl_module_setup(self, input):
         r"""Distributed batch norm module setup function.
@@ -155,7 +155,7 @@ class DistributedBatchNorm(Module):
 
         """
 
-        x = (input - mean)**2
+        x = (input - mean) ** 2
         return self._compute_mean(x, feature_volume)
 
     def _update_running_stats(self, mean, var):
