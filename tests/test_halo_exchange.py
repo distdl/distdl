@@ -1,12 +1,15 @@
 import numpy as np
 import pytest
 import torch
+import os
 from adjoint_test import check_adjoint_test_tight
 
 from distdl.nn.mixins.conv_mixin import ConvMixin
 from distdl.nn.mixins.halo_mixin import HaloMixin
 from distdl.nn.mixins.pooling_mixin import PoolingMixin
 
+
+use_cuda = 'USE_CUDA' in os.environ
 
 class MockConvLayer(HaloMixin, ConvMixin):
     pass
@@ -112,6 +115,8 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
+    device = torch.device('cuda' if use_cuda else 'cpu')
+
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
@@ -144,20 +149,22 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         send_buffer_shape = exchange_info[2]
 
     pad_layer = PadNd(halo_shape, value=0)
+    pad_layer = pad_layer.to(device)
     halo_layer = HaloExchange(P_x, halo_shape, recv_buffer_shape, send_buffer_shape)
+    halo_layer = halo_layer.to(device)
 
-    x = zero_volume_tensor(x_global_shape[0])
+    x = zero_volume_tensor(x_global_shape[0], device=device)
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
-        x = torch.randn(*x_local_shape).to(dtype)
+        x = torch.randn(*x_local_shape, device=device).to(dtype)
         x = pad_layer.forward(x)
     x.requires_grad = True
 
-    dy = zero_volume_tensor(x_global_shape[0])
+    dy = zero_volume_tensor(x_global_shape[0], device=device)
     if P_x.active:
-        dy = torch.randn(*x.shape).to(dtype)
+        dy = torch.randn(*x.shape, device=device).to(dtype)
 
     x_clone = x.clone()
     dy_clone = dy.clone()
