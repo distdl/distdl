@@ -1,6 +1,10 @@
+import os
+
 import numpy as np
 import pytest
 from adjoint_test import check_adjoint_test_tight
+
+use_cuda = 'USE_CUDA' in os.environ
 
 adjoint_parametrizations = []
 
@@ -124,6 +128,8 @@ def test_all_sum_reduce_adjoint(barrier_fence_fixture,
     from distdl.nn.all_sum_reduce import AllSumReduce
     from distdl.utilities.torch import zero_volume_tensor
 
+    device = torch.device('cuda' if use_cuda else 'cpu')
+
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
@@ -139,16 +145,17 @@ def test_all_sum_reduce_adjoint(barrier_fence_fixture,
     x_local_shape = np.asarray(x_global_shape)
 
     layer = AllSumReduce(P_x, axes_reduce)
+    layer = layer.to(device)
 
-    x = zero_volume_tensor()
+    x = zero_volume_tensor(device=device)
     if P_x.active:
-        x = 10*torch.ones(*x_local_shape)
+        x = 10*torch.ones(*x_local_shape, device=device)
     x.requires_grad = True
 
-    dy = zero_volume_tensor()
+    dy = zero_volume_tensor(device=device)
     if P_x.active:
         # Adjoint Input
-        dy = 0.1*torch.ones(*x_local_shape)
+        dy = 0.1*torch.ones(*x_local_shape, device=device)
 
     # y = F @ x
     y = layer(x)

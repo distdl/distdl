@@ -10,6 +10,11 @@ from mpi4py import MPI
 # under the tight adjoint test
 def check_adjoint_test_tight(P, x1, x2, y1, y2):
 
+    x1 = x1.cpu()
+    x2 = x2.cpu()
+    y1 = y1.cpu()
+    y2 = y2.cpu()
+
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)
 
@@ -52,6 +57,11 @@ def check_adjoint_test_tight(P, x1, x2, y1, y2):
 
 
 def check_adjoint_test_tight_sequential(x1, x2, y1, y2):
+
+    x1 = x1.cpu()
+    x2 = x2.cpu()
+    y1 = y1.cpu()
+    y2 = y2.cpu()
 
     local_results = np.zeros(6, dtype=np.float64)
     global_results = np.zeros(6, dtype=np.float64)

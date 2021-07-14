@@ -241,7 +241,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             if self.stores_weight:
                 self._weight = torch.nn.Parameter(self.conv_layer.weight.detach())
             else:
-                self._weight = zero_volume_tensor()
+                self.register_buffer('_weight', zero_volume_tensor())
             # This always exists so we can copy the property
             self._weight.requires_grad = self.conv_layer.weight.requires_grad
 
@@ -257,7 +257,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             if self.stores_bias:
                 self._bias = torch.nn.Parameter(self.conv_layer.bias.detach())
             else:
-                self._bias = zero_volume_tensor()
+                self.register_buffer('_bias', zero_volume_tensor())
             # This does not always exist, but when it does we can copy the
             # property.
             if self.receives_bias:

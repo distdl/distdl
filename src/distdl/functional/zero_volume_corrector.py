@@ -54,7 +54,7 @@ class ZeroVolumeCorrectorFunction(torch.autograd.Function):
         ctx.zero_volume = np.prod(input.shape) == 0
 
         if ctx.zero_volume:
-            return torch.tensor(0.0, requires_grad=True).float()
+            return torch.tensor(0.0, requires_grad=True, device=input.device).float()
         else:
             return input.clone()
 
@@ -82,6 +82,6 @@ class ZeroVolumeCorrectorFunction(torch.autograd.Function):
         sh = ctx.sh
 
         if ctx.zero_volume:
-            return zero_volume_tensor(sh[0])
+            return zero_volume_tensor(sh[0], device=grad_output.device)
         else:
             return grad_output.clone()

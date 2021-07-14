@@ -13,20 +13,20 @@ class HaloExchangeFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, P_x, slices, buffers, neighbor_ranks):
 
+        device = input.device
         ctx.slices = slices
         ctx.buffers = buffers
         ctx.neighbor_ranks = neighbor_ranks
         ctx.P_x = P_x
+        ctx.device = device
 
         if not P_x.active:
-            return zero_volume_tensor(input.shape[0])
+            return zero_volume_tensor(input.shape[0], device=device)
 
         ctx.mark_dirty(input)
 
         if P_x.size == 1:
             return input
-
-        input_numpy = input.detach().numpy()
 
         dim = P_x.dim
         for i in range(dim):
@@ -44,9 +44,9 @@ class HaloExchangeFunction(torch.autograd.Function):
             lrank, rrank = neighbor_ranks[i]
 
             if lbb is not None:
-                np.copyto(lbb, input_numpy[lbs])
+                np.copyto(lbb, input.detach()[lbs].cpu().numpy())
             if rbb is not None:
-                np.copyto(rbb, input_numpy[rbs])
+                np.copyto(rbb, input.detach()[rbs].cpu().numpy())
 
             ltag = 0
             rtag = 1
@@ -65,9 +65,9 @@ class HaloExchangeFunction(torch.autograd.Function):
 
                 if index != MPI.UNDEFINED:
                     if index == 0:
-                        np.copyto(input_numpy[lgs], lgb)
+                        input[lgs] = torch.tensor(lgb, device=device)
                     elif index == 1:
-                        np.copyto(input_numpy[rgs], rgb)
+                        input[rgs] = torch.tensor(rgb, device=device)
 
                 n_reqs_completed += 1
 
@@ -80,14 +80,17 @@ class HaloExchangeFunction(torch.autograd.Function):
         buffers = ctx.buffers
         neighbor_ranks = ctx.neighbor_ranks
         P_x = ctx.P_x
+        device = ctx.device
+
+        assert grad_output.device == device
 
         if not P_x.active:
-            return zero_volume_tensor(grad_output.shape[0]), None, None, None, None
+            return zero_volume_tensor(grad_output.shape[0], device=device), None, None, None, None
 
         if P_x.size == 1:
             return grad_output, None, None, None, None
 
-        grad_output_numpy = grad_output.detach().numpy()
+        ctx.mark_dirty(grad_output)
 
         dim = P_x.dim
         for i in reversed(range(dim)):
@@ -105,11 +108,11 @@ class HaloExchangeFunction(torch.autograd.Function):
             lrank, rrank = neighbor_ranks[i]
 
             if lgb is not None:
-                np.copyto(lgb, grad_output_numpy[lgs])
-                grad_output_numpy[lgs] = 0.0
+                np.copyto(lgb, grad_output.detach()[lgs].cpu().numpy())
+                grad_output[lgs] = 0.0
             if rgb is not None:
-                np.copyto(rgb, grad_output_numpy[rgs])
-                grad_output_numpy[rgs] = 0.0
+                np.copyto(rgb, grad_output.detach()[rgs].cpu().numpy())
+                grad_output[rgs] = 0.0
 
             ltag = 0
             rtag = 1
@@ -128,9 +131,9 @@ class HaloExchangeFunction(torch.autograd.Function):
 
                 if index != MPI.UNDEFINED:
                     if index == 0:
-                        grad_output_numpy[lbs] += lbb
+                        grad_output[lbs] += torch.tensor(lbb, device=device)
                     elif index == 1:
-                        grad_output_numpy[rbs] += rbb
+                        grad_output[rbs] += torch.tensor(rbb, device=device)
 
                 n_reqs_completed += 1
 

@@ -1,7 +1,11 @@
+import os
+
 import numpy as np
 import pytest
 
 # These tests aim to compare DistributedConvNd functionality to PyTorch's ConvNd.
+
+use_cuda = 'USE_CUDA' in os.environ
 
 params = []
 
@@ -279,6 +283,8 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
     from distdl.nn.transpose import DistributedTranspose
     from distdl.utilities.torch import zero_volume_tensor
 
+    device = torch.device('cuda' if use_cuda else 'cpu')
+
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
@@ -293,9 +299,13 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
     P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
     scatter_layer_x = DistributedTranspose(P_0, P_x)
+    scatter_layer_x = scatter_layer_x.to(device)
     scatter_layer_y = DistributedTranspose(P_0, P_x)
+    scatter_layer_y = scatter_layer_y.to(device)
     gather_layer_x = DistributedTranspose(P_x, P_0)
+    gather_layer_x = gather_layer_x.to(device)
     gather_layer_y = DistributedTranspose(P_x, P_0)
+    gather_layer_y = gather_layer_y.to(device)
 
     # Create the layers
     if input_dimensions == 1:
@@ -315,6 +325,7 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
                                  stride=stride,
                                  dilation=dilation,
                                  bias=bias)
+    dist_layer = dist_layer.to(device)
     if P_0.active:
         seq_layer = seq_layer_type(in_channels=x_global_shape[1],
                                    out_channels=10,
@@ -324,28 +335,29 @@ def test_conv_versus_pytorch(barrier_fence_fixture,
                                    dilation=dilation,
                                    bias=bias)
         # set the weights of both layers to be the same
-        weight = torch.rand_like(seq_layer.weight)
+        seq_layer = seq_layer.to(device)
+        weight = torch.rand_like(seq_layer.weight, device=device)
         seq_layer.weight.data = weight
         dist_layer.weight.data = weight
         if bias:
-            bias_weight = torch.rand_like(seq_layer.bias)
+            bias_weight = torch.rand_like(seq_layer.bias, device=device)
             seq_layer.bias.data = bias_weight
             dist_layer.bias.data = bias_weight
 
     # Forward Input
-    x_ref = zero_volume_tensor()
+    x_ref = zero_volume_tensor(device=device)
     x_ref.requires_grad = True
-    dy_ref = zero_volume_tensor()
+    dy_ref = zero_volume_tensor(device=device)
 
     # Construct the inputs to the forward and backward functions as well as the
     # the outputs of the sequential layer
     if P_0.active:
-        x_ref = torch.randn(*x_global_shape)
+        x_ref = torch.randn(*x_global_shape, device=device)
         x_ref.requires_grad = True
         y_ref = seq_layer(x_ref)
         y_global_shape_calc = y_ref.shape
 
-        dy_ref = torch.randn(*y_global_shape_calc)
+        dy_ref = torch.randn(*y_global_shape_calc, device=device)
 
         y_ref.backward(dy_ref)
         dx_ref = x_ref.grad

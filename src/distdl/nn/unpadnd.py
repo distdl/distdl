@@ -1,38 +1,6 @@
 import numpy as np
 import torch
-
-
-class UnpadNdFunction(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input, pad_width, value):
-
-        ctx.value = value
-        ctx.pad_width = pad_width
-
-        slices = []
-        for (lpad, rpad) in pad_width:
-            start = lpad
-            stop = -rpad if rpad > 0 else None
-            slices.append(slice(start, stop, 1))
-
-        input_numpy = input.detach().numpy()
-
-        result = input_numpy[tuple(slices)]
-
-        return torch.tensor(result, requires_grad=input.requires_grad)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-
-        value = ctx.value
-        pad_width = ctx.pad_width
-
-        grad_output_numpy = grad_output.detach().numpy()
-
-        result = np.pad(grad_output_numpy, pad_width, mode='constant', constant_values=value)
-
-        return torch.tensor(result, requires_grad=grad_output.requires_grad), None, None, None
+import torch.nn.functional as F
 
 
 class UnpadNd(torch.nn.Module):
@@ -43,6 +11,22 @@ class UnpadNd(torch.nn.Module):
 
         self.pad_width = pad_width
         self.value = value
+        self.torch_pad = self._to_torch_padding(pad_width)
+        self.slices = []
+        for (lpad, rpad) in pad_width:
+            start = lpad
+            stop = -rpad if rpad > 0 else None
+            self.slices.append(slice(start, stop, 1))
+
+    def _to_torch_padding(self, pad):
+        r"""
+        Accepts a NumPy ndarray describing the padding, and produces the torch F.pad format:
+            [[a_0, b_0], ..., [a_n, b_n]]  ->  (a_n, b_n, ..., a_0, b_0)
+        """
+        return tuple(np.array(list(reversed(pad)), dtype=int).flatten())
 
     def forward(self, input):
-        return UnpadNdFunction.apply(input, self.pad_width, self.value)
+        return input[tuple(self.slices)]
+
+    def backward(self, grad_output):
+        return F.pad(grad_output, self.torch_pad, mode='constant', value=self.value)

@@ -1,6 +1,10 @@
+import os
+
 import pytest
 import torch
 from adjoint_test import check_adjoint_test_tight
+
+use_cuda = 'USE_CUDA' in os.environ
 
 adjoint_parametrizations = []
 
@@ -67,6 +71,8 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.unpadnd import UnpadNd
 
+    device = torch.device('cuda' if use_cuda else 'cpu')
+
     # Isolate the minimum needed ranks
     base_comm, active = comm_split_fixture
     if not active:
@@ -77,14 +83,15 @@ def test_unpadnd_adjoint(barrier_fence_fixture,
     padding = np.asarray(padding)
 
     layer = UnpadNd(padding, value=0)
+    layer = layer.to(device)
 
-    x = torch.randn(*x_local_shape).to(dtype)
+    x = torch.randn(*x_local_shape, device=device).to(dtype)
     x.requires_grad = True
 
     y = layer(x)
     assert y.dtype == dtype
 
-    dy = torch.randn(*y.shape).to(dtype)
+    dy = torch.randn(*y.shape, device=device).to(dtype)
 
     y.backward(dy)
     dx = x.grad
