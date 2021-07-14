@@ -21,7 +21,7 @@ P_x = P.create_cartesian_topology_partition([1, 1, 2, 2])
 
 x_global_shape = np.array([1, 1, 10, 10])
 
-# layer = DistributedBatchNorm(P_x, num_features=1)
+layer = DistributedBatchNorm(P_x, num_features=1)
 layer = DistributedFeatureConv2d(P_x, in_channels=1, out_channels=1, kernel_size=[3, 3], padding=[1, 1])
 layer = layer.to(device)
 
@@ -31,14 +31,16 @@ if P_x.active:
                                      P_x.index,
                                      x_global_shape)
     x = torch.ones(tuple(x_local_shape)) * (P_x.rank + 1)
-    x = x.to(device)
+    # x = x.to(device)
 x.requires_grad = True
+
+y_hat = torch.zeros_like(x)
+y_hat = y_hat.to(device)
 
 # print_sequential(P_world._comm, f'rank = {P_world.rank}, input =\n{x}')
 
 y = layer(x)
-y_hat = x.clone()
 y.backward(y_hat)
 
-# print_sequential(P_world._comm, f'rank = {P_world.rank}, output =\n{y_hat.grad}')
+# print_sequential(P_world._comm, f'rank = {P_world.rank}, output =\n{x.grad}')
 # print_sequential(P_world._comm, f'rank = {P_world.rank}, output =\n{y}')
