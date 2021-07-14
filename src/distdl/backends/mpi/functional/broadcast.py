@@ -88,25 +88,27 @@ class BroadcastFunction(torch.autograd.Function):
 
         """
 
+        device = input.device
         ctx.P_send = P_send
         ctx.P_recv = P_recv
         ctx.preserve_batch = preserve_batch
         ctx.input_tensor_structure = input_tensor_structure
         ctx.output_tensor_structure = output_tensor_structure
+        ctx.device = device
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
         if preserve_batch:
-            output = zero_volume_tensor(input.shape[0])
+            output = zero_volume_tensor(input.shape[0], device=device)
         else:
-            output = zero_volume_tensor()
+            output = zero_volume_tensor(device=device)
 
         # MPI requests to clear
         requests = []
 
         # Send all of the data
         if P_send.active:
-            input_numpy = input.detach().numpy()
+            input_numpy = input.detach().cpu().numpy()
             req = P_send._comm.Ibcast(input_numpy, root=0)
             requests.append(req)
 
@@ -121,7 +123,7 @@ class BroadcastFunction(torch.autograd.Function):
 
                 req = P_recv._comm.Ibcast(output, root=0)
                 req.Wait()
-                output = torch.tensor(output, requires_grad=output_tensor_structure.requires_grad)
+                output = torch.tensor(output, requires_grad=output_tensor_structure.requires_grad, device=device)
 
         # Complete all broadcast operations.
         MPI.Request.Waitall(requests)
@@ -181,13 +183,16 @@ class BroadcastFunction(torch.autograd.Function):
         preserve_batch = ctx.preserve_batch
         input_tensor_structure = ctx.input_tensor_structure
         output_tensor_structure = ctx.output_tensor_structure
+        device = ctx.device
+
+        assert grad_output.device == device
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
         if preserve_batch:
-            grad_input = zero_volume_tensor(grad_output.shape[0])
+            grad_input = zero_volume_tensor(grad_output.shape[0], device=device)
         else:
-            grad_input = zero_volume_tensor()
+            grad_input = zero_volume_tensor(device=device)
 
         requests = []
 
@@ -198,7 +203,7 @@ class BroadcastFunction(torch.autograd.Function):
         if P_recv.active:
             numpy_dtype = torch_to_numpy_dtype_dict[output_tensor_structure.dtype]
             reduced_data_recv = np.zeros(output_tensor_structure.shape, dtype=numpy_dtype)
-            grad_output_numpy = grad_output.detach().numpy()
+            grad_output_numpy = grad_output.detach().cpu().numpy()
             req = P_recv._comm.Ireduce(grad_output_numpy, reduced_data_recv, root=0, op=MPI.SUM)
             requests.append(req)
 
@@ -216,9 +221,11 @@ class BroadcastFunction(torch.autograd.Function):
         if P_send.active:
             if P_send == P_recv:
                 grad_input = torch.tensor(reduced_data_recv,
-                                          requires_grad=input_tensor_structure.requires_grad)
+                                          requires_grad=input_tensor_structure.requires_grad,
+                                          device=device)
             else:
                 grad_input = torch.tensor(reduced_data_send,
-                                          requires_grad=input_tensor_structure.requires_grad)
+                                          requires_grad=input_tensor_structure.requires_grad,
+                                          device=device)
 
         return grad_input, None, None, None, None, None

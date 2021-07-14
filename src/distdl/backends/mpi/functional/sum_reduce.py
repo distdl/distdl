@@ -85,18 +85,20 @@ class SumReduceFunction(torch.autograd.Function):
 
         """
 
+        device = input.device
         ctx.P_send = P_send
         ctx.P_recv = P_recv
         ctx.preserve_batch = preserve_batch
         ctx.input_tensor_structure = input_tensor_structure
         ctx.output_tensor_structure = output_tensor_structure
+        ctx.device = device
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
         if preserve_batch:
-            output = zero_volume_tensor(input.shape[0])
+            output = zero_volume_tensor(input.shape[0], device=device)
         else:
-            output = zero_volume_tensor()
+            output = zero_volume_tensor(device=device)
 
         requests = []
 
@@ -108,7 +110,7 @@ class SumReduceFunction(torch.autograd.Function):
         if P_send.active:
             numpy_dtype = torch_to_numpy_dtype_dict[input_tensor_structure.dtype]
             reduced_data_send = np.zeros(input_tensor_structure.shape, dtype=numpy_dtype)
-            input_numpy = input.detach().numpy()
+            input_numpy = input.detach().cpu().numpy()
             req = P_send._comm.Ireduce(input_numpy, reduced_data_send, root=0, op=MPI.SUM)
             requests.append(req)
 
@@ -125,10 +127,12 @@ class SumReduceFunction(torch.autograd.Function):
         if P_recv.active:
             if P_send == P_recv:
                 output = torch.tensor(reduced_data_send,
-                                      requires_grad=output_tensor_structure.requires_grad)
+                                      requires_grad=output_tensor_structure.requires_grad,
+                                      device=device)
             else:
                 output = torch.tensor(reduced_data_recv,
-                                      requires_grad=output_tensor_structure.requires_grad)
+                                      requires_grad=output_tensor_structure.requires_grad,
+                                      device=device)
 
         return output
 
@@ -187,19 +191,22 @@ class SumReduceFunction(torch.autograd.Function):
         P_recv = ctx.P_recv
         preserve_batch = ctx.preserve_batch
         input_tensor_structure = ctx.input_tensor_structure
+        device = ctx.device
+
+        assert grad_output.device == device
 
         # This allows all ranks to use the same exit path, so that we can be
         # sure that all requests have cleared.
         if preserve_batch:
-            grad_input = zero_volume_tensor(grad_output.shape[0])
+            grad_input = zero_volume_tensor(grad_output.shape[0], device=device)
         else:
-            grad_input = zero_volume_tensor()
+            grad_input = zero_volume_tensor(device=device)
 
         requests = []
 
         # If I received the reduction in the forward call, I broadcast my data
         if P_recv.active:
-            grad_output_numpy = grad_output.detach().numpy()
+            grad_output_numpy = grad_output.detach().cpu().numpy()
             req = P_recv._comm.Ibcast(grad_output_numpy, root=0)
             requests.append(req)
 
@@ -215,7 +222,8 @@ class SumReduceFunction(torch.autograd.Function):
                 req = P_send._comm.Ibcast(grad_input, root=0)
                 req.Wait()
                 grad_input = torch.tensor(grad_input,
-                                          requires_grad=input_tensor_structure.requires_grad)
+                                          requires_grad=input_tensor_structure.requires_grad,
+                                          device=device)
 
         MPI.Request.Waitall(requests)
 

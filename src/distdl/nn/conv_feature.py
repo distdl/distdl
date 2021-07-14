@@ -119,7 +119,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         self.padding_mode = padding_mode
         self.dilation = self._expand_parameter(dilation)
         self.groups = groups
-        self.bias = bias
+        self.use_bias = bias
 
         # Do this before checking serial so that the layer works properly
         # in the serial case
@@ -164,10 +164,10 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
             if self.conv_layer.bias is not None:
                 self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
         else:
-            self.weight = zero_volume_tensor()
+            self.register_buffer('weight', zero_volume_tensor())
 
             if self.conv_layer.bias is not None:
-                self.bias = zero_volume_tensor()
+                self.register_buffer('bias', zero_volume_tensor())
 
         self.weight.requires_grad = self.conv_layer.weight.requires_grad
 

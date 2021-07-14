@@ -106,6 +106,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         ctx.preserve_batch = preserve_batch
 
+        device = input.device
+        ctx.device = device
+
         input_requires_grad = False
 
         # Share the requires-grad status, so that it is preserved across the
@@ -129,9 +132,11 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # Default everyone to output nothing
         if preserve_batch:
             output = zero_volume_tensor(input.shape[0],
-                                        dtype=x_global_structure.dtype)
+                                        dtype=x_global_structure.dtype,
+                                        device=device)
         else:
-            output = zero_volume_tensor(dtype=x_global_structure.dtype)
+            output = zero_volume_tensor(dtype=x_global_structure.dtype,
+                                        device=device)
 
         # If I am getting data, recv my output parts
         recv_count = 0
@@ -151,11 +156,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # If I have data to share, pack and send my input parts
         send_count = 0
         if P_x.active:
-            input_numpy = input.detach().numpy()
             for (sl, sh, partner), buff in zip(P_x_to_y_overlaps, P_x_to_y_buffers):
                 if buff is not None:
                     xfer_buff = buff.get_view(sh)
-                    np.copyto(xfer_buff, input_numpy[sl])
+                    np.copyto(xfer_buff, input.detach()[sl].cpu().numpy())
                     req = P_union._comm.Isend(xfer_buff, dest=partner, tag=111)
                     requests.append(req)
                 else:
@@ -176,7 +180,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 if x2ypartner == "self":
                     for (ysl, ysh, y2xpartner) in P_y_to_x_overlaps:
                         if y2xpartner == "self":
-                            np.copyto(output[ysl], input_numpy[xsl])
+                            np.copyto(output[ysl], input.detach()[xsl].cpu().numpy())
                             # There is only one case where this can happen
                             break
                     # There is only one case where this can happen
@@ -201,8 +205,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
             completed_count += 1
 
         if P_y.active:
-            output = torch.from_numpy(output)
-            output.requires_grad = input_requires_grad
+            output = torch.tensor(output,
+                                  requires_grad=input_requires_grad,
+                                  device=device)
 
         return output
 
@@ -256,14 +261,20 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
         input_requires_grad = ctx.input_requires_grad
 
+        device = ctx.device
+
+        assert grad_output.device == device
+
         requests = []
 
         # Default everyone to output None
         if preserve_batch:
             grad_input = zero_volume_tensor(grad_output.shape[0],
-                                            dtype=x_global_structure.dtype)
+                                            dtype=x_global_structure.dtype,
+                                            device=device)
         else:
-            grad_input = zero_volume_tensor(dtype=x_global_structure.dtype)
+            grad_input = zero_volume_tensor(dtype=x_global_structure.dtype,
+                                            device=device)
 
         # Recv my input parts
         recv_count = 0
@@ -283,11 +294,10 @@ class DistributedTransposeFunction(torch.autograd.Function):
         # Pack and send my input parts
         send_count = 0
         if P_y.active:
-            grad_output_numpy = grad_output.detach().numpy()
             for (sl, sh, partner), buff in zip(P_y_to_x_overlaps, P_y_to_x_buffers):
                 if buff is not None:
                     xfer_buff = buff.get_view(sh)
-                    np.copyto(xfer_buff, grad_output_numpy[sl])
+                    np.copyto(xfer_buff, grad_output.detach()[sl].cpu().numpy())
                     req = P_union._comm.Isend(xfer_buff, dest=partner, tag=113)
                     requests.append(req)
                 else:
@@ -306,7 +316,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 if y2xpartner == "self":
                     for (xsl, xsh, x2ypartner) in P_x_to_y_overlaps:
                         if x2ypartner == "self":
-                            np.copyto(grad_input[xsl], grad_output_numpy[ysl])
+                            np.copyto(grad_input[xsl], grad_output.detach()[ysl].cpu().numpy())
                             # There is only one case where this can happen
                             break
                     # There is only one case where this can happen
@@ -333,7 +343,8 @@ class DistributedTransposeFunction(torch.autograd.Function):
             completed_count += 1
 
         if P_x.active:
-            grad_input = torch.from_numpy(grad_input)
-            grad_input.requires_grad = input_requires_grad
+            grad_input = torch.tensor(grad_input,
+                                      requires_grad=input_requires_grad,
+                                      device=device)
 
         return grad_input, None, None, None, None, None, None, None, None, None, None, None
