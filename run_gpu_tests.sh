@@ -18,5 +18,11 @@ cd $SLURM_SUBMIT_DIR
     module load PyTorch/1.7.1-fosscuda-2020b
 } &> /dev/null
 
-# mpirun python -m mpi4py ./gpu_test/conv_bn.py
-mpirun --n 20 -x USE_CUDA=1 python -B -m mpi4py -m pytest --with-mpi -rsa -x tests/test_broadcast.py
+mpirun --n 20 -x USE_CUDA=1 python -B -m mpi4py -m pytest --with-mpi -rsa -x \
+    tests/test_transpose.py \
+    tests/test_halo_exchange.py \
+    tests/test_sum_reduce.py \
+    tests/test_broadcast.py \
+    tests/test_padnd.py \
+    tests/test_conv_feature.py \
+    tests/test_batchnorm.py
