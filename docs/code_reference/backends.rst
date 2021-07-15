@@ -103,6 +103,9 @@ A partition must also provide the following API for creating new partitions:
 * ``create_cartesian_topology_partition()``: Using the workers in the team
   for the unstructured partition, create a partition endowed with a
   Cartesian topology.
+* ``create_allreduction_partition()``: Create the partition required to
+  support the :ref:`All-sum-reduce
+  <code_reference/nn/all_sum_reduce:AllSumReduce Layer>` operation.
 * ``create_broadcast_partition_to()``: Following the DistDL
   :ref:`code_reference/nn/broadcast:Broadcast Rules`, create the sending and
   receiving partitions required to support the :ref:`Broadcast
@@ -188,6 +191,99 @@ with No Topology`, Cartesian partitions may also specify:
 
 Functional Primitives
 ---------------------
+
+All Sum-Reduce
+~~~~~~~~~~~~~~
+
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+   :align: left
+
+   * - Back-end
+     - Module
+     - Class
+   * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
+     - :any:`backends.mpi.functional.all_sum_reduce <distdl.backends.mpi.functional.all_sum_reduce>`
+     - :any:`AllSumReduceFunction <distdl.backends.mpi.functional.AllSumReduceFunction>`
+
+The functional primitive for the AllSumReduce data movement operation does not
+use the original tensor partitions :math:`P_x` (input and output) directly.
+Instead, the calling class must create new sub-partitions of :math:`P_x`,
+along specified dimensions, to enable actual data movement.
+
+For the AllSumReduce operation, these are back-end specific implementations of
+:ref:`code_reference/backends:Partitions with No Topology` and the data
+movement occurs *within* these partitions.
+
+The forward AllSumReduce is equivalent to a standard SumReduce followed by
+a standard Broadcast, though the actual implementation will rarely use
+these routines directly.
+
+The sub-partitions are created using the ``create_allreduce_partition()``
+method of the ``Partition`` class for the selected back-end, which
+creates a number of partitions equal to the product the dimensions
+of :math:`P_x` which are *not* reduced in the reduction.
+
+Each worker in :math:`P_x` is a member of exactly one of these sub-partitions.
+
+We illustrate some examples of the construction of these partitions in the
+following example.  Consider a :math:`2 \times 3 \times 2` input
+partition :math:`P_x`, as illustrated below, where workers are identified a
+*global* lexicographic ordering.  For example, in an MPI-based environment,
+this would mean the identifiers are the ranks in a group of size 12 that is
+a parent group to both partitions.
+
+.. note::
+    Implementations should not impose anything on the ordering of the workers.
+    Back-end specific (private) routines may be used to map indices to workers.
+
+.. figure:: /_images/all_sum_reduce_example_A01.png
+    :alt: Image of 2x3x2 partition with labeled workers.
+
+    Caption here.
+
+
+If the reduction is specified over the 0th and 2nd dimensions, then this
+broadcast creates 3 partitions as described above, illustrated below, which
+we label :math:`P_0`, :math:`P_1`, and :math:`P_2` for convenience.
+
+
+.. figure:: /_images/all_sum_reduce_example_A02.png
+    :alt: Image of partitions induced by 2x3x2 all-sum-reduce over the first and last dimensions, with labeled workers.
+
+The following table gives the global lexicographic identifiers of each worker
+in the partition.
+
+.. list-table::
+   :header-rows: 1
+   :align: center
+
+   * - Partition
+     - Workers
+   * - :math:`P_0`
+     - 0, 1, 6, 7
+   * - :math:`P_1`
+     - 2, 3, 8, 9
+   * - :math:`P_2`
+     - 4, 5, 10, 11
+
+After the forward application of the all-sum-reduction, all workers active in the
+``P_x`` partition have as output the sum reduction of the correct subtensors of the
+original tensor.
+
+.. figure:: /_images/all_sum_reduce_example_A03.png
+    :alt: Image of 1x3x1 to 2x3x2 all-sum-reductin along dimensions 0 and 2.
+
+    Completed all-sum-reduction.
+
+AllSumReduce may apply over any combination of the dimensions, including all
+and none of them.  If all dimensions of the partition are included, the output
+is the sum over all input tensors in the partition.  If the set of input
+dimensions is empty, then the layer is functionally the identity.
+
+The adjoint phase works the same way, as this operation is self-adjoint, as 
+described in the `motivating paper <https://arxiv.org/abs/2006.03108>`_.
 
 Broadcast
 ~~~~~~~~~

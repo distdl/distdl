@@ -1,4 +1,7 @@
+import distdl.nn.loss  # noqa: F401
+
 from . import mixins  # noqa: F401
+from .all_sum_reduce import AllSumReduce  # noqa: F401
 from .batchnorm import DistributedBatchNorm  # noqa: F401
 from .broadcast import Broadcast  # noqa: F401
 from .conv import DistributedConv1d  # noqa: F401
@@ -16,6 +19,12 @@ from .conv_general import DistributedGeneralConv3d  # noqa: F401
 from .halo_exchange import HaloExchange  # noqa: F401
 from .interpolate import Interpolate  # noqa: F401
 from .linear import DistributedLinear  # noqa: F401
+from .loss import DistributedBCELoss  # noqa: F401
+from .loss import DistributedBCEWithLogitsLoss  # noqa: F401
+from .loss import DistributedKLDivLoss  # noqa: F401
+from .loss import DistributedL1Loss  # noqa: F401
+from .loss import DistributedMSELoss  # noqa: F401
+from .loss import DistributedPoissonNLLLoss  # noqa: F401
 from .module import Module  # noqa: F401
 from .padnd import PadNd  # noqa: F401
 from .pooling import DistributedAvgPool1d  # noqa: F401
@@ -29,7 +38,8 @@ from .transpose import DistributedTranspose  # noqa: F401
 from .unpadnd import UnpadNd  # noqa: F401
 from .upsampling import DistributedUpsample  # noqa: F401
 
-__all__ = ["Broadcast",
+__all__ = ["AllSumReduce",
+           "Broadcast",
            "DistributedBatchNorm",
            "DistributedConv1d",
            "DistributedConv2d",
@@ -45,6 +55,12 @@ __all__ = ["Broadcast",
            "DistributedGeneralConv3d",
            "HaloExchange",
            "DistributedLinear",
+           "DistributedL1Loss",
+           "DistributedMSELoss",
+           "DistributedPoissonNLLLoss",
+           "DistributedBCELoss",
+           "DistributedBCEWithLogitsLoss",
+           "DistributedKLDivLoss",
            "Module",
            "PadNd",
            "UnpadNd",
@@ -58,4 +74,5 @@ __all__ = ["Broadcast",
            "DistributedTranspose",
            "Interpolate",
            "DistributedUpsample",
+           "loss",
            ]
