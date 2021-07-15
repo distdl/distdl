@@ -25,4 +25,5 @@ mpirun --n 20 -x USE_CUDA=1 python -B -m mpi4py -m pytest --with-mpi -rsa -x \
     tests/test_broadcast.py \
     tests/test_padnd.py \
     tests/test_conv_feature.py \
-    tests/test_batchnorm.py
+    tests/test_batchnorm.py \
+    tests/test_loss.py
