@@ -5,7 +5,6 @@ import os
 # These tests aim to compare DistributedConvNd functionality to PyTorch's ConvNd.
 
 use_cuda = 'USE_CUDA' in os.environ
-assert use_cuda == True
 
 params = []
 
