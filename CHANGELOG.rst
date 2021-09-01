@@ -34,3 +34,14 @@ Changelog
 * Added smarter buffer re-use.
 * Added distributed batch normalization layer.
 * Added distributed upsampling interpolation layer.
+
+0.4.0 (2021-09-01)
+------------------
+* Reorganized code to follow standard PyTorch naming
+* Fixed bugs related to invalid convolution arguments
+* Improved convolution and pooling implementations to reduce constraints on inputs
+* Added all-sum-reduce
+* Added distributed loss functions
+* Added initial GPU support for MPI backend (experimental)
+* Moved from Travis-CI to GitHub Actions
+* Multiple documentation fixes
