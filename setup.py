@@ -86,7 +86,7 @@ torch_extensions.append(build_cpu_extension("distdl.functional.interpolate"))
 
 setup(
     name='distdl',
-    version='0.4.0-dev',
+    version='0.4.0',
     license='BSD-2-Clause',
     description='A Distributed Deep Learning package for PyTorch.',
     long_description='%s\n%s' % (
