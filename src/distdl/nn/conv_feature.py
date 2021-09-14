@@ -8,6 +8,7 @@ from distdl.nn.mixins.conv_mixin import ConvMixin
 from distdl.nn.mixins.halo_mixin import HaloMixin
 from distdl.nn.module import Module
 from distdl.utilities.slicing import assemble_slices
+from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import TensorStructure
 from distdl.utilities.torch import zero_volume_tensor
 
@@ -337,14 +338,6 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         return self._input_tensor_structure != new_tensor_structure
 
-    def _to_torch_padding(self, pad):
-        r"""
-        Accepts a NumPy ndarray describing the padding, and produces the torch F.pad format:
-            [[a_0, b_0], ..., [a_n, b_n]]  ->  (a_n, b_n, ..., a_0, b_0)
-
-        """
-        return tuple(np.array(list(reversed(pad)), dtype=int).flatten())
-
     def _compute_local_padding(self, padding):
         r"""
         Computes the amount of explicit padding required on the current rank,
@@ -382,7 +375,7 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         # Compute the total padding and convert to PyTorch format
         total_padding = self.local_padding + self.halo_shape
-        torch_padding = self._to_torch_padding(total_padding)
+        torch_padding = distdl_padding_to_torch_padding(total_padding)
 
         if total_padding.sum() == 0:
             input_padded = input

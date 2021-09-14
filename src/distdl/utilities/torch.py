@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 
@@ -37,3 +38,12 @@ class TensorStructure:
         return ((self.shape == other.shape) and
                 (self.dtype == other.dtype) and
                 (self.requires_grad == other.requires_grad))
+
+
+def distdl_padding_to_torch_padding(pad):
+    r"""
+    Accepts a NumPy ndarray describing the padding, and produces the torch F.pad format:
+        [[a_0, b_0], ..., [a_n, b_n]]  ->  (a_n, b_n, ..., a_0, b_0)
+
+    """
+    return tuple(np.array(list(reversed(pad)), dtype=int).flatten())
