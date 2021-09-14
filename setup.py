@@ -22,6 +22,7 @@ try:
 except ModuleNotFoundError:
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "torch"])
+    from torch.utils import cpp_extension
 
 
 def read(*names, **kwargs):
