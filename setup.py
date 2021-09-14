@@ -19,7 +19,7 @@ from setuptools import find_packages
 from setuptools import setup
 try:
     from torch.utils import cpp_extension
-except e:
+except ModuleNotFoundError:
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "torch"])
 
