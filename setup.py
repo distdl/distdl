@@ -17,7 +17,11 @@ from os.path import splitext
 from setuptools import Extension
 from setuptools import find_packages
 from setuptools import setup
-from torch.utils import cpp_extension
+try:
+    from torch.utils import cpp_extension
+except e:
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "torch"])
 
 
 def read(*names, **kwargs):
