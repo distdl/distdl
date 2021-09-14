@@ -109,12 +109,13 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
                                MockKernelStyle):
     import numpy as np
     import torch
+    import torch.nn.functional as F
 
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.halo_exchange import HaloExchange
-    from distdl.nn.padnd import PadNd
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
+    from distdl.utilities.torch import distdl_padding_to_torch_padding
 
     device = torch.device('cuda' if use_cuda else 'cpu')
 
@@ -149,33 +150,45 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
         recv_buffer_shape = exchange_info[1]
         send_buffer_shape = exchange_info[2]
 
-    pad_layer = PadNd(halo_shape, value=0)
-    pad_layer = pad_layer.to(device)
     halo_layer = HaloExchange(P_x, halo_shape, recv_buffer_shape, send_buffer_shape)
     halo_layer = halo_layer.to(device)
 
     x = zero_volume_tensor(x_global_shape[0], device=device)
+    dy = zero_volume_tensor(x_global_shape[0], device=device)
     if P_x.active:
         x_local_shape = compute_subshape(P_x.shape,
                                          P_x.index,
                                          x_global_shape)
+
+        padding = distdl_padding_to_torch_padding(halo_shape)
+
         x = torch.randn(*x_local_shape, device=device).to(dtype)
-        x = pad_layer.forward(x)
+
+        # Pad the input with the halo space.  We are only testing the behavior of
+        # the halo exchange so the input must be padded before we can do anything.
+        x = F.pad(x, pad=padding, mode="constant", value=0)
+
+        # dy is also padded, but we wanted it to start with data inside it.
+        dy = torch.randn(*x.shape, device=device).to(dtype)
+
     x.requires_grad = True
 
-    dy = zero_volume_tensor(x_global_shape[0], device=device)
-    if P_x.active:
-        dy = torch.randn(*x.shape, device=device).to(dtype)
+    # Halo Exchange (both fwd and adj) is in-place.  So, we copy the input
+    # data and save the original for the adjoint test. Because it is in-place,
+    # the clones themselves are modified.  This also prevents issues with us
+    # in-place operations on leaf-nodes.
 
     x_clone = x.clone()
     dy_clone = dy.clone()
 
     # x_clone is be modified in place by halo_layer, but we assign y to
-    # reference it for clarity
+    # reference it for clarity.  y and x_clone are the same object.
     y = halo_layer(x_clone)
 
     # dy_clone is modified in place by halo_layer-adjoint, but we assign dx to
-    # reference it for clarity
+    # reference it for clarity.  dx and dy_clone are the same object.
+    # dx is not in the grad field as you might expect because the operation is
+    # in-place.
     y.backward(dy_clone)
     dx = dy_clone
 
