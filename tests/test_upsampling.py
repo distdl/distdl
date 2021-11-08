@@ -2,10 +2,10 @@ import numpy as np
 import pytest
 from adjoint_test import check_adjoint_test_tight
 
-adjoint_parametrizations = []
+match_parametrizations = []
 
 # Main functionality
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 5), [1, 1, 5],  # P_x_ranks, P_x_shape
         [3, 4, 17],  # x_global_shape
@@ -17,7 +17,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 5), [1, 1, 5],  # P_x_ranks, P_x_shape
         [3, 4, 17],  # x_global_shape
@@ -29,7 +29,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 5), [1, 1, 5],  # P_x_ranks, P_x_shape
         [3, 4, 17],  # x_global_shape
@@ -41,7 +41,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 5), [1, 1, 5],  # P_x_ranks, P_x_shape
         [3, 4, 17],  # x_global_shape
@@ -53,7 +53,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 5), [1, 1, 5],  # P_x_ranks, P_x_shape
         [3, 4, 17],  # x_global_shape
@@ -65,7 +65,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 12), [1, 1, 3, 4],  # P_x_ranks, P_x_shape
         [3, 4, 13, 17],  # x_global_shape
@@ -77,7 +77,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 12), [1, 1, 3, 4],  # P_x_ranks, P_x_shape
         [3, 4, 13, 17],  # x_global_shape
@@ -89,7 +89,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 12), [1, 1, 3, 4],  # P_x_ranks, P_x_shape
         [3, 4, 13, 17],  # x_global_shape
@@ -101,7 +101,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 12), [1, 1, 3, 4],  # P_x_ranks, P_x_shape
         [3, 4, 13, 17],  # x_global_shape
@@ -113,7 +113,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 12), [1, 1, 3, 4],  # P_x_ranks, P_x_shape
         [3, 4, 13, 17],  # x_global_shape
@@ -125,7 +125,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 18), [1, 1, 2, 3, 3],  # P_x_ranks, P_x_shape
         [3, 4, 7, 13, 17],  # x_global_shape
@@ -137,7 +137,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 18), [1, 1, 2, 3, 3],  # P_x_ranks, P_x_shape
         [3, 4, 7, 13, 17],  # x_global_shape
@@ -149,7 +149,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 18), [1, 1, 2, 3, 3],  # P_x_ranks, P_x_shape
         [3, 4, 7, 13, 17],  # x_global_shape
@@ -161,7 +161,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 18), [1, 1, 2, 3, 3],  # P_x_ranks, P_x_shape
         [3, 4, 7, 13, 17],  # x_global_shape
@@ -173,7 +173,7 @@ adjoint_parametrizations.append(
         )
     )
 
-adjoint_parametrizations.append(
+match_parametrizations.append(
     pytest.param(
         np.arange(0, 18), [1, 1, 2, 3, 3],  # P_x_ranks, P_x_shape
         [3, 4, 7, 13, 17],  # x_global_shape
@@ -191,95 +191,13 @@ interp_parametrizations.append(pytest.param("nearest",  False))
 interp_parametrizations.append(pytest.param("linear",  True))
 interp_parametrizations.append(pytest.param("linear",  False))
 
-
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape, "
                          "scale_factor, "
                          "y_global_shape, "
                          "comm_split_fixture",
-                         adjoint_parametrizations,
-                         indirect=["comm_split_fixture"])
-@pytest.mark.parametrize("mode, align_corners", interp_parametrizations)
-@pytest.mark.parametrize("use_size", [True, False])
-def test_upsample_adjoint(barrier_fence_fixture,
-                          comm_split_fixture,
-                          P_x_ranks, P_x_shape,
-                          x_global_shape,
-                          scale_factor,
-                          y_global_shape,
-                          mode, align_corners,
-                          use_size):
-
-    import torch
-
-    from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.upsampling import DistributedUpsample
-    from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import zero_volume_tensor
-
-    # Isolate the minimum needed ranks
-    base_comm, active = comm_split_fixture
-    if not active:
-        return
-
-    # Test align_corners only in the linear case, otherwise ignore it.
-    if mode != "linear" and align_corners:
-        return
-
-    P_world = MPIPartition(base_comm)
-
-    # Create the partitions
-    P_x_base = P_world.create_partition_inclusive(P_x_ranks)
-    P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
-
-    if use_size:
-        layer = DistributedUpsample(P_x, size=y_global_shape, mode=mode, align_corners=align_corners)
-    else:
-        layer = DistributedUpsample(P_x, scale_factor=scale_factor, mode=mode, align_corners=align_corners)
-
-    # Forward Input
-    x = zero_volume_tensor()
-    if P_x.active:
-        x_local_shape = compute_subshape(P_x.shape,
-                                         P_x.index,
-                                         x_global_shape)
-        x = torch.randn(*x_local_shape)
-
-    x.requires_grad = True
-
-    # y = F @ x
-    y = layer(x)
-
-    y_local_shape = y.shape
-    # Adjoint Input
-    dy = zero_volume_tensor()
-    if P_x.active:
-        dy = torch.randn(*y_local_shape)
-
-    # dx = F* @ dy
-    y.backward(dy)
-    dx = x.grad
-
-    x = x.detach()
-    dx = dx.detach()
-    dy = dy.detach()
-    y = y.detach()
-
-    check_adjoint_test_tight(P_world, x, dx, y, dy)
-
-    P_world.deactivate()
-    P_x_base.deactivate()
-    P_x.deactivate()
-
-
-# For example of indirect, see https://stackoverflow.com/a/28570677
-@pytest.mark.parametrize("P_x_ranks, P_x_shape,"
-                         "x_global_shape, "
-                         "scale_factor, "
-                         "y_global_shape, "
-                         "comm_split_fixture",
-                         adjoint_parametrizations,
+                         match_parametrizations,
                          indirect=["comm_split_fixture"])
 @pytest.mark.parametrize("mode, align_corners", interp_parametrizations)
 @pytest.mark.parametrize("use_size", [True, False])
@@ -367,7 +285,14 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
 
     x.requires_grad = True
 
-    y = dist_layer(x)
+    # Because  there is no guarantee that any padding is needed, in this test,
+    # the input x may pass directly to the Halo layer without going through
+    # the padding process.  As the halo layer is in-place, that would mean a leaf-node
+    # variable is modified in-place, which PyTorch does not allow.
+    #
+    # Thus, we have to clone it to make the input not a leaf-node.  
+    x_clone = x.clone()
+    y = dist_layer(x_clone)
     y.backward(dy)
     dx = x.grad
 
