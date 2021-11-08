@@ -1,14 +1,16 @@
+import numpy as np
 import torch
+import torch.nn.functional as F
 
 from distdl.nn.halo_exchange import HaloExchange
 from distdl.nn.interpolate import Interpolate
 from distdl.nn.mixins.interpolate_mixin import InterpolateMixin
 from distdl.nn.module import Module
-from distdl.nn.padnd import PadNd
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.tensor_decomposition import compute_subtensor_shapes_balanced
 from distdl.utilities.tensor_decomposition import compute_subtensor_start_indices
 from distdl.utilities.tensor_decomposition import compute_subtensor_stop_indices
+from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import TensorStructure
 
 
@@ -102,11 +104,6 @@ class DistributedUpsample(Module, InterpolateMixin):
         # We need the actual sizes to determine the interpolation layer
         self.interp_layer = None
 
-        # We need the halo shape, and other info, to fully populate the pad
-        # and halo exchange layers.  For pad, we defer the construction to the
-        # pre-forward hook.
-        self.pad_layer = None
-
         # For the halo layer we also defer construction, so that we can have
         # the halo shape for the input.  The halo will allocate its own
         # buffers, but it needs this information at construction to be able
@@ -168,8 +165,7 @@ class DistributedUpsample(Module, InterpolateMixin):
         send_buffer_shape = exchange_info[2]
         needed_ranges = exchange_info[3]
 
-        # Now we have enough information to instantiate the padding shim
-        self.pad_layer = PadNd(halo_shape, value=0)
+        self.halo_shape = halo_shape
 
         # We can also set up part of the halo layer.
         self.halo_layer = HaloExchange(self.P_x,
@@ -239,7 +235,6 @@ class DistributedUpsample(Module, InterpolateMixin):
         """
 
         # Reset all sub_layers
-        self.pad_layer = None
         self.needed_slices = None
         self.halo_layer = None
 
@@ -275,7 +270,16 @@ class DistributedUpsample(Module, InterpolateMixin):
         if not self.P_x.active:
             return input.clone()
 
-        input_padded = self.pad_layer(input)
+        # Compute the total padding and convert to PyTorch format
+        total_padding = self.halo_shape
+        torch_padding = distdl_padding_to_torch_padding(total_padding)
+
+        if total_padding.sum() == 0:
+            input_padded = input
+        else:
+            input_padded = F.pad(input, pad=torch_padding, mode='constant', value=0)
+
+
         input_exchanged = self.halo_layer(input_padded)
         input_needed = input_exchanged[self.needed_slices]
         y = self.interp_layer(input_needed)
