@@ -110,8 +110,6 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
         if not self.P_x.active:
             return
 
-        dims = len(self.P_x.shape)
-
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = self._expand_parameter(kernel_size)
@@ -149,6 +147,8 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
         if self.serial:
             return
+
+        dims = len(self.P_x.shape)
 
         # We will be using global padding to compute local padding,
         # so expand it to a numpy array
