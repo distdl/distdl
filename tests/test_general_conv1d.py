@@ -186,8 +186,8 @@ def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
     W = zero_volume_tensor()
     dW = zero_volume_tensor()
     if P_w.active:
-        W = layer._weight.detach()
-        dW = layer._weight.grad.detach()
+        W = layer.weight.detach()
+        dW = layer.weight.grad.detach()
 
     dy = dy.detach()
     y = y.detach()
@@ -268,8 +268,8 @@ def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
     b = zero_volume_tensor()
     db = zero_volume_tensor()
     if P_w.active and layer.stores_bias:
-        b = layer._bias.detach()
-        db = layer._bias.grad.detach()
+        b = layer.bias.detach()
+        db = layer.bias.grad.detach()
 
     dy = dy.detach()
     y = y.detach()
