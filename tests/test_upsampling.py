@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from adjoint_test import check_adjoint_test_tight
 
 match_parametrizations = []
 
@@ -191,6 +190,7 @@ interp_parametrizations.append(pytest.param("nearest",  False))
 interp_parametrizations.append(pytest.param("linear",  True))
 interp_parametrizations.append(pytest.param("linear",  False))
 
+
 # For example of indirect, see https://stackoverflow.com/a/28570677
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
                          "x_global_shape, "
@@ -290,7 +290,7 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
     # the padding process.  As the halo layer is in-place, that would mean a leaf-node
     # variable is modified in-place, which PyTorch does not allow.
     #
-    # Thus, we have to clone it to make the input not a leaf-node.  
+    # Thus, we have to clone it to make the input not a leaf-node.
     x_clone = x.clone()
     y = dist_layer(x_clone)
     y.backward(dy)

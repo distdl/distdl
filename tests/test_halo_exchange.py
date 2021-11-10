@@ -114,8 +114,8 @@ def test_halo_exchange_adjoint(barrier_fence_fixture,
     from distdl.backends.mpi.partition import MPIPartition
     from distdl.nn.halo_exchange import HaloExchange
     from distdl.utilities.slicing import compute_subshape
-    from distdl.utilities.torch import zero_volume_tensor
     from distdl.utilities.torch import distdl_padding_to_torch_padding
+    from distdl.utilities.torch import zero_volume_tensor
 
     device = torch.device('cuda' if use_cuda else 'cpu')
 
