@@ -26,7 +26,6 @@ from .loss import DistributedL1Loss  # noqa: F401
 from .loss import DistributedMSELoss  # noqa: F401
 from .loss import DistributedPoissonNLLLoss  # noqa: F401
 from .module import Module  # noqa: F401
-from .padnd import PadNd  # noqa: F401
 from .pooling import DistributedAvgPool1d  # noqa: F401
 from .pooling import DistributedAvgPool2d  # noqa: F401
 from .pooling import DistributedAvgPool3d  # noqa: F401
@@ -61,7 +60,6 @@ __all__ = ["AllSumReduce",
            "DistributedBCEWithLogitsLoss",
            "DistributedKLDivLoss",
            "Module",
-           "PadNd",
            "DistributedAvgPool1d",
            "DistributedAvgPool2d",
            "DistributedAvgPool3d",
