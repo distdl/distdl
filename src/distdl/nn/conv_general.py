@@ -11,8 +11,8 @@ from distdl.nn.sum_reduce import SumReduce
 from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.slicing import range_index
-from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import TensorStructure
+from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import zero_volume_tensor
 
 
@@ -380,7 +380,6 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
         self.x_broadcast = Broadcast(self.P_x, self.P_w, preserve_batch=True)
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y, preserve_batch=True)
-
 
     def _expand_parameter(self, param):
         # If the given input is not of size num_dimensions, expand it so.

@@ -8,8 +8,8 @@ from distdl.nn.mixins.conv_mixin import ConvMixin
 from distdl.nn.mixins.halo_mixin import HaloMixin
 from distdl.nn.module import Module
 from distdl.utilities.slicing import assemble_slices
-from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import TensorStructure
+from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import zero_volume_tensor
 
 

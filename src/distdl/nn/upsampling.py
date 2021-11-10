@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -10,8 +9,8 @@ from distdl.utilities.slicing import assemble_slices
 from distdl.utilities.tensor_decomposition import compute_subtensor_shapes_balanced
 from distdl.utilities.tensor_decomposition import compute_subtensor_start_indices
 from distdl.utilities.tensor_decomposition import compute_subtensor_stop_indices
-from distdl.utilities.torch import distdl_padding_to_torch_padding
 from distdl.utilities.torch import TensorStructure
+from distdl.utilities.torch import distdl_padding_to_torch_padding
 
 
 class DistributedUpsample(Module, InterpolateMixin):
@@ -278,7 +277,6 @@ class DistributedUpsample(Module, InterpolateMixin):
             input_padded = input
         else:
             input_padded = F.pad(input, pad=torch_padding, mode='constant', value=0)
-
 
         input_exchanged = self.halo_layer(input_padded)
         input_needed = input_exchanged[self.needed_slices]
