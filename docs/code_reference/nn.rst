@@ -101,6 +101,3 @@ We implement some useful sequential modules.
 
    * - :ref:`code_reference/nn/padding:Padding Layer`
      - N-dimensional, unbalanced padding.
-
-   * - :ref:`code_reference/nn/unpadding:Unpadding Layer`
-     - N-dimensional, unbalanced unpadding.

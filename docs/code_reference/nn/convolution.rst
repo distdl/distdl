@@ -141,21 +141,18 @@ Under the above assumptions, the forward algorithm is:
 .. figure:: /_images/conv_feature_example_05.png
    :alt: Example forward convolution in the feature-distributed convolutional layer.
 
-   The :math:`\hat y_i` subtensors are computed using native PyTorch layers.
+   The :math:`y_i` subtensors are computed using native PyTorch layers.
 
 
-4. Unpad the output subtensors.  The subtensors in the inputs and outputs of
-   DistDL layers should always be able to be reconstructed into precisely the
-   same tensor a sequential application will produce.  Due to structure of the
-   kernels and :math:`\hat x_j`, it is possible that the output of the local
-   convolution, :math:`\hat y_i` will have extra features that will need to be
-   removed (unpadded) to create the correct :math:`y_i`.
+4. The subtensors in the inputs and outputs of DistDL layers should always be
+   able to be reconstructed into precisely the same tensor a sequential
+   application will produce.  Because padding is explicitly added to the input
+   tensor to account for the padding specified for the convolution, the output
+   of the local convolution, :math:`y_i`, should exactly match that of the
+   sequential layer.
 
 .. figure:: /_images/conv_feature_example_06.png
-   :alt: Example forward unpadding in the feature-distributed convolutional layer.
-
-   Any additional padding is removed, creating :math:`y_i`, the correctly
-   sized subtensors of :math:`y`.
+   :alt: Example forward result of the feature-distributed convolutional layer.
 
 Adjoint
 ~~~~~~~
@@ -165,14 +162,11 @@ feature automatically builds the adjoint of the Jacobian of the
 feature-distributed convolution forward application.  Essentially, the
 algorithm is as follows:
 
-1. Pad (adjoint Unpad) the gradient output :math:`\delta y_i`, creating
-   :math:`\delta \hat y_i` so that the adjoint of the Jacobian of the local
-   convolutional layer can be applied to it.
+1. The gradient output :math:`\delta y_i` is already distributed across its partition,
+   so the adjoint of the Jacobian of the local convolutional layer can be applied to it.
 
 .. figure:: /_images/conv_feature_example_07.png
-   :alt: Example adjoint unpadding in the feature-distributed convolutional layer.
-
-   Any required padding is added to subtensors of :math:`y`.
+   :alt: Example adjoint starting case in the feature-distributed convolutional layer.
 
 2. Each worker computes its local contribution to :math:`\delta w` and :math:`\delta x`,
    given by :math:`\delta w_j` and :math:`\delta x_j`, using PyTorch's native implementation of
@@ -447,12 +441,12 @@ Under the above assumptions, the forward algorithm is:
 ..    Subtensors of :math:`y` are assembled via sum-reduction along matching
 ..    dimensions of of :math:`P_w`.
 
-6. Unpad the output subtensors.  The subtensors in the inputs and outputs of
-   DistDL layers should always be able to be reconstructed into precisely the
-   same tensor a sequential application will produce.  Due to structure of the
-   kernels and :math:`\hat x`, it is possible that the output of the local
-   convolution, :math:`\hat y` will have extra features that will need to be
-   removed (unpadded) to create the correct :math:`y`.
+6. The subtensors in the inputs and outputs of DistDL layers should always be
+   able to be reconstructed into precisely the same tensor a sequential
+   application will produce.  Because padding is explicitly added to the input
+   tensor to account for the padding specified for the convolution, the output
+   of the local convolution, :math:`y_i`, should exactly match that of the
+   sequential layer..
 
 .. .. figure:: /_images/conv_general_example_09.png
 ..    :alt: Example forward unpadding in the general distributed convolutional layer.
@@ -467,16 +461,15 @@ feature automatically builds the adjoint of the Jacobian of the
 channel-distributed convolution forward application.  Essentially, the
 algorithm is as follows:
 
-1. Pad (adjoint Unpad) the local gradient output :math:`\delta y_i`, creating
-   :math:`\delta \hat y_i` so that the adjoint of the Jacobian of the local
-   convolutional layer can be applied to it.
+1. The gradient output :math:`\delta y_i` is already distributed across its partition,
+   so the adjoint of the Jacobian of the local convolutional layer can be applied to it.
 
 .. .. figure:: /_images/conv_general_example_10.png
 ..    :alt: Example adjoint unpadding in the feature-distributed convolutional layer.
 
 ..    Any required padding is added to subtensors of :math:`y`.
 
-2. Broadcast the subtensors of the gradient output, :math:`\delta \hat y_i` from
+2. Broadcast the subtensors of the gradient output, :math:`\delta y_i` from
    :math:`P_y` along the matching dimensions of :math:`P_w`.
 
 .. .. figure:: /_images/conv_general_example_11.png
