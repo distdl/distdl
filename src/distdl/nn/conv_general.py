@@ -263,7 +263,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
 
             P_b_base = self.P_w.create_partition_inclusive(b_subset)
             self.P_b = P_b_base.create_cartesian_topology_partition([P_co] + [1] + list(P_spatial))
-            self.receives_bias = self.P_b.active and bias
+            self.receives_bias = self.P_b.active and self.use_bias
 
             # Release temporary resources
             P_b_base.deactivate()
@@ -280,7 +280,7 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             P_br_base = self.P_w.create_partition_inclusive(b_root_subset)
             # ones are needed so the broadcast will work
             self.P_br = P_br_base.create_cartesian_topology_partition([P_co] + [1] + [1]*len(P_spatial))
-            self.stores_bias = self.P_br.active and bias
+            self.stores_bias = self.P_br.active and self.use_bias
 
             # Release temporary resources
             P_br_base.deactivate()
@@ -321,7 +321,10 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
             if self.stores_bias:
                 self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
             else:
-                self.register_buffer('bias', zero_volume_tensor())
+                if self.use_bias:
+                    self.register_buffer('bias', zero_volume_tensor())
+                else:
+                    self.register_buffer('bias', None)
             # This does not always exist, but when it does we can copy the
             # property.
             if self.receives_bias:
@@ -332,6 +335,14 @@ class DistributedGeneralConvBase(Module, HaloMixin, ConvMixin):
                 new_bias.requires_grad = self.conv_layer.bias.requires_grad
                 del self.conv_layer.bias
                 self.conv_layer.bias = new_bias
+
+        else:
+            # Workers not in P_w don't have a weight or bias.
+            self.register_buffer('weight', zero_volume_tensor())
+            if self.use_bias:
+                self.register_buffer('bias', zero_volume_tensor())
+            else:
+                self.register_buffer('bias', None)
 
         # Now we need to share the kernel structure.  The size of the kernel
         # is always the spatial dimensions.

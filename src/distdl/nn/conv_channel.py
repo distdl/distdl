@@ -7,6 +7,7 @@ from distdl.nn.module import Module
 from distdl.nn.sum_reduce import SumReduce
 from distdl.utilities.slicing import compute_subshape
 from distdl.utilities.torch import TensorStructure
+from distdl.utilities.torch import zero_volume_tensor
 
 
 class DistributedChannelConvBase(Module, ConvMixin):
@@ -49,16 +50,44 @@ class DistributedChannelConvBase(Module, ConvMixin):
         Number of channels in the *global* input tensor.
     out_channels :
         Number of channels in the *global* output tensor.
-    bias : bool
-        Indicates if a bias term should be used.
+    kernel_size :
+        (int or tuple)
+        Size of the convolving kernel
+    stride :
+        (int or tuple, optional)
+        Stride of the convolution. Default: 1
+    padding :
+        (int or tuple, optional)
+        Zero-padding added to both sides of the input. Default: 0
+    padding_mode :
+        (string, optional)
+        'zeros', 'reflect', 'replicate' or 'circular'. Default: 'zeros'
+    dilation :
+        (int or tuple, optional)
+        Spacing between kernel elements. Default: 1
+    groups :
+        (int, optional)
+        Number of blocked connections from input channels to output channels. Default: 1
+    bias :
+        (bool, optional)
+        If True, adds a learnable bias to the output. Default: True
 
     """
 
     # Convolution class for base unit of work.
     TorchConvType = None
+    # Number of dimensions of a feature
+    num_dimensions = None
 
     def __init__(self, P_x, P_y, P_w,
-                 in_channels=1, out_channels=1,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 padding_mode='zeros',
+                 dilation=1,
+                 groups=1,
                  bias=True,
                  *args, **kwargs):
 
@@ -78,6 +107,16 @@ class DistributedChannelConvBase(Module, ConvMixin):
                 self.P_y.active or
                 self.P_w.active):
             return
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = self._expand_parameter(kernel_size)
+        self.stride = self._expand_parameter(stride)
+        self.padding = self._expand_parameter(padding)
+        self.padding_mode = padding_mode
+        self.dilation = self._expand_parameter(dilation)
+        self.groups = groups
+        self.use_bias = bias
 
         # This guarantees that P_union rank 0 has the kernel size, stride,
         # padding, and dilation factors
@@ -142,10 +181,20 @@ class DistributedChannelConvBase(Module, ConvMixin):
         # dimension.  This has no impact outside of the layer or on the results.
         self.P_y = self.P_y.create_cartesian_topology_partition(P_y_new_shape)
 
-        self.serial = False
-        if self.P_w.size == 1:
-            self.serial = True
-            self.conv_layer = self.TorchConvType(*args, **kwargs)
+        self.serial = self.P_w.size == 1
+
+        if self.serial:
+            self.conv_layer = self.TorchConvType(in_channels=in_channels,
+                                                 out_channels=out_channels,
+                                                 kernel_size=self.kernel_size,
+                                                 stride=self.stride,
+                                                 padding=self.padding,
+                                                 padding_mode=self.padding_mode,
+                                                 dilation=self.dilation,
+                                                 groups=self.groups,
+                                                 bias=self.use_bias)
+            self.weight = self.conv_layer.weight
+            self.bias = self.conv_layer.bias
             return
 
         # Flag if the global bias is set
@@ -157,22 +206,40 @@ class DistributedChannelConvBase(Module, ConvMixin):
         if self.P_w.active:
 
             # Let the P_co column store the bias if it is to be used
-            self.stores_bias = self.global_bias and (self.P_w.index[1] == 0)
+            self.stores_bias = self.P_w.index[1] == 0 and self.use_bias
 
             # Correct the input arguments based on local properties
-            local_kwargs = {}
-            local_kwargs.update(kwargs)
+            # This ensures that the in and out channels are correctly shared.
+            local_co, local_ci = compute_subshape(P_channels,
+                                                  P_w.index[0:2],
+                                                  [out_channels, in_channels])
+            self.conv_layer = self.TorchConvType(in_channels=local_ci,
+                                                 out_channels=local_co,
+                                                 kernel_size=self.kernel_size,
+                                                 stride=self.stride,
+                                                 padding=self.padding,
+                                                 padding_mode=self.padding_mode,
+                                                 dilation=self.dilation,
+                                                 groups=groups,
+                                                 bias=self.stores_bias)
 
-            # Do this before checking serial so that the layer works properly
-            # in the serial case
-            local_out_channels, local_in_channels = compute_subshape(P_channels,
-                                                                     P_w.index[0:2],
-                                                                     [out_channels, in_channels])
-            local_kwargs["in_channels"] = local_in_channels
-            local_kwargs["out_channels"] = local_out_channels
-            local_kwargs["bias"] = self.stores_bias
-
-            self.conv_layer = self.TorchConvType(*args, **local_kwargs)
+        # Workers in P_w alias the conv layer to get their weight and perhaps
+        # biases.  Every other worker doesn't have a weight or bias.
+        if self.P_w.active:
+            self.weight = self.conv_layer.weight
+            if self.stores_bias:
+                self.bias = self.conv_layer.bias
+            else:
+                if self.use_bias:
+                    self.register_buffer('bias', zero_volume_tensor())
+                else:
+                    self.register_buffer('bias', None)
+        else:
+            self.register_buffer('weight', zero_volume_tensor())
+            if self.use_bias:
+                self.register_buffer('bias', zero_volume_tensor())
+            else:
+                self.register_buffer('bias', None)
 
         # Variables for tracking input changes and buffer construction
         self._distdl_is_setup = False
@@ -180,6 +247,18 @@ class DistributedChannelConvBase(Module, ConvMixin):
 
         self.x_broadcast = Broadcast(self.P_x, self.P_w, preserve_batch=True)
         self.y_sum_reduce = SumReduce(self.P_w, self.P_y, preserve_batch=True)
+
+    def _expand_parameter(self, param):
+        # If the given input is not of size num_dimensions, expand it so.
+        # If not possible, raise an exception.
+        param = np.atleast_1d(param)
+        if len(param) == 1:
+            param = np.ones(self.num_dimensions, dtype=int) * param[0]
+        elif len(param) == self.num_dimensions:
+            pass
+        else:
+            raise ValueError('Invalid parameter: ' + str(param))
+        return tuple(param)
 
     def _distdl_module_setup(self, input):
         r"""Distributed (channel) convolution module setup function.
@@ -275,6 +354,7 @@ class DistributedChannelConv1d(DistributedChannelConvBase):
     """
 
     TorchConvType = torch.nn.Conv1d
+    num_dimensions = 1
 
 
 class DistributedChannelConv2d(DistributedChannelConvBase):
@@ -283,6 +363,7 @@ class DistributedChannelConv2d(DistributedChannelConvBase):
     """
 
     TorchConvType = torch.nn.Conv2d
+    num_dimensions = 2
 
 
 class DistributedChannelConv3d(DistributedChannelConvBase):
@@ -291,3 +372,4 @@ class DistributedChannelConv3d(DistributedChannelConvBase):
     """
 
     TorchConvType = torch.nn.Conv3d
+    num_dimensions = 3
