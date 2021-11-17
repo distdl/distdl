@@ -175,11 +175,15 @@ class DistributedFeatureConvBase(Module, HaloMixin, ConvMixin):
 
             if self.conv_layer.bias is not None:
                 self.bias = torch.nn.Parameter(self.conv_layer.bias.detach())
+            else:
+                self.register_buffer('bias', None)
         else:
             self.register_buffer('weight', zero_volume_tensor())
 
             if self.conv_layer.bias is not None:
                 self.register_buffer('bias', zero_volume_tensor())
+            else:
+                self.register_buffer('bias', None)
 
         self.weight.requires_grad = self.conv_layer.weight.requires_grad
 
