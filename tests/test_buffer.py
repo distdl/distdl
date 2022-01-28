@@ -147,10 +147,10 @@ def test_buffer_management_transpose_network(barrier_fence_fixture,
     P_4_base = P_world.create_partition_inclusive([0, 1, 2, 3])
     P_4 = P_4_base.create_cartesian_topology_partition([1, 4])
 
-    tr1 = distdl.nn.DistributedTranspose(P_1, P_4, buffer_manager=buffer_manager)
-    tr2 = distdl.nn.DistributedTranspose(P_4, P_4, buffer_manager=buffer_manager)
-    tr3 = distdl.nn.DistributedTranspose(P_4, P_3, buffer_manager=buffer_manager)
-    tr4 = distdl.nn.DistributedTranspose(P_3, P_1, buffer_manager=buffer_manager)
+    tr1 = distdl.nn.Repartition(P_1, P_4, buffer_manager=buffer_manager)
+    tr2 = distdl.nn.Repartition(P_4, P_4, buffer_manager=buffer_manager)
+    tr3 = distdl.nn.Repartition(P_4, P_3, buffer_manager=buffer_manager)
+    tr4 = distdl.nn.Repartition(P_3, P_1, buffer_manager=buffer_manager)
 
     x = zero_volume_tensor(1)
     if P_1.active:
@@ -239,7 +239,7 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
     P_22_base = P_world.create_partition_inclusive([0, 1, 2, 3])
     P_22 = P_22_base.create_cartesian_topology_partition([1, 1, 2, 2])
 
-    tr1 = distdl.nn.DistributedTranspose(P_1, P_22)
+    tr1 = distdl.nn.Repartition(P_1, P_22)
     c1 = distdl.nn.DistributedConv2d(P_22,
                                      in_channels=1, out_channels=5,
                                      kernel_size=[3, 3], padding=[1, 1],
@@ -252,7 +252,7 @@ def test_buffer_management_conv2d_network(barrier_fence_fixture,
                                      in_channels=10, out_channels=20,
                                      kernel_size=[3, 3], padding=[1, 1],
                                      bias=False, buffer_manager=buffer_manager)
-    tr2 = distdl.nn.DistributedTranspose(P_22, P_1)
+    tr2 = distdl.nn.Repartition(P_22, P_1)
 
     x = zero_volume_tensor(1)
     if P_1.active:
@@ -356,7 +356,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
     P_22_base = P_world.create_partition_inclusive([0, 1, 2, 3])
     P_22 = P_22_base.create_cartesian_topology_partition([1, 1, 2, 2])
 
-    tr1 = distdl.nn.DistributedTranspose(P_1, P_22, buffer_manager=buffer_manager)
+    tr1 = distdl.nn.Repartition(P_1, P_22, buffer_manager=buffer_manager)
     c1 = distdl.nn.DistributedConv2d(P_22,
                                      in_channels=1, out_channels=5,
                                      kernel_size=[3, 3], padding=[1, 1],
@@ -369,7 +369,7 @@ def test_buffer_management_mixed_network(barrier_fence_fixture,
                                      in_channels=10, out_channels=20,
                                      kernel_size=[3, 3], padding=[1, 1],
                                      bias=False, buffer_manager=buffer_manager)
-    tr2 = distdl.nn.DistributedTranspose(P_22, P_1, buffer_manager=buffer_manager)
+    tr2 = distdl.nn.Repartition(P_22, P_1, buffer_manager=buffer_manager)
 
     x = zero_volume_tensor(1)
     if P_1.active:

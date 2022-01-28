@@ -229,7 +229,7 @@ def test_matches_sequential(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.repartition import Repartition
     from distdl.utilities.torch import zero_volume_tensor
 
     device = torch.device('cuda' if use_cuda else 'cpu')
@@ -247,10 +247,10 @@ def test_matches_sequential(barrier_fence_fixture,
     P_0 = P_0_base.create_cartesian_topology_partition([1]*len(P_x_shape))
     P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
-    scatter_layer_x = DistributedTranspose(P_0, P_x).to(device)
-    scatter_layer_y = DistributedTranspose(P_0, P_x).to(device)
-    gather_layer_x = DistributedTranspose(P_x, P_0).to(device)
-    gather_layer_y = DistributedTranspose(P_x, P_0).to(device)
+    scatter_layer_x = Repartition(P_0, P_x).to(device)
+    scatter_layer_y = Repartition(P_0, P_x).to(device)
+    gather_layer_x = Repartition(P_x, P_0).to(device)
+    gather_layer_y = Repartition(P_x, P_0).to(device)
 
     # Create the layers
     if input_dimensions == 1:

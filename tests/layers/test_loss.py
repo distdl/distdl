@@ -110,7 +110,7 @@ def test_distributed_loss(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn import DistributedTranspose
+    from distdl.nn import Repartition
     from distdl.utilities.torch import zero_volume_tensor
 
     device = torch.device('cuda' if use_cuda else 'cpu')
@@ -128,8 +128,8 @@ def test_distributed_loss(barrier_fence_fixture,
     P_0_base = P_x_base.create_partition_inclusive([0])
     P_0 = P_0_base.create_cartesian_topology_partition([1]*len(P_x_shape))
 
-    scatter = DistributedTranspose(P_0, P_x).to(device)
-    gather = DistributedTranspose(P_x, P_0).to(device)
+    scatter = Repartition(P_0, P_x).to(device)
+    gather = Repartition(P_x, P_0).to(device)
 
     for reduction in DistributedLoss._valid_reductions:
 

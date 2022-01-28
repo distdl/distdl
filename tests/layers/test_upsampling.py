@@ -213,7 +213,7 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.repartition import Repartition
     from distdl.nn.upsampling import DistributedUpsample
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -246,10 +246,10 @@ def test_upsample_matches_sequential(barrier_fence_fixture,
     P_x_base = P_world.create_partition_inclusive(P_x_ranks)
     P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
-    scatter_layer_x = DistributedTranspose(P_0, P_x)
-    scatter_layer_y = DistributedTranspose(P_0, P_x)
-    gather_layer_x = DistributedTranspose(P_x, P_0)
-    gather_layer_y = DistributedTranspose(P_x, P_0)
+    scatter_layer_x = Repartition(P_0, P_x)
+    scatter_layer_y = Repartition(P_0, P_x)
+    gather_layer_x = Repartition(P_x, P_0)
+    gather_layer_y = Repartition(P_x, P_0)
 
     if use_size:
         dist_layer = DistributedUpsample(P_x, size=y_global_shape, mode=mode, align_corners=align_corners)
