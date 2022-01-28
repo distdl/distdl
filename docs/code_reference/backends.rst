@@ -650,8 +650,8 @@ Transpose
      - Module
      - Class
    * - :ref:`MPI <code_reference/backends/mpi:MPI Backend>`
-     - :any:`backends.mpi.functional.transpose <distdl.backends.mpi.functional.transpose>`
-     - :any:`BroadcastFunction <distdl.backends.mpi.functional.DistributedTransposeFunction>`
+     - :any:`backends.mpi.functional.repartition <distdl.backends.mpi.functional.repartition>`
+     - :any:`BroadcastFunction <distdl.backends.mpi.functional.RepartitionFunction>`
 
 The functional primitive for the Transpose data movement operation does not
 use the original tensor partitions :math:`P_x` (input) and :math:`P_y`
