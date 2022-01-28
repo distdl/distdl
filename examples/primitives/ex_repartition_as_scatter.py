@@ -12,7 +12,7 @@ from mpi4py import MPI
 
 import distdl.utilities.slicing as slicing
 from distdl.backends.mpi.partition import MPIPartition
-from distdl.nn.transpose import DistributedTranspose
+from distdl.nn.repartition import Repartition
 from distdl.utilities.torch import zero_volume_tensor
 
 # Set up MPI cartesian communicator
@@ -39,7 +39,7 @@ P_y = P_y_base.create_cartesian_topology_partition(out_shape)
 x_global_shape = np.array([7, 5])
 
 # Create the transpose layer
-layer = DistributedTranspose(P_x, P_y, preserve_batch=False)
+layer = Repartition(P_x, P_y, preserve_batch=False)
 
 # Setup the input tensor.  Any worker in P_x will generate its part of the
 # input tensor.  Any worker not in P_x will have a zero-volume tensor.
