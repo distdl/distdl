@@ -1,7 +1,7 @@
 from distdl.utilities.dtype import torch_to_numpy_dtype_dict
 
 
-def allocate_transpose_buffers(buffer_manager, P_x_to_y_overlaps, P_y_to_x_overlaps, dtype):
+def allocate_repartition_buffers(buffer_manager, P_x_to_y_overlaps, P_y_to_x_overlaps, dtype):
     r"""Allocator for data movement buffers.
 
     Parameters

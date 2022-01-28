@@ -65,12 +65,12 @@ Sum-Reduce
     :members:
     :undoc-members:
 
-Transpose
----------
+Repartition
+-----------
 
-.. automodule:: distdl.backends.mpi.functional.transpose
+.. automodule:: distdl.backends.mpi.functional.repartition
 
-.. autoclass:: distdl.backends.mpi.functional.DistributedTransposeFunction
+.. autoclass:: distdl.backends.mpi.functional.RepartitionFunction
     :members:
     :undoc-members:
 
