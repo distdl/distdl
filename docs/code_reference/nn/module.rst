@@ -27,7 +27,7 @@ input tensor, other than the partition functions, is not required at the
 instantiation of the layer.  Consequently, some layer variables, such as
 intermediate communication buffers, for example in the
 :any:`distdl.nn.HaloExchange` layer or the
-:any:`distdl.nn.DistributedTranspose` layer, can only be determined when the
+:any:`distdl.nn.Repartition` layer, can only be determined when the
 layer is evaluated.
 
 The interfaces defined here allow those properties to be setup (and torn down)

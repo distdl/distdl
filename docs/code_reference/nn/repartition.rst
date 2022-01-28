@@ -1,6 +1,6 @@
-===============
-Transpose Layer
-===============
+=================
+Repartition Layer
+=================
 
 .. contents::
     :local:
@@ -9,11 +9,11 @@ Transpose Layer
 Overview
 ========
 
-The Transpose distributed data movement primitive performs a transpose,
+The Repartition distributed data movement primitive performs a repartition,
 shuffle, or generalized all-to-all operation of a tensor from one partition to
 another.
 
-In DistDL, the Transpose allows you to change how tensor data is distributed
+In DistDL, the Repartition allows you to change how tensor data is distributed
 across workers, which allows for more optimal communication patterns and load
 balancing.
 
@@ -22,7 +22,7 @@ global input tensor :math:`{x}` is partitioned by :math:`P_x` and that another
 partition :math:`P_y` exists.
 
 .. note::
-   The transpose operation in DistDL has similar flavor to the classical
+   The repartition operation in DistDL has similar flavor to the classical
    parallel all-to-all operation.  However, DistDL focuses on exploiting
    structure on the data, while the classical all-to-all usually assumes 1D
    (or quasi-1D) data (e.g., in the sense of ``MPI_Alltoall()``).
@@ -40,7 +40,7 @@ Parallel load balance is driven by data layout and kernel structure, so given
 this variability, the parallel data distribution of the output of one layer may
 not be the optimal distribution for the input of the next.
 
-The Transpose layer provides a mechanism to change the data distribution,
+The Repartition layer provides a mechanism to change the data distribution,
 that is to change the partition partition function on a tensor, as needed.
 
 This primitive draws its inspiration from the parallel all-to-all pattern,
@@ -48,24 +48,24 @@ which has the appearance of transposing a matrix, from a certain perspective.
 
 For example, consider a 16-length array, distributed over 4 workers.
 
-.. figure:: /_images/transpose_alltoall_01.png
+.. figure:: /_images/repartition_alltoall_01.png
     :alt: All-to-all motivation part 1.
 
 This array can be viewed as a :math:`4 \times 4` matrix, partitioned in a row
 contiguous way.
 
-.. figure:: /_images/transpose_alltoall_02.png
+.. figure:: /_images/repartition_alltoall_02.png
     :alt: All-to-all motivation part 2.
 
 The all-to-all pattern remaps the array as if the :math:`4 \times 4` matrix
-has been transposed, so the column-contiguous view becomes row contiguous.
+has been repartitioned, so the column-contiguous view becomes row contiguous.
 
-.. figure:: /_images/transpose_alltoall_03.png
+.. figure:: /_images/repartition_alltoall_03.png
     :alt: All-to-all motivation part 3.
 
 Thus, the new view distribution of the data is as follows.
 
-.. figure:: /_images/transpose_alltoall_04.png
+.. figure:: /_images/repartition_alltoall_04.png
     :alt: All-to-all motivation part 4.
 
 
@@ -73,26 +73,26 @@ Implementation
 ==============
 
 A back-end functional implementation supporting DistDL
-:class:`~distdl.nn.Transpose` must complete the transpose operation, as
+:class:`~distdl.nn.Repartition` must complete the repartition operation, as
 described below.
 
-Consider two partitions of the same tensor.  The Transpose operation performs
+Consider two partitions of the same tensor.  The Repartition operation performs
 the necessary data movements such that the tensor, stored on the first
 partition, can be remapped to the second partition.
 
-.. figure:: /_images/transpose_example_01.png
-    :alt: Sketch of transpose.
+.. figure:: /_images/repartition_example_01.png
+    :alt: Sketch of repartition.
 
-    Example Transpose from :math:`P_x`, a :math:`3 \times 3` partition, to
+    Example Repartition from :math:`P_x`, a :math:`3 \times 3` partition, to
     :math:`P_y`, a :math:`4 \times 4` partition.
 
-The data movement in a Transpose operation is inherently dependent on the
+The data movement in a Repartition operation is inherently dependent on the
 overlap between a subtensor in :math:`P_x` and all subtensors in :math:`P_y`.
 In sketching the behavior, we will examine the behavior of the middle
 subtensor/worker in :math:`P_x` pt 1.
 
-.. figure:: /_images/transpose_example_02.png
-    :alt: Sketch of transpose pt 2.
+.. figure:: /_images/repartition_example_02.png
+    :alt: Sketch of repartition pt 2.
 
     Overlap of a :math:`3 \times 3` partition (black) and a :math:`4 \times 4`
     partition (grey).
@@ -111,15 +111,15 @@ Assumptions
    workers, mapping of tensor dimensions to workers, etc.) then new partitions
    can be created with arbitrary dimensions of length 1 can be created.  For
    example, a :math:`3` partition can become :math:`1 \times 1 \times 3`
-   without a transpose, and the new partition can be used as an input to the
-   transpose.
+   without a repartition, and the new partition can be used as an input to the
+   repartition.
 
 * Input tensors do not have to be load-balanced.  Output tensors will always
   be load balanced.
 
 .. note::
    Consequently, if an input tensor is unbalanced on a partition, a
-   transpose to the same partition will rebalance it.
+   repartition to the same partition will rebalance it.
 
 Intermediate data movement may be required by an implementation.  This may
 require intermediate buffers.  Buffer management should be a function of the
@@ -133,13 +133,13 @@ for buffers.
 Forward
 -------
 
-The forward implementation of transpose maps a tensor from one Cartesian
+The forward implementation of repartition maps a tensor from one Cartesian
 partition to another, without changing the partition. From the perspective of
 one worker in :math:`P_x`, this operation looks like a multi-dimensional
 scatter.
 
-.. figure:: /_images/transpose_example_03.png
-    :alt: Sketch of forward transpose.
+.. figure:: /_images/repartition_example_03.png
+    :alt: Sketch of forward repartition.
 
     Left: Data on current (middle) worker of :math:`P_x`.  Middle: Overlapping
     partition boundaries.  Right: Data from current worker on 4 middle workers
@@ -154,13 +154,13 @@ movement is also different.  Thus, from the perspective of one worker in
 Adjoint
 -------
 
-The adjoint implementation of transpose also maps a tensor from one Cartesian
+The adjoint implementation of repartition also maps a tensor from one Cartesian
 partition to another, without changing the partition.  From the perspective of
 one worker in :math:`P_x`, this operation looks like a multi-dimensional
 gather.
 
-.. figure:: /_images/transpose_example_04.png
-    :alt: Sketch of adjoint transpose.
+.. figure:: /_images/repartition_example_04.png
+    :alt: Sketch of adjoint repartition.
 
     Left: Data on 4 middle workers of :math:`P_y` partition.  Middle:
     Overlapping partition boundaries.  Right: Data from 4 middle workers of
@@ -180,53 +180,53 @@ Example 1: Remap 1D Partition
 -----------------------------
 
 If :math:`x` is a 1D tensor, a partition with shape :math:`5`, can be
-transposed to a partition with shape :math:`3`.
+repartitioned to a partition with shape :math:`3`.
 
-.. figure:: /_images/transpose_5_to_3.png
-    :alt: Transpose of a 5 partition to 3.
+.. figure:: /_images/repartition_5_to_3.png
+    :alt: Repartition of a 5 partition to 3.
 
 Example 2: Remap 2D Partition
 -----------------------------
 
 If :math:`x` is a 2D tensor, a partition with shape :math:`3 \times 4`, can be
-transposed to a partition with shape :math:`4 \times 2`.
+repartitioned to a partition with shape :math:`4 \times 2`.
 
-.. figure:: /_images/transpose_3x4_to_4x2.png
-    :alt: Transpose of a 3x4 partition to 4x2.
+.. figure:: /_images/repartition_3x4_to_4x2.png
+    :alt: Repartition of a 3x4 partition to 4x2.
 
 Example 3: Remap 3D Partition
 -----------------------------
 
 If :math:`x` is a 3D tensor, a partition with shape :math:`3 \times 2 \times
-2`, can be transposed to a partition with shape :math:`1 \times 2 \times 3`.
+2`, can be repartitioned to a partition with shape :math:`1 \times 2 \times 3`.
 
-.. figure:: /_images/transpose_3x3x2_to_1x2x3.png
-    :alt: Transpose of a 3x2x2 partition to 1x2x3.
+.. figure:: /_images/repartition_3x3x2_to_1x2x3.png
+    :alt: Repartition of a 3x2x2 partition to 1x2x3.
 
-Example 4: Transpose as Scatter
+Example 4: Repartition as Scatter
 -------------------------------
 
-Transpose can be used to scatter tensors.  For example, if one worker reads
-data from disk, transpose can be used to scatter it to a number of workers. If
+Repartition can be used to scatter tensors.  For example, if one worker reads
+data from disk, repartition can be used to scatter it to a number of workers. If
 there is a partition of dimension 1 containing a tensor :math:`x` of dimension
 3, by extending the input partition to :math:`1 \times 1 \times 1` it can be
-transposed to a partition of dimension :math:`1 \times 3 \times 2`.
+repartitioned to a partition of dimension :math:`1 \times 3 \times 2`.
 
-.. figure:: /_images/transpose_1_to_1x2x3.png
-    :alt: Transpose of a 1 partition to 1x2x3.
+.. figure:: /_images/repartition_1_to_1x2x3.png
+    :alt: Repartition of a 1 partition to 1x2x3.
 
-Example 5: Transpose as Gather
+Example 5: Repartition as Gather
 ------------------------------
 
-Transpose can be used to gather tensors.  For example, if one worker outputs
-data to disk, transpose can be used to gather it from a number of workers. If
+Repartition can be used to gather tensors.  For example, if one worker outputs
+data to disk, repartition can be used to gather it from a number of workers. If
 there is a partition of dimension :math:`1 \times 3 \times 2` containing a
 tensor :math:`x` of dimension 3, it can be mapped to a partition of dimension
 :math:`1` by extending the output partition to :math:`1
-\times 1 \times 1` and applying a transpose.
+\times 1 \times 1` and applying a repartition.
 
-.. figure:: /_images/transpose_1x2x3_to_1.png
-    :alt: Transpose of a 1x2x3 partition to 1.
+.. figure:: /_images/repartition_1x2x3_to_1.png
+    :alt: Repartition of a 1x2x3 partition to 1.
 
 Code Examples
 -------------
@@ -237,5 +237,5 @@ API
 
 .. currentmodule:: distdl.nn
 
-.. autoclass:: DistributedTranspose
+.. autoclass:: Repartition
     :members:
