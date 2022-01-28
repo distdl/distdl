@@ -13,7 +13,7 @@ from mpi4py import MPI
 
 import distdl
 from distdl.backends.mpi.partition import MPIPartition
-from distdl.nn import DistributedTranspose
+from distdl.nn import Repartition
 from distdl.utilities.torch import zero_volume_tensor
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -49,11 +49,11 @@ Loss, DistributedLoss = torch.nn.MSELoss, distdl.nn.DistributedMSELoss
 # Loss, DistributedLoss = torch.nn.KLDivLoss, distdl.nn.DistributedKLDivLoss
 
 # Assemble scatter and gather layers so we can compare sequential and
-# distributed losses.  A bug in DistributedTranspose (bug#182) requires two
+# distributed losses.  A bug in Repartition (bug#182) requires two
 # scatter layers here when 1 should suffice.
-scatter = DistributedTranspose(P_0, P_x)
-scatter2 = DistributedTranspose(P_0, P_x)
-gather = DistributedTranspose(P_x, P_0)
+scatter = Repartition(P_0, P_x)
+scatter2 = Repartition(P_0, P_x)
+gather = Repartition(P_x, P_0)
 
 # Setup the input and target tensors
 global_tensor_size = [11]
