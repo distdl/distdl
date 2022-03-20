@@ -19,7 +19,7 @@ from distdl.utilities.torch import zero_volume_tensor
 P_world = MPIPartition(MPI.COMM_WORLD)
 P_world._comm.Barrier()
 
-# Create the input/output partition (using the first 2 workers)
+# Create the input/output partition (using all 6 workers)
 in_shape = (2, 3)
 in_size = np.prod(in_shape)
 in_workers = np.arange(0, in_size)
@@ -27,7 +27,7 @@ in_workers = np.arange(0, in_size)
 P_x_base = P_world.create_partition_inclusive(in_workers)
 P_x = P_x_base.create_cartesian_topology_partition(in_shape)
 
-# Create the output partition (using the last 6 workers)
+# Create the output partition (using the last 2 workers)
 out_shape = (2, 1)
 out_size = np.prod(out_shape)
 out_workers = np.arange(P_world.size-out_size, P_world.size)
@@ -45,7 +45,6 @@ x_global_shape = np.array([5, 6])
 #   [ 1 1 | 2 2 | 3 3 ]
 #   [ 1 1 | 2 2 | 3 3 ]
 #   -------------------------
-#   [ 4 4 | 5 5 | 6 6 ]
 #   [ 4 4 | 5 5 | 6 6 ]
 #   [ 4 4 | 5 5 | 6 6 ] ]
 x = zero_volume_tensor()
@@ -100,7 +99,6 @@ print(f"rank {P_world.rank}; index {P_y.index}; value {dy}")
 #   [ 1 1 | 1 1 | 1 1 ]
 #   [ 1 1 | 1 1 | 1 1 ]
 #   -------------------------
-#   [ 2 2 | 2 2 | 2 2 ]
 #   [ 2 2 | 2 2 | 2 2 ]
 #   [ 2 2 | 2 2 | 2 2 ] ]
 y.backward(dy)

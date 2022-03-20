@@ -58,7 +58,7 @@ x.requires_grad = True
 print(f"rank {P_world.rank}; index {P_x.index}; value {x}")
 
 # Here we broadcast the columns (axis 1), along the rows.
-all_reduce_cols = Broadcast(P_x, P_y, preserve_batch=False)
+broadcast_cols = Broadcast(P_x, P_y, preserve_batch=False)
 #
 # Output tensor will be (on a 2 x 3 partition):
 # [ [ 1 1 | 1 1 | 1 1 ]
@@ -66,11 +66,10 @@ all_reduce_cols = Broadcast(P_x, P_y, preserve_batch=False)
 #   [ 1 1 | 1 1 | 1 1 ]
 #   -------------------------
 #   [ 2 2 | 2 2 | 2 2 ]
-#   [ 2 2 | 2 2 | 2 2 ]
 #   [ 2 2 | 2 2 | 2 2 ] ]
-y = all_reduce_cols(x)
+y = broadcast_cols(x)
 
-print(f"rank {P_world.rank}; index {P_x.index}; value {y}")
+print(f"rank {P_world.rank}; index {P_y.index}; value {y}")
 
 # Setup the adjoint input tensor.  Any worker in P_y will generate its part of
 # the adjoint input tensor.  Any worker not in P_y will have a zero-volume
@@ -83,7 +82,6 @@ y_global_shape = assemble_global_tensor_structure(y, P_y).shape
 #   [ 1 1 | 2 2 | 3 3 ]
 #   [ 1 1 | 2 2 | 3 3 ]
 #   -------------------------
-#   [ 4 4 | 5 5 | 6 6 ]
 #   [ 4 4 | 5 5 | 6 6 ]
 #   [ 4 4 | 5 5 | 6 6 ] ]
 dy = zero_volume_tensor()

@@ -18,7 +18,7 @@ from distdl.utilities.torch import zero_volume_tensor
 P_world = MPIPartition(MPI.COMM_WORLD)
 P_world._comm.Barrier()
 
-# Create the input/output partition (using the first worker)
+# Create the input/output partition (using all 6 workers)
 in_shape = (2, 3)
 in_size = np.prod(in_shape)
 in_workers = np.arange(0, in_size)
@@ -26,7 +26,7 @@ in_workers = np.arange(0, in_size)
 P_x_base = P_world.create_partition_inclusive(in_workers)
 P_x = P_x_base.create_cartesian_topology_partition(in_shape)
 
-# The all-reduce layer operates along partitiond dimensions, not tensor
+# The all-reduce layer operates along partitioned dimensions, not tensor
 # dimensions.  Thus, along the dimensions that the reduction applies, the
 # subtensors all must be the same size.  Thus, this global shape is evenly
 # divisible by the partition.  Later we will have an example for applying the
