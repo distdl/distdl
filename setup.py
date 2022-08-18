@@ -17,7 +17,12 @@ from os.path import splitext
 from setuptools import Extension
 from setuptools import find_packages
 from setuptools import setup
-from torch.utils import cpp_extension
+try:
+    from torch.utils import cpp_extension
+except ModuleNotFoundError:
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "torch"])
+    from torch.utils import cpp_extension
 
 
 def read(*names, **kwargs):
@@ -52,9 +57,11 @@ default_extension_args_cpu["extra_compile_args"] = ["-Ofast",
                                                     "-fopenmp"]
 if platform.system() != 'Darwin':
     default_extension_args_cpu["extra_compile_args"].append("-march=native")
+    default_extension_args_cpu["extra_link_args"] = ["-lgomp"]
+else:
+    default_extension_args_cpu["extra_compile_args"].append("-mcpu=apple-m1")
 # See: https://github.com/suphoff/pytorch_parallel_extension_cpp
 default_extension_args_cpu["extra_compile_args"] += ["-DAT_PARALLEL_OPENMP"]
-default_extension_args_cpu["extra_link_args"] = ["-lgomp"]
 
 
 def build_cpu_extension(name, src_files=None):
@@ -134,9 +141,7 @@ setup(
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
     python_requires='>=3.5',
-    install_requires=[
-        # eg: 'aspectlib==1.1.1', 'six>=1.7',
-    ],
+    install_requires=['torch', 'numpy', 'mpi4py'],
     extras_require={
         # eg:
         #   'rst': ['docutils>=0.11'],
