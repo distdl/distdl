@@ -7,37 +7,37 @@ adjoint_parametrizations = []
 # Main functionality
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(0, 6), [1, 1, 2, 3],  # P_x_ranks, P_x_shape
-        np.arange(4, 16), [1, 2, 2, 3],  # P_y_ranks, P_y_shape
-        np.arange(4, 16), [2, 1, 2, 3],  # P_w_ranks, P_w_shape
-        [1, 5, 10, 10],  # x_global_shape
-        16,  # passed to comm_split_fixture, required MPI ranks
+        np.arange(0, 3), [1, 1, 3],  # P_x_ranks, P_x_shape
+        np.arange(0, 6), [1, 2, 3],  # P_y_ranks, P_y_shape
+        np.arange(0, 6), [2, 1, 3],  # P_w_ranks, P_w_shape
+        [1, 5, 10],  # x_global_shape
+        6,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-co2_ci1",
-        marks=[pytest.mark.mpi(min_size=16)]
+        marks=[pytest.mark.mpi(min_size=6)]
         )
     )
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(4, 16), [1, 2, 2, 3],  # P_x_ranks, P_x_shape
-        np.arange(0, 6), [1, 1, 2, 3],  # P_y_ranks, P_y_shape
-        np.arange(4, 16), [1, 2, 2, 3],  # P_w_ranks, P_w_shape
-        [1, 5, 10, 10],  # x_global_shape
-        16,  # passed to comm_split_fixture, required MPI ranks
+        np.arange(0, 6), [1, 2, 3],  # P_x_ranks, P_x_shape
+        np.arange(0, 3), [1, 1, 3],  # P_y_ranks, P_y_shape
+        np.arange(0, 6), [1, 2, 3],  # P_w_ranks, P_w_shape
+        [1, 5, 10],  # x_global_shape
+        6,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-co1_ci2",
-        marks=[pytest.mark.mpi(min_size=16)]
+        marks=[pytest.mark.mpi(min_size=6)]
         )
     )
 
 adjoint_parametrizations.append(
     pytest.param(
-        np.arange(4, 12), [1, 2, 2, 2],  # P_x_ranks, P_x_shape
-        np.arange(4, 12), [1, 2, 2, 2],  # P_y_ranks, P_y_shape
-        np.arange(0, 16), [2, 2, 2, 2],  # P_w_ranks, P_w_shape
-        [1, 5, 10, 10],  # x_global_shape
-        16,  # passed to comm_split_fixture, required MPI ranks
+        np.arange(0, 4), [1, 2, 2],  # P_x_ranks, P_x_shape
+        np.arange(0, 4), [1, 2, 2],  # P_y_ranks, P_y_shape
+        np.arange(0, 8), [2, 2, 2],  # P_w_ranks, P_w_shape
+        [1, 5, 10],  # x_global_shape
+        8,  # passed to comm_split_fixture, required MPI ranks
         id="distributed-co2_ci2",
-        marks=[pytest.mark.mpi(min_size=16)]
+        marks=[pytest.mark.mpi(min_size=8)]
         )
     )
 
@@ -50,7 +50,7 @@ adjoint_parametrizations.append(
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_general_conv2d_adjoint_input(barrier_fence_fixture,
+def test_general_conv1d_adjoint_input(barrier_fence_fixture,
                                       comm_split_fixture,
                                       P_x_ranks, P_x_shape,
                                       P_y_ranks, P_y_shape,
@@ -61,7 +61,7 @@ def test_general_conv2d_adjoint_input(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.conv_general import DistributedGeneralConv2d
+    from distdl.nn.conv_general import DistributedGeneralConv1d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -83,10 +83,10 @@ def test_general_conv2d_adjoint_input(barrier_fence_fixture,
 
     x_global_shape = np.asarray(x_global_shape)
 
-    layer = DistributedGeneralConv2d(P_x, P_y, P_w,
+    layer = DistributedGeneralConv1d(P_x, P_y, P_w,
                                      in_channels=x_global_shape[1],
                                      out_channels=10,
-                                     kernel_size=[3, 3], bias=False)
+                                     kernel_size=[3], bias=False)
 
     x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
@@ -129,7 +129,7 @@ def test_general_conv2d_adjoint_input(barrier_fence_fixture,
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
+def test_general_conv1d_adjoint_weight(barrier_fence_fixture,
                                        comm_split_fixture,
                                        P_x_ranks, P_x_shape,
                                        P_y_ranks, P_y_shape,
@@ -140,7 +140,7 @@ def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.conv_general import DistributedGeneralConv2d
+    from distdl.nn.conv_general import DistributedGeneralConv1d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -162,10 +162,10 @@ def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
 
     x_global_shape = np.asarray(x_global_shape)
 
-    layer = DistributedGeneralConv2d(P_x, P_y, P_w,
+    layer = DistributedGeneralConv1d(P_x, P_y, P_w,
                                      in_channels=x_global_shape[1],
                                      out_channels=10,
-                                     kernel_size=[3, 3], bias=False)
+                                     kernel_size=[3], bias=False)
 
     x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
@@ -186,8 +186,8 @@ def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
     W = zero_volume_tensor()
     dW = zero_volume_tensor()
     if P_w.active:
-        W = layer._weight.detach()
-        dW = layer._weight.grad.detach()
+        W = layer.weight.detach()
+        dW = layer.weight.grad.detach()
 
     dy = dy.detach()
     y = y.detach()
@@ -211,7 +211,7 @@ def test_general_conv2d_adjoint_weight(barrier_fence_fixture,
                          "comm_split_fixture",
                          adjoint_parametrizations,
                          indirect=["comm_split_fixture"])
-def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
+def test_general_conv1d_adjoint_bias(barrier_fence_fixture,
                                      comm_split_fixture,
                                      P_x_ranks, P_x_shape,
                                      P_y_ranks, P_y_shape,
@@ -222,7 +222,7 @@ def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
     import torch
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.conv_general import DistributedGeneralConv2d
+    from distdl.nn.conv_general import DistributedGeneralConv1d
     from distdl.utilities.slicing import compute_subshape
     from distdl.utilities.torch import zero_volume_tensor
 
@@ -244,10 +244,10 @@ def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
 
     x_global_shape = np.asarray(x_global_shape)
 
-    layer = DistributedGeneralConv2d(P_x, P_y, P_w,
+    layer = DistributedGeneralConv1d(P_x, P_y, P_w,
                                      in_channels=x_global_shape[1],
                                      out_channels=10,
-                                     kernel_size=[3, 3], bias=True)
+                                     kernel_size=[3], bias=True)
 
     x = zero_volume_tensor(x_global_shape[0])
     if P_x.active:
@@ -268,8 +268,8 @@ def test_general_conv2d_adjoint_bias(barrier_fence_fixture,
     b = zero_volume_tensor()
     db = zero_volume_tensor()
     if P_w.active and layer.stores_bias:
-        b = layer._bias.detach()
-        db = layer._bias.grad.detach()
+        b = layer.bias.detach()
+        db = layer.bias.grad.detach()
 
     dy = dy.detach()
     y = y.detach()

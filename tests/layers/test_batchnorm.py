@@ -199,7 +199,7 @@ def test_batch_norm_with_training(barrier_fence_fixture,
         seq_out2 = seq_out2.detach().cpu()
 
     # Create distributed network
-    tr1 = distdl.nn.DistributedTranspose(P_in_out, P_x)
+    tr1 = distdl.nn.Repartition(P_in_out, P_x)
     tr1 = tr1.to(device)
     dist_bn = distdl.nn.DistributedBatchNorm(P_x,
                                              num_features=num_features,
@@ -208,7 +208,7 @@ def test_batch_norm_with_training(barrier_fence_fixture,
                                              affine=affine,
                                              track_running_stats=track_running_stats)
     dist_bn = dist_bn.to(device)
-    tr2 = distdl.nn.DistributedTranspose(P_x, P_in_out)
+    tr2 = distdl.nn.Repartition(P_x, P_in_out)
     tr2 = tr2.to(device)
 
     # Only rank 0 should have trainable parameters:
@@ -342,14 +342,14 @@ def test_batch_norm_no_training(barrier_fence_fixture,
         seq_out = seq_out.detach().cpu()
 
     # Create distributed network
-    dist_net = torch.nn.Sequential(distdl.nn.DistributedTranspose(P_in_out, P_x),
+    dist_net = torch.nn.Sequential(distdl.nn.Repartition(P_in_out, P_x),
                                    distdl.nn.DistributedBatchNorm(P_x,
                                                                   num_features=num_features,
                                                                   eps=eps,
                                                                   momentum=momentum,
                                                                   affine=affine,
                                                                   track_running_stats=track_running_stats),
-                                   distdl.nn.DistributedTranspose(P_x, P_in_out))
+                                   distdl.nn.Repartition(P_x, P_in_out))
     dist_net = dist_net.to(device)
 
     # Evaluate distributed network

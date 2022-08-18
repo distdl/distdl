@@ -3,39 +3,40 @@ import os
 import numpy as np
 import pytest
 
-# These tests aim to compare Distributed MaxPoolNd and AvgPoolNd functionality to
-# PyTorch's MaxPoolNd/AvgPoolNd layers.
+# These tests aim to compare DistributedConvNd functionality to PyTorch's ConvNd.
 
 use_cuda = 'USE_CUDA' in os.environ
 
 params = []
 
-# No stride, and ideal padding for kernel size
+# No stride, and ideal padding for kernel size with scalar inputs
 params.append(
     pytest.param(
         np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
         2,  # input_dimensions
         [1, 5, 10, 10],  # x_global_shape
-        [3, 3],  # kernel_size
-        [1, 1],  # padding
-        [1, 1],  # stride
-        [1, 1],  # dilation
+        3,  # kernel_size
+        1,  # padding
+        1,  # stride
+        1,  # dilation
+        False,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
         id="no-stride-ideal-padding",
         marks=[pytest.mark.mpi(min_size=4)]
         )
     )
 
-# Basic example with stride = 2 and ideal padding
+# Basic example with stride = 2 and ideal padding with scalar inputs
 params.append(
    pytest.param(
        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
        2,  # input_dimensions
        [1, 5, 10, 10],  # x_global_shape
-       [5, 5],  # kernel_size
-       [2, 2],  # padding
-       [2, 2],  # stride
-       [1, 1],  # dilation
+       5,  # kernel_size
+       2,  # padding
+       2,  # stride
+       1,  # dilation
+       False,  # bias
        4,  # passed to comm_split_fixture, required MPI ranks
        id="stride-2-ideal-padding",
        marks=[pytest.mark.mpi(min_size=4)]
@@ -52,6 +53,7 @@ params.append(
         [1, 1],  # padding
         [2, 2],  # stride
         [1, 1],  # dilation
+        False,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
         id="odd-local-shape-with-stride",
         marks=[pytest.mark.mpi(min_size=4)]
@@ -68,6 +70,7 @@ params.append(
         [2, 2],  # padding
         [4, 4],  # stride
         [1, 1],  # dilation
+        False,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
         id="kernel-needs-offset",
         marks=[pytest.mark.mpi(min_size=4)]
@@ -84,13 +87,14 @@ params.append(
         [1, 1],  # padding
         [1, 1],  # stride
         [1, 1],  # dilation
+        False,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
         id="non-ideal-padding",
         marks=[pytest.mark.mpi(min_size=4)]
         )
     )
 
-# Even kernel size
+# Even kernel size with bias
 params.append(
     pytest.param(
         np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
@@ -100,8 +104,9 @@ params.append(
         [1, 1],  # padding
         [1, 1],  # stride
         [1, 1],  # dilation
+        True,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
-        id="even-kernel-size",
+        id="even-kernel-size-with-bias",
         marks=[pytest.mark.mpi(min_size=4)]
         )
     )
@@ -116,6 +121,7 @@ params.append(
         [2, 2, 2],  # padding
         [2, 2, 1],  # stride
         [1, 1, 1],  # dilation
+        False,  # bias
         4,  # passed to comm_split_fixture, required MPI ranks
         id="3d-input",
         marks=[pytest.mark.mpi(min_size=4)]
@@ -132,6 +138,7 @@ params.append(
        1,  # padding
        1,  # stride
        1,  # dilation
+       False,  # bias
        4,  # passed to comm_split_fixture, required MPI ranks
        id="1d-input",
        marks=[pytest.mark.mpi(min_size=4)]
@@ -148,6 +155,7 @@ params.append(
        [1, 1],  # padding
        [1, 1],  # stride
        [2, 2],  # dilation
+       False,  # bias
        4,  # passed to comm_split_fixture, required MPI ranks
        id="dilation-2",
        marks=[pytest.mark.mpi(min_size=4)]
@@ -164,43 +172,80 @@ params.append(
        [2, 2],  # padding
        [2, 2],  # stride
        [1, 1],  # dilation
+       False,  # bias
        16,  # passed to comm_split_fixture, required MPI ranks
        id="many-partitions-small-input",
        marks=[pytest.mark.mpi(min_size=16)]
        )
    )
 
-# 3D input with stride, dilation, non-ideal lop-sided kernel, and large input
+# With bias
+params.append(
+   pytest.param(
+       np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
+       2,  # input_dimensions
+       [1, 5, 10, 10],  # x_global_shape
+       [3, 3],  # kernel_size
+       [1, 1],  # padding
+       [1, 1],  # stride
+       [1, 1],  # dilation
+       True,  # bias
+       4,  # passed to comm_split_fixture, required MPI ranks
+       id="with-bias",
+       marks=[pytest.mark.mpi(min_size=4)]
+       )
+   )
+
+# 3D input with bias, stride, dilation, non-ideal lop-sided kernel, and large input
 params.append(
     pytest.param(
         np.arange(0, 18), [1, 1, 3, 3, 2],  # P_x_ranks, P_x_shape
         3,  # input_dimensions
         [1, 5, 50, 50, 50],  # x_global_shape
         [5, 4, 3],  # kernel_size
-        [1, 1, 1],  # padding
+        [1, 1, 2],  # padding
         [3, 1, 2],  # stride
         [3, 3, 1],  # dilation
+        True,  # bias
         18,  # passed to comm_split_fixture, required MPI ranks
         id="hard-test",
         marks=[pytest.mark.mpi(min_size=18)]
         )
     )
 
-# Common ResNet case
+# Common conv layer for ResNet
 params.append(
-   pytest.param(
-       np.arange(0, 4), [1, 1, 1, 4],  # P_x_ranks, P_x_shape
-       2,  # input_dimensions
-       [10, 64, 150, 150],  # x_global_shape
-       7,  # kernel_size
-       3,  # padding
-       2,  # stride
-       1,  # dilation
-       4,  # passed to comm_split_fixture, required MPI ranks
-       id="common-resnet-case",
-       marks=[pytest.mark.mpi(min_size=4)]
-       )
-   )
+    pytest.param(
+        np.arange(0, 4), [1, 1, 2, 2],  # P_x_ranks, P_x_shape
+        2,  # input_dimensions
+        [1, 5, 20, 20],  # x_global_shape
+        7,  # kernel_size
+        3,  # padding
+        2,  # stride
+        1,  # dilation
+        False,  # bias
+        4,  # passed to comm_split_fixture, required MPI ranks
+        id="common-resnet-test",
+        marks=[pytest.mark.mpi(min_size=4)]
+        )
+    )
+
+# serial case
+params.append(
+    pytest.param(
+        np.arange(0, 1), [1, 1, 1, 1],  # P_x_ranks, P_x_shape
+        2,  # input_dimensions
+        [1, 3, 16, 16],  # x_global_shape
+        3,  # kernel_size
+        1,  # padding
+        1,  # stride
+        1,  # dilation
+        False,  # bias
+        1,  # passed to comm_split_fixture, required MPI ranks
+        id="serial-test",
+        marks=[pytest.mark.mpi(min_size=1)]
+        )
+    )
 
 
 @pytest.mark.parametrize("P_x_ranks, P_x_shape,"
@@ -210,26 +255,32 @@ params.append(
                          "padding,"
                          "stride,"
                          "dilation,"
+                         "bias,"
                          "comm_split_fixture",
                          params,
                          indirect=["comm_split_fixture"])
-@pytest.mark.parametrize("layer_type", ['max', 'avg'])
-def test_matches_sequential(barrier_fence_fixture,
-                            comm_split_fixture,
-                            P_x_ranks, P_x_shape,
-                            input_dimensions,
-                            x_global_shape,
-                            kernel_size,
-                            padding,
-                            stride,
-                            dilation,
-                            layer_type):
+def test_conv_versus_pytorch(barrier_fence_fixture,
+                             comm_split_fixture,
+                             P_x_ranks, P_x_shape,
+                             input_dimensions,
+                             x_global_shape,
+                             kernel_size,
+                             padding,
+                             stride,
+                             dilation,
+                             bias):
 
     import numpy as np
     import torch
+    from torch.nn import Conv1d
+    from torch.nn import Conv2d
+    from torch.nn import Conv3d
 
     from distdl.backends.mpi.partition import MPIPartition
-    from distdl.nn.transpose import DistributedTranspose
+    from distdl.nn.conv_feature import DistributedFeatureConv1d
+    from distdl.nn.conv_feature import DistributedFeatureConv2d
+    from distdl.nn.conv_feature import DistributedFeatureConv3d
+    from distdl.nn.repartition import Repartition
     from distdl.utilities.torch import zero_volume_tensor
 
     device = torch.device('cuda' if use_cuda else 'cpu')
@@ -247,58 +298,51 @@ def test_matches_sequential(barrier_fence_fixture,
     P_0 = P_0_base.create_cartesian_topology_partition([1]*len(P_x_shape))
     P_x = P_x_base.create_cartesian_topology_partition(P_x_shape)
 
-    scatter_layer_x = DistributedTranspose(P_0, P_x).to(device)
-    scatter_layer_y = DistributedTranspose(P_0, P_x).to(device)
-    gather_layer_x = DistributedTranspose(P_x, P_0).to(device)
-    gather_layer_y = DistributedTranspose(P_x, P_0).to(device)
+    scatter_layer_x = Repartition(P_0, P_x)
+    scatter_layer_x = scatter_layer_x.to(device)
+    scatter_layer_y = Repartition(P_0, P_x)
+    scatter_layer_y = scatter_layer_y.to(device)
+    gather_layer_x = Repartition(P_x, P_0)
+    gather_layer_x = gather_layer_x.to(device)
+    gather_layer_y = Repartition(P_x, P_0)
+    gather_layer_y = gather_layer_y.to(device)
 
     # Create the layers
     if input_dimensions == 1:
-        if layer_type == 'max':
-            from torch.nn import MaxPool1d as SequentialPoolType
-
-            from distdl.nn import DistributedMaxPool1d as DistributedPoolType
-        else:
-            from torch.nn import AvgPool1d as SequentialPoolType
-
-            from distdl.nn import DistributedAvgPool1d as DistributedPoolType
+        dist_layer_type = DistributedFeatureConv1d
+        seq_layer_type = Conv1d
     elif input_dimensions == 2:
-        if layer_type == 'max':
-            from torch.nn import MaxPool2d as SequentialPoolType
-
-            from distdl.nn import DistributedMaxPool2d as DistributedPoolType
-        else:
-            from torch.nn import AvgPool2d as SequentialPoolType
-
-            from distdl.nn import DistributedAvgPool2d as DistributedPoolType
+        dist_layer_type = DistributedFeatureConv2d
+        seq_layer_type = Conv2d
     elif input_dimensions == 3:
-        if layer_type == 'max':
-            from torch.nn import MaxPool3d as SequentialPoolType
-
-            from distdl.nn import DistributedMaxPool3d as DistributedPoolType
-        else:
-            from torch.nn import AvgPool3d as SequentialPoolType
-
-            from distdl.nn import DistributedAvgPool3d as DistributedPoolType
-
-    # PyTorch AvgPool doesn't support dilation, so skip the test if the combination comes up
-    dilation_is_default = dilation == 1 or all(x == 1 for x in dilation)
-    if layer_type == 'avg' and not dilation_is_default:
-        return
-
-    layer_kwargs = {
-        'kernel_size': kernel_size,
-        'padding': padding,
-        'stride': stride
-    }
-
-    # Only max pool layers support dilation
-    if layer_type == 'max':
-        layer_kwargs['dilation'] = dilation
-
-    dist_layer = DistributedPoolType(P_x, **layer_kwargs).to(device)
+        dist_layer_type = DistributedFeatureConv3d
+        seq_layer_type = Conv3d
+    dist_layer = dist_layer_type(P_x,
+                                 in_channels=x_global_shape[1],
+                                 out_channels=10,
+                                 kernel_size=kernel_size,
+                                 padding=padding,
+                                 stride=stride,
+                                 dilation=dilation,
+                                 bias=bias)
+    dist_layer = dist_layer.to(device)
     if P_0.active:
-        seq_layer = SequentialPoolType(**layer_kwargs).to(device)
+        seq_layer = seq_layer_type(in_channels=x_global_shape[1],
+                                   out_channels=10,
+                                   kernel_size=kernel_size,
+                                   padding=padding,
+                                   stride=stride,
+                                   dilation=dilation,
+                                   bias=bias)
+        # set the weights of both layers to be the same
+        seq_layer = seq_layer.to(device)
+        weight = torch.rand_like(seq_layer.weight, device=device)
+        seq_layer.weight.data = weight
+        dist_layer.weight.data = weight
+        if bias:
+            bias_weight = torch.rand_like(seq_layer.bias, device=device)
+            seq_layer.bias.data = bias_weight
+            dist_layer.bias.data = bias_weight
 
     # Forward Input
     x_ref = zero_volume_tensor(device=device)
@@ -351,6 +395,7 @@ def test_matches_sequential(barrier_fence_fixture,
             # torch default
             atol = 1e-8
 
+        # Test the result of each entry independently
         assert torch.allclose(y_ref, y_comp, atol=atol)
         assert torch.allclose(dx_ref, dx_comp, atol=atol)
 

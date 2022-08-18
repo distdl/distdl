@@ -48,8 +48,8 @@ We implement a number of primitives.
      - Performs the halo exchange operation of a tensor on a partition.
    * - :ref:`code_reference/nn/sum_reduce:SumReduce Layer`
      - Performs a sum-reduction of a tensor from one partition to another.
-   * - :ref:`code_reference/nn/transpose:Transpose Layer`
-     - Performs a transpose or a tensor from one partition to another.
+   * - :ref:`code_reference/nn/repartition:Repartition Layer`
+     - Performs a repartition or a tensor from one partition to another.
 
 Distributed Comptutation Layers
 ===============================
@@ -101,6 +101,3 @@ We implement some useful sequential modules.
 
    * - :ref:`code_reference/nn/padding:Padding Layer`
      - N-dimensional, unbalanced padding.
-
-   * - :ref:`code_reference/nn/unpadding:Unpadding Layer`
-     - N-dimensional, unbalanced unpadding.

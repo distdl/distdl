@@ -26,16 +26,15 @@ from .loss import DistributedL1Loss  # noqa: F401
 from .loss import DistributedMSELoss  # noqa: F401
 from .loss import DistributedPoissonNLLLoss  # noqa: F401
 from .module import Module  # noqa: F401
-from .padnd import PadNd  # noqa: F401
 from .pooling import DistributedAvgPool1d  # noqa: F401
 from .pooling import DistributedAvgPool2d  # noqa: F401
 from .pooling import DistributedAvgPool3d  # noqa: F401
 from .pooling import DistributedMaxPool1d  # noqa: F401
 from .pooling import DistributedMaxPool2d  # noqa: F401
 from .pooling import DistributedMaxPool3d  # noqa: F401
+from .repartition import Repartition  # noqa: F401
 from .sum_reduce import SumReduce  # noqa: F401
 from .transpose import DistributedTranspose  # noqa: F401
-from .unpadnd import UnpadNd  # noqa: F401
 from .upsampling import DistributedUpsample  # noqa: F401
 
 __all__ = ["AllSumReduce",
@@ -62,14 +61,13 @@ __all__ = ["AllSumReduce",
            "DistributedBCEWithLogitsLoss",
            "DistributedKLDivLoss",
            "Module",
-           "PadNd",
-           "UnpadNd",
            "DistributedAvgPool1d",
            "DistributedAvgPool2d",
            "DistributedAvgPool3d",
            "DistributedMaxPool1d",
            "DistributedMaxPool2d",
            "DistributedMaxPool3d",
+           "Repartition",
            "SumReduce",
            "DistributedTranspose",
            "Interpolate",

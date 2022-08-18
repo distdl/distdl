@@ -1,4 +1,4 @@
-__all__ = ["DistributedTransposeFunction"]
+__all__ = ["RepartitionFunction"]
 
 import numpy as np
 import torch
@@ -8,11 +8,11 @@ from distdl.utilities.dtype import torch_to_numpy_dtype_dict
 from distdl.utilities.torch import zero_volume_tensor
 
 
-class DistributedTransposeFunction(torch.autograd.Function):
-    r"""MPI-based functional implementation of a distributed transpose layer.
+class RepartitionFunction(torch.autograd.Function):
+    r"""MPI-based functional implementation of a distributed repartition layer.
 
     Implements the required `forward()` and adjoint (`backward()`) operations
-    for a distributed Transpose layer using the PyTorch autograd interface.
+    for a distributed Repartition layer using the PyTorch autograd interface.
 
     This implementation uses MPI for data movement, accessed through the
     ``mpi4py`` MPI wrappers.
@@ -33,9 +33,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
                 x_local_structure, y_local_structure,
                 P_x, P_x_to_y_overlaps, P_x_to_y_buffers,
                 P_y, P_y_to_x_overlaps, P_y_to_x_buffers, preserve_batch):
-        r"""Forward function of distributed transpose layer.
+        r"""Forward function of distributed repartition layer.
 
-        This method implements the forward transpose operation using MPI
+        This method implements the forward repartition operation using MPI
         immediate-mode, non-blocking communication.
 
         Any given worker may send data to multiple workers in ``P_y`` and
@@ -112,7 +112,7 @@ class DistributedTransposeFunction(torch.autograd.Function):
         input_requires_grad = False
 
         # Share the requires-grad status, so that it is preserved across the
-        # transpose
+        # repartition
         if P_union.active:
             # By design, P_x is always first in the union, so we can just take
             # rank 0's status to send
@@ -213,9 +213,9 @@ class DistributedTransposeFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        r"""Adjoint function of distributed transpose layer.
+        r"""Adjoint function of distributed repartition layer.
 
-        This method implements the adjoint of the Jacobian of the transpose
+        This method implements the adjoint of the Jacobian of the repartition
         operation using MPI immediate-mode, non-blocking communication.
 
         The roles of the ``P_x`` and ``P_y`` partitions are reversed, but all
